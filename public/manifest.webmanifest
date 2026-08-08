@@ -1,0 +1,11 @@
+{
+  "name": "رزا، همراه مراقبت از پوست",
+  "short_name": "رزا",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffaf8",
+  "theme_color": "#c98978",
+  "icons": [{"src":"/assets/roza-illustration.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
