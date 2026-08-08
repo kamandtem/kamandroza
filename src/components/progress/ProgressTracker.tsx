@@ -221,7 +221,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ userState }) =
                   <span className="text-sky-700">۸۵٪ پایبندی</span>
                 </div>
                 <div className="w-full h-2.5 rounded-full bg-[#eee4d8] overflow-hidden">
-                  <div className="h-full bg-sky-500 rounded-full" style={{ width: `${logs.length ? Math.min(100, Math.round((logs.filter(l => l.waterGlasses > 0).length / logs.length) * 100) : 0}%` }} />
+                  <div className="h-full bg-sky-500 rounded-full" style={{ width: `${logs.length ? Math.min(100, Math.round((logs.filter(l => l.waterGlasses > 0).length / logs.length) * 100)) : 0}%` }} />
                 </div>
               </div>
 
