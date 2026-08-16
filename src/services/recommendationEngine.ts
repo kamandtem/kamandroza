@@ -1,217 +1,299 @@
-import { 
-  SkinProfile, 
-  LifestyleProfile, 
-  MenstrualPhase, 
-  RoutineStep, 
-  WeatherData,
-  Product
-} from '../types';
-import { computeCycleInfo } from './jalali';
+/**
+ * موتور توصیه روزانه.
+ *
+ * این یک سیستم قواعد شفاف است، نه هوش مصنوعی. عنوان‌های اپ هم همین را
+ * می‌گویند. جلوی هر توصیه، دلیلش نوشته می‌شود.
+ *
+ * ترتیب اولویت قواعد (مهم‌ترین اول):
+ *   ۱) ایمنی (بارداری، شیردهی، دارو، حساسیت)
+ *   ۲) پرهیز نوبت آرایشگاه یا کلینیک
+ *   ۳) فاز چرخه (اگر فعال باشد)
+ *   ۴) آب‌وهوا (اگر داده موجود باشد)
+ *   ۵) نوع پوست و دغدغه‌ها
+ */
 
-export interface GeneratedRecommendations {
-  skinScore: number;
-  hormonalCompatibilityScore: number;
-  primaryInsightFa: string;
-  cycleInsightFa: string;
-  weatherInsightFa: string;
-  recommendedIngredientsFa: string[];
-  avoidIngredientsFa: string[];
+import {
+  LifestyleProfile,
+  MenstrualCycleConfig,
+  Medication,
+  Product,
+  ProductCategory,
+  RoutineStep,
+  SkinProfile,
+  WeatherData,
+} from '../types';
+import { findIngredientById } from './content/ingredients';
+import { getBlockedIngredientIds } from './safety';
+import { getTodayCycleState } from './cycle/cycleService';
+import { getRoutineRestrictionForDate } from './providers/appointmentService';
+import { getTodayIsoDate } from './jalali';
+
+export interface DailyGuidance {
+  /** متن چرخه. null = چرخه خاموش یا داده ناکافی. در این حالت چیزی نشان نده. */
+  cycleInsightFa: string | null;
+  weatherInsightFa: string | null;
+  /** پرهیز مربوط به نوبت آرایشگاه یا کلینیک. */
+  procedureInsightFa: string | null;
+  pmsWarningFa: string | null;
+  safetyWarningsFa: string[];
+  recommendedIngredientIds: string[];
+  avoidIngredientIds: string[];
   morningRoutine: RoutineStep[];
   nightRoutine: RoutineStep[];
-  pmsWarningAlert?: string;
+  gentleMode: boolean;
+  lifestyleInsightFa: string | null;
 }
 
-/**
- * Calculates Overall Skin Health Score (0 - 100)
- * Evaluates: Routine habits, sleep, water, stress, sun protection, skin concerns
- */
-export function calculateSkinScore(
-  profile: SkinProfile,
-  lifestyle: LifestyleProfile,
-  streakDays: number = 3,
-  completedTodayCount: number = 2
-): number {
-  let score = 70; // Base score
-
-  // Water bonus
-  if (lifestyle.waterTargetGlasses >= 8) score += 5;
-  else if (lifestyle.waterTargetGlasses < 5) score -= 5;
-
-  // Sleep bonus
-  if (lifestyle.sleepTargetHours >= 7) score += 5;
-  else if (lifestyle.sleepTargetHours < 6) score -= 8;
-
-  // Stress penalty
-  if (lifestyle.stressLevel === 'high') score -= 10;
-  else if (lifestyle.stressLevel === 'low') score += 5;
-
-  // Streak bonus
-  score += Math.min(streakDays * 2, 10);
-
-  // Today routine completion bonus
-  if (completedTodayCount >= 2) score += 5;
-
-  // Smoking penalty
-  if (lifestyle.isSmoking) score -= 8;
-
-  // Cap score between 35 and 99
-  return Math.max(35, Math.min(99, Math.round(score)));
+function pickProductName(products: Product[], category: ProductCategory, blockedIds: string[]): string | undefined {
+  const candidate = products.find(
+    (product) =>
+      product.owned &&
+      product.category === category &&
+      !product.ingredientIds.some((id) => blockedIds.includes(id)),
+  );
+  return candidate ? `${candidate.brand} ${candidate.name}`.trim() : undefined;
 }
 
-/**
- * Generates personalized daily skincare insights & routine recommendations
- */
-export function generateDailyRecommendations(
-  profile: SkinProfile,
-  lifestyle: LifestyleProfile,
-  lastPeriodIso: string,
-  cycleLength: number = 28,
-  periodLength: number = 5,
-  weather: WeatherData = {
-    city: '',
-    temp: 24,
-    conditionFa: 'اطلاعات جدید در دسترس نیست',
-    humidity: 0,
-    uvIndex: 0,
-    recommendationFa: 'شاخص UV خورشید بالا است. استفاده از ضدآفتاب تجدیدشونده الزامی است.'
-  },
-  ownedProducts: Product[] = []
-): GeneratedRecommendations {
-  const cycleInfo = computeCycleInfo(lastPeriodIso, cycleLength, periodLength);
-  const phase = cycleInfo.phase;
+function ingredientNameFa(id: string): string {
+  return findIngredientById(id)?.nameFa || id;
+}
 
-  const skinScore = calculateSkinScore(profile, lifestyle);
-  let hormonalScore = 85;
+export function buildDailyGuidance(args: {
+  profile: SkinProfile;
+  lifestyle: LifestyleProfile;
+  cycleConfig: MenstrualCycleConfig;
+  weather: WeatherData;
+  products: Product[];
+  medications?: Medication[];
+  dateIso?: string;
+}): DailyGuidance {
+  const { profile, cycleConfig, weather, products } = args;
+  let lifestyleInsightFa: string | null = null;
+  if (profile.hairType === 'curly' || profile.hairType === 'coily') lifestyleInsightFa = 'برای موی فر، بعد از شست‌وشو مو را با حوله زبر نساب؛ رطوبت را با کرم یا نرم‌کننده نگه دار.';
+  else if (profile.hairType === 'oily') lifestyleInsightFa = 'اگر پوست سرت زود چرب می‌شود، محصول‌های سنگین را نزدیک ریشه نزن.';
+  if (args.lifestyle.stressLevel === 'high') lifestyleInsightFa = lifestyleInsightFa ? `${lifestyleInsightFa} استرس زیاد می‌تواند ثبت‌های پوست و چرخه را تغییر دهد؛ اینجا فقط ثبت کن، نه قضاوت.` : 'استرس زیاد می‌تواند ثبت‌های پوست و چرخه را تغییر دهد؛ اینجا فقط ثبت کن، نه قضاوت.';
+  const medications = args.medications || [];
+  const dateIso = args.dateIso || getTodayIsoDate();
 
-  let primaryInsight = 'پوست شما امروز در شرایط متعادلی قرار دارد. روتین مرطوب‌کننده و ضدآفتاب را فراموش نکنید.';
-  let cycleInsight = '';
-  let weatherInsight = weather.recommendationFa;
-  let pmsWarningAlert: string | undefined = undefined;
+  /* --- ۱) ایمنی --- */
+  const safetyBlocked = getBlockedIngredientIds(profile, medications);
+  const safetyWarnings: string[] = [];
+  if (profile.isPregnant) {
+    safetyWarnings.push('برای دوران بارداری، رتینول و لایه‌بردارهای قوی از روتین حذف شدند.');
+  }
+  if (profile.isBreastfeeding) {
+    safetyWarnings.push('در دوران شیردهی، ترکیبات نامناسب از روتین حذف شدند.');
+  }
+  if (profile.onOralRetinoid) {
+    safetyWarnings.push(
+      'چون رتینوئید خوراکی مصرف می‌کنید، روتین فقط روی آبرسانی و ترمیم سد دفاعی تنطیم شد. لایه‌برداری و لیزر در این دوره توصیه نمی‌شود.',
+    );
+  }
 
-  const recommendedIngredients: string[] = ['هیالورونیک اسید', 'نیاسینامید', 'سرامیدها'];
-  const avoidIngredients: string[] = [];
+  /* --- ۲) پرهیز نوبت‌ها --- */
+  const restriction = getRoutineRestrictionForDate(dateIso);
 
-  // 1. Phase-based Intelligence & Rules
-  if (phase === 'menstrual') {
-    hormonalScore = 78;
-    cycleInsight = `امروز روز ${cycleInfo.cycleDay} چرخه (فاز قاعدگی) است. سد دفاعی پوست به علت افت استروژن کمی حساس‌تر است. تمرکز روتین باید روی آبرسانی و آرام‌سازی باشد.`;
-    recommendedIngredients.push('سنتلا آسیاتیکا (سیکا)', 'پانتنول', 'آلوئه‌ورا');
-    avoidIngredients.push('اسیدهای لایه‌بردار قوی', 'پیلینگ شیمیایی', 'رتینول درصد بالا');
-    primaryInsight = 'در فاز قاعدگی، پوست به نوازش و آبرسانی ملایم نیاز دارد. ترکیبات تسکین‌دهنده بهترین دوست شما هستند.';
-  } else if (phase === 'follicular') {
-    hormonalScore = 95;
-    cycleInsight = `روز ${cycleInfo.cycleDay} چرخه (فاز فولیکولار). استروژن در حال افزایش است. پوست در درخشان‌ترین، شاداب‌ترین و مقاوم‌ترین حالت قرار دارد!`;
-    recommendedIngredients.push('ویتامین C', 'هیالورونیک اسید', 'پپتیدها');
-    primaryInsight = 'بهترین زمان ماه برای پوست شما! درخشش طبیعی افزایش یافته و تحمل پوست برای مواد فعال بالاتر است.';
-  } else if (phase === 'ovulation') {
-    hormonalScore = 88;
-    cycleInsight = `روز ${cycleInfo.cycleDay} چرخه (تخمک‌گذاری). افزایش خفیف ترشح چربی سبوم. شستشوی دقیق و سبک نگه داشتن روتین توصیه می‌شود.`;
-    recommendedIngredients.push('نیاسینامید', 'زینک', 'سالیسیلیک اسید ملایم');
-    primaryInsight = 'ترشح چربی طبیعی پوست در حال افزایش است. پاکسازی ملایم منافذ را در اولویت بگذارید.';
-  } else if (phase === 'luteal') {
-    hormonalScore = 65;
-    if (cycleInfo.inPmsWindow) {
-      pmsWarningAlert = `حدود ${cycleInfo.daysUntilPeriod} روز تا شروع احتمالی پریود باقی مانده است. نوسانات پروژسترون ممکن است باعث ایجاد جوش‌های زیرپوستی هورمونی شود.`;
-      cycleInsight = `فاز لوتئال؛ اگر الگوی قبلی شما این را نشان دهد، بازه پیش از قاعدگی نزدیک است. منافذ پوست تحت تاثیر هورمون‌ها تمایل به تورم و انسداد دارند. پیشگیری از جوش اولویت اصلی است.`;
+  /* --- ۳) چرخه --- */
+  const cycle = getTodayCycleState(cycleConfig);
+  const recommended = new Set<string>(['ing_hyaluronic_acid', 'ing_ceramides']);
+  const avoid = new Set<string>([...safetyBlocked, ...restriction.blockedIngredientIds]);
+
+  let cycleInsight: string | null = null;
+  let pmsWarning: string | null = null;
+
+  if (cycle.available && cycle.phase && cycle.cycleDay) {
+    const hedge = cycle.confidence === 'low' || cycle.confidence === 'none' ? ' (برآورد تقریبی است)' : '';
+    if (cycle.phase === 'menstrual') {
+      cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز قاعدگی. سد دفاعی پوست حساس‌تر است؛ تمرکز روی آبرسانی و آرام‌سازی.${hedge}`;
+      recommended.add('ing_centella');
+      recommended.add('ing_panthenol');
+      avoid.add('ing_glycolic_acid');
+      avoid.add('ing_retinol');
+    } else if (cycle.phase === 'follicular') {
+      cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز فولیکولار. تحمل پوست برای ترکیبات فعال بیشتر است.${hedge}`;
+      recommended.add('ing_vitamin_c');
+    } else if (cycle.phase === 'ovulation') {
+      cycleInsight = `روز ${cycle.cycleDay} چرخه، تخمک‌گذاری تقریبی. ترشح چربی رو به افزایش است.${hedge}`;
+      recommended.add('ing_niacinamide');
+      recommended.add('ing_zinc_pca');
     } else {
-      cycleInsight = `فاز لوتئال اولیه. ترشح چربی رو به افزایش است. روتین کنترل چربی و مرطوب‌کننده فاقد چربی توصیه می‌شود.`;
+      cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز لوتئال. منافذ مستعد انسداد هستند؛ پیشگیری اولویت دارد.${hedge}`;
+      recommended.add('ing_niacinamide');
+      recommended.add('ing_azelaic_acid');
+      if (!avoid.has('ing_salicylic_acid')) recommended.add('ing_salicylic_acid');
     }
-    recommendedIngredients.push('نیاسینامید', 'آزلائیک اسید');
-    avoidIngredients.push('کرم‌های چرب کومدون‌زا', 'روغن‌های سنگین صورت');
-    primaryInsight = 'در دوره PMS، پوست ممکن است حساس‌تر یا چرب‌تر شود. با سالیسیلیک اسید و پاکسازی ملایم جلو ایجاد جوش را بگیرید.';
+
+    if (cycle.inPmsWindow && cycle.daysUntilNextPeriod !== null) {
+      pmsWarning = `حدود ${cycle.daysUntilNextPeriod} روز تا شروع احتمالی پریود. اگر الگوی جوش هورمونی داری، الان بهترین زمان شروع روتین پیشگیرانه است. این یک برآورد است، نه تشخیص پزشکی.`;
+    }
   }
 
-  // 2. Weather & UV Rules
-  if (weather.uvIndex >= 6) {
-    recommendedIngredients.push('ضدآفتاب SPF 50', 'ویتامین C (آنتی‌اکسیدان)');
-    weatherInsight = `شاخص UV امروز ${weather.uvIndex} (بالا) است! استفاده از ضدآفتاب و تجدید آن هر ۲ ساعت برای جلوگیری از لک الزامی است.`;
-  }
-  if (weather.humidity < 30) {
-    recommendedIngredients.push('هیالورونیک اسید', 'کرم حاوی سرامید');
-    weatherInsight += ' رطوبت هوا پایین است؛ از آبرسانی لایه‌ای روی پوست نم‌دار استفاده کنید.';
+  /* --- ۴) آب‌وهوا --- */
+  let weatherInsight: string | null = null;
+  if (weather.hasData) {
+    if (weather.uvIndex >= 6) {
+      weatherInsight = `شاخص فرابنفش امروز ${weather.uvIndex} است. ضدآفتاب را هر دو ساعت تجدید کنید.`;
+      recommended.add('ing_vitamin_c');
+    } else if (weather.humidity > 0 && weather.humidity < 30) {
+      weatherInsight = `رطوبت هوا ${weather.humidity} درصد است. مرطوب‌کننده را روی پوست نم‌دار بزنید.`;
+      recommended.add('ing_ceramides');
+    } else {
+      weatherInsight = weather.recommendationFa || null;
+    }
   }
 
-  // 3. Dynamic Morning Routine Steps Construction
-  const morningRoutine: RoutineStep[] = [
+  /* --- ۵) نوع پوست و دغدغه‌ها --- */
+  if (profile.skinType === 'oily' || profile.skinType === 'combination') recommended.add('ing_niacinamide');
+  if (profile.skinType === 'dry' || profile.skinType === 'dehydrated') recommended.add('ing_panthenol');
+  if (profile.skinType === 'sensitive') {
+    recommended.add('ing_centella');
+    avoid.add('ing_glycolic_acid');
+  }
+  if (profile.primaryConcerns.includes('acne')) recommended.add('ing_azelaic_acid');
+  if (profile.primaryConcerns.includes('hyperpigmentation')) recommended.add('ing_azelaic_acid');
+  if (profile.primaryConcerns.includes('redness') || profile.primaryConcerns.includes('rosacea')) {
+    recommended.add('ing_azelaic_acid');
+    avoid.add('ing_glycolic_acid');
+  }
+
+  // ایمنی و پرهیز الویت دارند: هر چیزی که ممنوع است، از توصیه حذف می‌شود
+  avoid.forEach((id) => recommended.delete(id));
+
+  const blockedList = Array.from(avoid);
+  const gentleMode = restriction.gentleMode || profile.onOralRetinoid;
+
+  /* --- ساخت گام‌های روتین --- */
+  const morning: RoutineStep[] = [
     {
-      id: 'm_step_1',
-      titleFa: 'پاکسازی ملایم صبحگاهی',
+      id: 'm_cleanse',
+      titleFa: 'شوینده ملایم صبح',
       category: 'cleanser',
-      productNameFa: ownedProducts.find(p => p.category === 'cleanser')?.name || 'شوینده ملایم صورت',
+      productNameFa: pickProductName(products, 'cleanser', blockedList) || 'شوینده ملایم صورت',
       completed: false,
       timeSeconds: 60,
-      descriptionFa: 'صورت خود را با آب ولرم و شوینده ملایم بشویید تا چربی شبانه پاک شود.'
+      descriptionFa: 'با آب ولرم بشویید و فقط ۳۰ تا ۶۰ ثانیه ماساژ دهید.',
+      reasonFa: 'پاکسازی چربی شبانه بدون آسیب به سد دفاعی',
     },
-    {
-      id: 'm_step_2',
-      titleFa: 'سرم آبرسان یا آنتی‌اکسیدان',
+  ];
+
+  if (!gentleMode && !blockedList.includes('ing_vitamin_c') && recommended.has('ing_vitamin_c')) {
+    morning.push({
+      id: 'm_serum_vitc',
+      titleFa: 'سرم ویتامین C',
       category: 'serum',
-      productNameFa: ownedProducts.find(p => p.category === 'serum')?.name || (phase === 'follicular' ? 'سرم ویتامین C' : 'سرم نیاسینامید و آبرسان'),
+      productNameFa: pickProductName(products, 'serum', blockedList) || 'سرم ویتامین C',
       completed: false,
       timeSeconds: 30,
-      descriptionFa: '۳ تا ۴ قطره سرم روی صورت پمپ کرده و با ضربات آرام جذب کنید.'
-    },
+      descriptionFa: '۳ تا ۴ قطره روی پوست خشک و سپس مرطوب‌کننده.',
+      reasonFa: 'محافطت آنتی‌اکسیدانی در برابر آلودگی و آفتاب',
+    });
+  } else {
+    morning.push({
+      id: 'm_serum_hydra',
+      titleFa: 'سرم آبرسان',
+      category: 'serum',
+      productNameFa: pickProductName(products, 'serum', blockedList) || 'سرم هیالورونیک اسید',
+      completed: false,
+      timeSeconds: 30,
+      descriptionFa: 'روی پوست کمی نم‌دار بزنید و بلافاصله مرطوب‌کننده رویش بگذارید.',
+      reasonFa: gentleMode ? 'روتین امروز ملایم تنطیم شده' : 'آبرسانی پایه',
+    });
+  }
+
+  morning.push(
     {
-      id: 'm_step_3',
-      titleFa: 'مرطوب‌کننده سبـک',
+      id: 'm_moisturizer',
+      titleFa: 'مرطوب‌کننده',
       category: 'moisturizer',
-      productNameFa: ownedProducts.find(p => p.category === 'moisturizer')?.name || 'مرطوب‌کننده و آبرسان فاقد چربی',
+      productNameFa: pickProductName(products, 'moisturizer', blockedList) || 'مرطوب‌کننده سبک',
       completed: false,
       timeSeconds: 30,
-      descriptionFa: 'برای حفظ رطوبت پوست و تقویت سد دفاعی، کرم مرطوب‌کننده بزنید.'
+      descriptionFa: 'یک لایه یکنواخت روی صورت و گردن.',
+      reasonFa: 'حفظ رطوبت و تقویت سد دفاعی',
     },
     {
-      id: 'm_step_4',
-      titleFa: 'ضدآفتاب طیف گسترده (ضروری)',
+      id: 'm_sunscreen',
+      titleFa: 'ضدآفتاب (مهم‌ترین گام روز)',
       category: 'sunscreen',
-      productNameFa: ownedProducts.find(p => p.category === 'sunscreen')?.name || 'ضدآفتاب SPF 50',
+      productNameFa: pickProductName(products, 'sunscreen', blockedList) || 'ضدآفتاب SPF 50',
       completed: false,
       timeSeconds: 45,
-      descriptionFa: 'به مقدار دو بند انگشت ضدآفتاب بزنید تا از لک و چروک ناشی از آفتاب جلوگیری شود.'
-    }
+      descriptionFa: 'دو بند انگشت برای صورت و گردن.',
+      reasonFa: gentleMode
+        ? 'پوست امروز در حال ترمیم است و به نور خیلی حساس‌تر است'
+        : 'پیشگیری از لک و پیری زودرس',
+    },
+  );
+
+  const night: RoutineStep[] = [
+    {
+      id: 'n_cleanse',
+      titleFa: 'پاکسازی شب',
+      category: 'cleanser',
+      productNameFa: pickProductName(products, 'cleanser', blockedList) || 'ژل شوینده ملایم',
+      completed: false,
+      timeSeconds: 90,
+      descriptionFa: 'اگر ضدآفتاب یا میکاپ زده‌اید، اول میسلار یا روغن پاک‌کننده.',
+      reasonFa: 'باقی‌ماندن ضدآفتاب روی پوست منافذ را می‌بندد',
+    },
   ];
 
-  // 4. Dynamic Night Routine Steps Construction
-  const nightRoutine: RoutineStep[] = [
-    {
-      id: 'n_step_1',
-      titleFa: 'پاکسازی دو مرحله‌ای (می‌سلار / شوینده)',
-      category: 'cleanser',
-      productNameFa: ownedProducts.find(p => p.category === 'cleanser')?.name || 'ژل شوینده پاک‌کننده آلودگی',
-      completed: false,
-      timeSeconds: 60,
-      descriptionFa: 'آلودگی‌ها، ضدآفتاب و چربی طول روز را کاملاً پاکسازی کنید.'
-    },
-    {
-      id: 'n_step_2',
-      titleFa: phase === 'luteal' ? 'روتین ملایم کنترل چربی' : 'سرم ترمیم‌کننده و ضدچروک شب',
-      category: 'treatment',
-      productNameFa: ownedProducts.find(p => p.category === 'treatment' || p.category === 'serum')?.name || (phase === 'luteal' ? 'سرم سالیسیلیک اسید BHA' : 'سرم نیاسینامید یا هیالورونیک اسید'),
+  const nightActive = ['ing_retinol', 'ing_azelaic_acid', 'ing_salicylic_acid', 'ing_niacinamide'].find(
+    (id) => recommended.has(id) && !blockedList.includes(id),
+  );
+
+  if (gentleMode || !nightActive) {
+    night.push({
+      id: 'n_repair',
+      titleFa: 'سرم ترمیمی و آبرسان',
+      category: 'serum',
+      productNameFa: pickProductName(products, 'serum', blockedList) || 'سرم هیالورونیک یا پانتنول',
       completed: false,
       timeSeconds: 30,
-      descriptionFa: phase === 'luteal' ? 'کنترل چربی منافذ و پیشگیری از جوش‌های هورمونی.' : 'تغذیه عمیق و ترمیم سلولی پوست در طول خواب.'
-    },
-    {
-      id: 'n_step_3',
-      titleFa: 'کرم مغذی یا مرطوب‌کننده شب',
-      category: 'moisturizer',
-      productNameFa: ownedProducts.find(p => p.category === 'moisturizer')?.name || 'کرم مرطوب‌کننده حاوی سرامید',
+      descriptionFa: 'در این بازه فقط آبرسانی و ترمیم.',
+      reasonFa: restriction.reasonFa || (profile.onOralRetinoid ? 'دوره مصرف رتینوئید خوراکی' : 'روتین ملایم'),
+      blockedReasonFa: restriction.reasonFa || undefined,
+    });
+  } else {
+    night.push({
+      id: 'n_active',
+      titleFa: `ترکیب فعال شب: ${ingredientNameFa(nightActive)}`,
+      category: 'treatment',
+      productNameFa: pickProductName(products, 'treatment', blockedList) || pickProductName(products, 'serum', blockedList),
       completed: false,
-      timeSeconds: 45,
-      descriptionFa: 'قفل کردن تمام رطوبت و بازسازی سد دفاعی پوست در هنگام استراحت شبانه.'
-    }
-  ];
+      timeSeconds: 30,
+      descriptionFa: 'کم شروع کنید: ابتدا هفته‌ای دو شب، بعد افزایش دهید.',
+      reasonFa: cycle.available && cycle.phase === 'luteal' ? 'فاز لوتئال و پیشگیری از جوش هورمونی' : 'دغدغه اصلی پوست شما',
+    });
+  }
+
+  night.push({
+    id: 'n_moisturizer',
+    titleFa: 'کرم شب ترمیم‌کننده',
+    category: 'moisturizer',
+    productNameFa: pickProductName(products, 'moisturizer', blockedList) || 'کرم حاوی سرامید',
+    completed: false,
+    timeSeconds: 45,
+    descriptionFa: 'لایه نهایی برای قفل کردن رطوبت.',
+    reasonFa: 'ترمیم سد دفاعی در طول خواب',
+  });
 
   return {
-    skinScore,
-    hormonalCompatibilityScore: hormonalScore,
-    primaryInsightFa: primaryInsight,
     cycleInsightFa: cycleInsight,
     weatherInsightFa: weatherInsight,
-    recommendedIngredientsFa: Array.from(new Set(recommendedIngredients)),
-    avoidIngredientsFa: Array.from(new Set(avoidIngredients)),
-    morningRoutine,
-    nightRoutine,
-    pmsWarningAlert,
+    procedureInsightFa: restriction.reasonFa || null,
+    pmsWarningFa: pmsWarning,
+    safetyWarningsFa: safetyWarnings,
+    recommendedIngredientIds: Array.from(recommended),
+    avoidIngredientIds: blockedList,
+    morningRoutine: morning,
+    nightRoutine: night,
+    gentleMode,
+    lifestyleInsightFa,
   };
+}
+
+/** نام فارسی لیست ترکیبات — برای نمایش در UI. */
+export function ingredientNamesFa(ids: string[]): string[] {
+  return ids.map((id) => ingredientNameFa(id));
 }

@@ -2,83 +2,137 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * فونت وزیرمتن — لوکال.
+ *
+ * مشکل نسخه ۱: نام فونت در همه کامپوننت‌ها صدا زده شده بود ولی
+ * هیچ جا لود نمی‌شد. کل اپ با فونت پیش‌فرض سیستم رندر می‌شد.
+ *
+ * از CDN گوگل استفاده نمی‌کنیم: هم در ایران قابل دسترس نیست،
+ * هم اپ باید آفلاین کار کند.
+ *
+ * اگر فایل‌های رسمی وزیرمتن در پوشه موجود باشند، از آن‌ها استفاده می‌شود.
+ * در این نسخه یک فونت عربی آفلاین جایگزین هم قرار داده شده تا اپ روی
+ * دستگاه بدون اینترنت، خوانا بماند.
+ */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/assets/fonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'RozaArabicFallback';
+  src: url('/assets/fonts/NotoSansArabic-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'RozaArabicFallback';
+  src: url('/assets/fonts/NotoSansArabic-Bold.ttf') format('truetype');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/assets/fonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/assets/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Vazirmatn', 'RozaArabicFallback', 'Segoe UI', Tahoma, system-ui, sans-serif;
+}
+
 @layer base {
-  :root {
-    --font-vazir: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
+  html {
+    /*
+     * مشکل نسخه ۱: تقریباً همه متن‌ها text-xs یا ۱۰-۱۱ پیکسل بودند.
+     * فارسی در این سایز روی موبایل خوانا نیست. با بزرگ کردن پایه،
+     * همه کلاس‌های rem یکجا بزرگ می‌شوند.
+     */
+    font-size: 18px;
+    -webkit-text-size-adjust: 100%;
   }
-  
+
   body {
-    font-family: var(--font-vazir);
+    font-family: var(--font-sans);
     direction: rtl;
     background-color: #faf8f5;
     color: #1e293b;
     overflow-x: hidden;
+    line-height: 1.85;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* حداقل سایز خوانا برای فارسی — جلوی متن ریز را می‌گیرد */
+  .text-2xs,
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 0.8rem !important;
+  }
+
+  h1, h2, h3, h4 {
+    line-height: 1.6;
+  }
+
+  /* دکمه‌ها حداقل سطح لمس ۴۴ پیکسلی داشته باشند */
+  button, [role='button'], label.cursor-pointer {
+    min-height: 44px;
+  }
+  button.icon-only {
+    min-height: 0;
+  }
+
+  input, select, textarea {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+
+  input[type='range'] {
+    min-height: 32px;
+  }
+
+  ::selection {
+    background: rgba(244, 63, 94, 0.2);
   }
 }
 
-/* Frosted Glass Aesthetics */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
+/* کارت شیشه‌ای روشن — نسخه ۱ فقط نسخه تاریک داشت که روی تم روشن بد دیده می‌شد */
 .glass-card {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px 0 rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(235, 224, 212, 0.9);
+}
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(51, 65, 85, 0.9);
 }
 
-.glass-card-dark {
-  background: rgba(10, 14, 23, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-}
-
-.glass-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-}
-.glass-input:focus {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  outline: none;
-}
-
-/* Custom Scrollbar for horizontal/vertical widgets */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Stack cards shadow */
-.stack-card-shadow {
-  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px 0 rgba(59, 130, 246, 0.15);
-}
-
-/* Pulse animation for active cycle phase indicator */
-@keyframes softPulse {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.05); opacity: 1; }
-}
-
-.animate-soft-pulse {
-  animation: softPulse 3s infinite ease-in-out;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

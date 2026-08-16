@@ -1,178 +1,211 @@
 /**
- * Persian Jalali (Solar Hijri) Date Utility
- * Performs offline accurate Gregorian <-> Jalali conversions
- * and formats numbers/dates for Persian UI.
+ * تقویم جلالی و ابزارهای تاریخ.
+ *
+ * قاعده مهم: تمام تاریخ‌ها داخل اپ به شکل «YYYY-MM-DD محلی»
+ * نگهداری می‌شوند. هرگز از toISOString() برای ساختن تاریخ
+ * استفاده نکن؛ با اختلاف +۳:۳۰ ایران، بعد از ظهر یک روز جلو می‌افتد.
  */
 
-const PERSIAN_MONTH_NAMES = [
+export const PERSIAN_MONTH_NAMES = [
   'فروردین', 'اردیبهشت', 'خرداد',
   'تیر', 'مرداد', 'شهریور',
   'مهر', 'آبان', 'آذر',
-  'دی', 'بهمن', 'اسفند'
+  'دی', 'بهمن', 'اسفند',
 ];
 
-const PERSIAN_WEEKDAYS = [
-  'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'
-];
+/** ایندکس بر اساس Date.getDay() که ۰ = یکشنبه است. */
+export const PERSIAN_WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
 
-/**
- * Converts English digits to Persian digits
- */
-export function toPersianDigits(num: number | string): string {
-  if (num === null || num === undefined) return '';
-  const str = String(num);
-  const englishToPersianMap: { [key: string]: string } = {
-    '0': '۰', '1': '۱', '2': '۲', '3': '۳', '4': '۴',
-    '5': '۵', '6': '۶', '7': '۷', '8': '۸', '9': '۹'
-  };
-  return str.replace(/[0-9]/g, (w) => englishToPersianMap[w]);
+/** سرستون هفته به ترتیب ایرانی: شنبه تا جمعه. */
+export const PERSIAN_WEEK_HEADERS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+
+const EN_TO_FA_DIGITS: Record<string, string> = {
+  '0': '۰', '1': '۱', '2': '۲', '3': '۳', '4': '۴',
+  '5': '۵', '6': '۶', '7': '۷', '8': '۸', '9': '۹',
+};
+
+export function toPersianDigits(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[0-9]/g, (digit) => EN_TO_FA_DIGITS[digit]);
 }
 
-/**
- * Gregorian to Jalali converter algorithm
- */
+export function toEnglishDigits(value: string): string {
+  return value.replace(/[\u06f0-\u06f9]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+}
+
+/* -------------------------- تبدیل تقویم -------------------------- */
+
 export function gregorianToJalali(gy: number, gm: number, gd: number): { jy: number; jm: number; jd: number } {
-  const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  let jy = (gy <= 1600) ? 0 : 979;
-  gy -= (gy <= 1600) ? 621 : 1600;
-  const gy2 = (gm > 2) ? (gy + 1) : gy;
-  let days = (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) - 80 + gd + g_d_m[gm - 1];
+  const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  let jy = gy <= 1600 ? 0 : 979;
+  let year = gy - (gy <= 1600 ? 621 : 1600);
+  const leapRef = gm > 2 ? year + 1 : year;
+  let days =
+    365 * year +
+    Math.floor((leapRef + 3) / 4) -
+    Math.floor((leapRef + 99) / 100) +
+    Math.floor((leapRef + 399) / 400) -
+    80 +
+    gd +
+    monthDays[gm - 1];
   jy += 33 * Math.floor(days / 12053);
   days %= 12053;
   jy += 4 * Math.floor(days / 1461);
   days %= 1461;
   jy += Math.floor((days - 1) / 365);
   if (days > 0) days = (days - 1) % 365;
-  let jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
-  let jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+  const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
   return { jy, jm, jd };
 }
 
-/**
- * Formats ISO Date string (YYYY-MM-DD) into Jalali string (e.g., "۱۲ مرداد ۱۴۰۵")
- */
-export function formatJalaliDate(isoDateStr: string): string {
-  if (!isoDateStr) return '';
-  const parts = isoDateStr.split('-');
-  if (parts.length < 3) return isoDateStr;
-  const gy = parseInt(parts[0], 10);
-  const gm = parseInt(parts[1], 10);
-  const gd = parseInt(parts[2], 10);
-
-  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
-  const monthName = PERSIAN_MONTH_NAMES[jm - 1];
-
-  return `${toPersianDigits(jd)} ${monthName} ${toPersianDigits(jy)}`;
+export function jalaliToGregorian(jy: number, jm: number, jd: number): { gy: number; gm: number; gd: number } {
+  let gy = jy <= 979 ? 621 : 1600;
+  const year = jy - (jy <= 979 ? 0 : 979);
+  let days =
+    365 * year +
+    Math.floor(year / 33) * 8 +
+    Math.floor(((year % 33) + 3) / 4) +
+    78 +
+    jd +
+    (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
+  gy += 400 * Math.floor(days / 146097);
+  days %= 146097;
+  if (days > 36524) {
+    days -= 1;
+    gy += 100 * Math.floor(days / 36524);
+    days %= 36524;
+    if (days >= 365) days += 1;
+  }
+  gy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += Math.floor((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+  let gd = days + 1;
+  const isLeap = (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0;
+  const monthLengths = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let gm = 0;
+  for (gm = 1; gm <= 12; gm += 1) {
+    if (gd <= monthLengths[gm]) break;
+    gd -= monthLengths[gm];
+  }
+  return { gy, gm, gd };
 }
 
-/**
- * Formats ISO Date string into Jalali short date (e.g., "۱۴۰۵/۰۵/۱۲")
- */
-export function formatJalaliShort(isoDateStr: string): string {
-  if (!isoDateStr) return '';
-  const parts = isoDateStr.split('-');
-  if (parts.length < 3) return isoDateStr;
-  const gy = parseInt(parts[0], 10);
-  const gm = parseInt(parts[1], 10);
-  const gd = parseInt(parts[2], 10);
-
-  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
-  const mStr = jm < 10 ? `0${jm}` : `${jm}`;
-  const dStr = jd < 10 ? `0${jd}` : `${jd}`;
-  return `${toPersianDigits(jy)}/${toPersianDigits(mStr)}/${toPersianDigits(dStr)}`;
+/** تعداد روزهای یک ماه شمسی. */
+export function jalaliMonthLength(jy: number, jm: number): number {
+  if (jm <= 6) return 31;
+  if (jm <= 11) return 30;
+  const nextYearStart = jalaliToGregorian(jy + 1, 1, 1);
+  const esfandStart = jalaliToGregorian(jy, 12, 1);
+  const diff = Math.round(
+    (Date.UTC(nextYearStart.gy, nextYearStart.gm - 1, nextYearStart.gd) -
+      Date.UTC(esfandStart.gy, esfandStart.gm - 1, esfandStart.gd)) /
+      86400000,
+  );
+  return diff;
 }
 
-/**
- * Gets today's ISO date string YYYY-MM-DD
- */
-export function getTodayIsoDate(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+/* -------------------------- تاریخ محلی -------------------------- */
+
+/** تبدیل Date به YYYY-MM-DD بر اساس تقویم محلی کاربر. */
+export function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Returns full Persian header string for today e.g. "شنبه، ۱۲ مرداد ۱۴۰۵"
- */
+export function getTodayIsoDate(): string {
+  return toIsoDate(new Date());
+}
+
+/** تبدیل YYYY-MM-DD به Date محلی (نه UTC). */
+export function fromIsoDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map((part) => parseInt(part, 10));
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+export function isValidIsoDate(iso: string | undefined | null): boolean {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const date = fromIsoDate(iso);
+  return !Number.isNaN(date.getTime()) && toIsoDate(date) === iso;
+}
+
+export function addDays(iso: string, days: number): string {
+  const date = fromIsoDate(iso);
+  date.setDate(date.getDate() + days);
+  return toIsoDate(date);
+}
+
+/** اختلاف روز بین دو تاریخ (مقاوم به ساعت تابستانی و منطقه زمانی). */
+export function getDaysDifference(fromIso: string, toIso: string): number {
+  const from = fromIsoDate(fromIso);
+  const to = fromIsoDate(toIso);
+  const fromUtc = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const toUtc = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toUtc - fromUtc) / 86400000);
+}
+
+/* -------------------------- قالب‌بندی -------------------------- */
+
+export function formatJalaliDate(iso: string): string {
+  if (!isValidIsoDate(iso)) return '';
+  const [gy, gm, gd] = iso.split('-').map((part) => parseInt(part, 10));
+  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
+  return `${toPersianDigits(jd)} ${PERSIAN_MONTH_NAMES[jm - 1]} ${toPersianDigits(jy)}`;
+}
+
+/** بدون سال، مناسب برای تاریخ‌های نزدیک: «۱۲ مرداد» */
+export function formatJalaliDayMonth(iso: string): string {
+  if (!isValidIsoDate(iso)) return '';
+  const [gy, gm, gd] = iso.split('-').map((part) => parseInt(part, 10));
+  const { jm, jd } = gregorianToJalali(gy, gm, gd);
+  return `${toPersianDigits(jd)} ${PERSIAN_MONTH_NAMES[jm - 1]}`;
+}
+
+export function formatJalaliShort(iso: string): string {
+  if (!isValidIsoDate(iso)) return '';
+  const [gy, gm, gd] = iso.split('-').map((part) => parseInt(part, 10));
+  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
+  return `${toPersianDigits(jy)}/${toPersianDigits(String(jm).padStart(2, '0'))}/${toPersianDigits(String(jd).padStart(2, '0'))}`;
+}
+
 export function getTodayPersianHeader(): string {
-  const d = new Date();
-  const iso = getTodayIsoDate();
-  const weekdayName = PERSIAN_WEEKDAYS[d.getDay()];
-  return `${weekdayName}، ${formatJalaliDate(iso)}`;
+  const today = new Date();
+  return `${PERSIAN_WEEKDAYS[today.getDay()]}، ${formatJalaliDate(getTodayIsoDate())}`;
 }
 
-/**
- * Calculates day difference between two ISO date strings
- */
-export function getDaysDifference(isoDate1: string, isoDate2: string): number {
-  const d1 = new Date(isoDate1);
-  const d2 = new Date(isoDate2);
-  const diffTime = d2.getTime() - d1.getTime();
-  return Math.floor(diffTime / (1000 * 3600 * 24));
+/** «امروز»، «دیروز»، «۳ روز پیش»، «۴ روز دیگر» */
+export function formatRelativeDay(iso: string): string {
+  if (!isValidIsoDate(iso)) return '';
+  const diff = getDaysDifference(getTodayIsoDate(), iso);
+  if (diff === 0) return 'امروز';
+  if (diff === 1) return 'فردا';
+  if (diff === -1) return 'دیروز';
+  if (diff > 1) return `${toPersianDigits(diff)} روز دیگر`;
+  return `${toPersianDigits(Math.abs(diff))} روز پیش`;
 }
 
-/**
- * Computes menstrual cycle day and phase for a target date
- */
-export function computeCycleInfo(
-  lastPeriodIso: string,
-  cycleLength: number = 28,
-  periodLength: number = 5,
-  pmsStartDaysBefore: number = 7,
-  targetIso: string = getTodayIsoDate()
-) {
-  if (!lastPeriodIso) {
-    return {
-      cycleDay: 1,
-      phase: 'follicular' as const,
-      phaseNameFa: 'فولیکولار (رشد تخمک)',
-      daysUntilPeriod: Math.max(1, cycleLength || 28),
-      inPmsWindow: false,
-    };
+/** روزهای یک ماه شمسی به شکل گرید تقویم (از شنبه). */
+export function buildJalaliMonthGrid(jy: number, jm: number): { iso: string | null; jd: number | null }[] {
+  const length = jalaliMonthLength(jy, jm);
+  const first = jalaliToGregorian(jy, jm, 1);
+  const firstDate = new Date(first.gy, first.gm - 1, first.gd);
+  // getDay(): 0=یکشنبه ... 6=شنبه → در گرید ما شنبه اول است
+  const leadingBlanks = (firstDate.getDay() + 1) % 7;
+  const cells: { iso: string | null; jd: number | null }[] = [];
+  for (let i = 0; i < leadingBlanks; i += 1) cells.push({ iso: null, jd: null });
+  for (let day = 1; day <= length; day += 1) {
+    const g = jalaliToGregorian(jy, jm, day);
+    cells.push({ iso: toIsoDate(new Date(g.gy, g.gm - 1, g.gd)), jd: day });
   }
+  return cells;
+}
 
-  const safeLength = Math.max(21, Math.min(45, cycleLength || 28));
-  const diffDays = getDaysDifference(lastPeriodIso, targetIso);
-  let cycleDay = (diffDays % safeLength);
-  if (cycleDay < 0) cycleDay += safeLength;
-  cycleDay += 1; // 1-indexed cycle day
-
-  let phase: 'menstrual' | 'follicular' | 'ovulation' | 'luteal' = 'follicular';
-  let phaseNameFa = 'فولیکولار (رشد و شادابی)';
-  let inPmsWindow = false;
-
-  const ovulationDay = Math.max(periodLength + 2, safeLength - 14);
-  const safePmsDays = Math.max(0, Math.min(10, pmsStartDaysBefore || 0));
-
-  if (cycleDay <= Math.min(periodLength, safeLength)) {
-    phase = 'menstrual';
-    phaseNameFa = 'قاعدگی (حساسیت و ترمیم)';
-  } else if (cycleDay < ovulationDay - 1) {
-    phase = 'follicular';
-    phaseNameFa = 'فولیکولار (شادابی و درخشش)';
-  } else if (cycleDay >= ovulationDay - 1 && cycleDay <= ovulationDay + 1) {
-    phase = 'ovulation';
-    phaseNameFa = 'تخمک‌گذاری (افزایش چربی خفیف)';
-  } else {
-    phase = 'luteal';
-    const daysUntilNextPeriod = safeLength - cycleDay + 1;
-    if (daysUntilNextPeriod <= safePmsDays) {
-      inPmsWindow = true;
-      phaseNameFa = 'فاز لوتئال، نزدیک به بازه پیش از قاعدگی';
-    } else {
-      phaseNameFa = 'فاز لوتئال';
-    }
-  }
-
-  const daysUntilPeriod = safeLength - cycleDay + 1;
-
-  return {
-    cycleDay,
-    phase,
-    phaseNameFa,
-    daysUntilPeriod,
-    inPmsWindow,
-  };
+export function getJalaliToday(): { jy: number; jm: number; jd: number } {
+  const today = new Date();
+  return gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
 }

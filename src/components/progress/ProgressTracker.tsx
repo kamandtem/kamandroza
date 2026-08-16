@@ -1,251 +1,319 @@
-import React, { useState } from 'react';
-import { 
-  TrendingUp, 
-  Calendar as CalendarIcon, 
-  Camera, 
-  Droplet, 
-  Moon, 
-  Sparkles, 
-  Plus, 
-  Check, 
-  Columns,
-  Image as ImageIcon
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { UserState, PhotoProgress, DailyTrackerEntry } from '../../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Camera, Trash2, ImageIcon, Calendar, BarChart3, AlertTriangle } from 'lucide-react';
+import { PhotoProgress } from '../../types';
 import { LocalDB } from '../../services/db';
-import { toPersianDigits, getTodayPersianHeader, getTodayIsoDate, formatJalaliDate } from '../../services/jalali';
+import { deletePhoto, getPhotoUrl, savePhoto } from '../../services/photoService';
+import { buildHabitStats, buildRecentDays, loggedDaysCount } from '../../services/statsService';
+import { estimateStorage } from '../../services/storage/persistence';
+import {
+  PERSIAN_WEEK_HEADERS,
+  buildJalaliMonthGrid,
+  formatJalaliDate,
+  getJalaliToday,
+  getTodayIsoDate,
+  getTodayPersianHeader,
+  PERSIAN_MONTH_NAMES,
+  toPersianDigits,
+} from '../../services/jalali';
+import { EmptyState } from '../common/EmptyState';
 
 interface ProgressTrackerProps {
-  userState: UserState;
+  initialTab?: 'calendar' | 'photos' | 'stats';
 }
 
-export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ userState }) => {
-  const [activeTab, setActiveTab] = useState<'calendar' | 'photos' | 'analytics'>('calendar');
+/** عکس را از IndexedDB می‌خواند (دیگر base64 در localStorage نیست). */
+const PhotoImage: React.FC<{ photo: PhotoProgress; className?: string }> = ({ photo, className }) => {
+  const [url, setUrl] = useState<string | null>(null);
 
-  const photos = LocalDB.getPhotoProgress();
-  const logs = LocalDB.getDailyLogs();
+  useEffect(() => {
+    let alive = true;
+    void getPhotoUrl(photo.blobId).then((value) => {
+      if (alive) setUrl(value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [photo.blobId]);
 
-  const [compareMode, setCompareMode] = useState(false);
-  const [selectedPhotoBefore, setSelectedPhotoBefore] = useState<PhotoProgress | null>(photos[1] || photos[0] || null);
-  const [selectedPhotoAfter, setSelectedPhotoAfter] = useState<PhotoProgress | null>(photos[0] || null);
+  if (!url) {
+    return <div className={`bg-slate-100 dark:bg-slate-800 animate-pulse ${className || ''}`} />;
+  }
+  return <img src={url} alt={`پوست ${formatJalaliDate(photo.date)}`} className={className} />;
+};
 
-  // File upload simulation (local base64 string storage)
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const newPhoto: PhotoProgress = {
-          id: `photo_${Date.now()}`,
-          date: getTodayIsoDate(),
-          imagePath: base64,
-          skinConditionScore: 8,
-          notes: 'تصویر ثبت شده در برنامه رزا',
-          tagsFa: ['ثبت جدید'],
-        };
-        LocalDB.savePhotoProgress(newPhoto);
-        window.location.reload(); // Simple refresh for local demo state
-      };
-      reader.readAsDataURL(file);
+/**
+ * پیشرفت.
+ *
+ * سه مشکل نسخه ۱:
+ *  ۱) درصدهای ۸۵، ۷۸ و ۹۲ هاردکد بودند و نوار «ضدآفتاب» دقایق ورزش را می‌شمرد.
+ *  ۲) تقویم با toISOString() ساخته می‌شد (UTC) و در ایران بعد از طهر یک روز جلو می‌افتاد.
+ *  ۳) بعد از آپلود عکس، کل صفحه reload می‌شد.
+ */
+export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = 'calendar' }) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [refresh, setRefresh] = useState(0);
+  const bump = () => setRefresh((value) => value + 1);
+
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [storage, setStorage] = useState<{ usedMb: number; quotaMb: number } | null>(null);
+
+  const photos = useMemo(() => LocalDB.getPhotos(), [refresh]);
+  const days = useMemo(() => buildRecentDays(30), [refresh]);
+  const habits = useMemo(() => buildHabitStats(30), [refresh]);
+  const logged = loggedDaysCount(30);
+
+  const [compareBefore, setCompareBefore] = useState<string | null>(null);
+  const [compareAfter, setCompareAfter] = useState<string | null>(null);
+
+  useEffect(() => {
+    void estimateStorage().then(setStorage);
+  }, [refresh]);
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    const result = await savePhoto(file);
+    if (!result.ok) {
+      setUploadError(result.errorFa || 'ذخیره عکس ممکن نشد.');
+      return;
     }
+    bump();
   };
 
+  const jalaliToday = getJalaliToday();
+  const todayIso = getTodayIsoDate();
+  const monthCells = buildJalaliMonthGrid(jalaliToday.jy, jalaliToday.jm);
+  const dayMap = new Map(days.map((day) => [day.dateIso, day]));
+
+  const beforePhoto = photos.find((photo) => photo.id === compareBefore);
+  const afterPhoto = photos.find((photo) => photo.id === compareAfter);
+
   return (
-    <div className="pb-28 pt-2 px-4 max-w-lg mx-auto space-y-4">
-      {/* Tab Switcher */}
-      <div className="p-1 rounded-2xl bg-[#eee4d8] flex items-center gap-1 text-xs font-bold text-[#5c4a3e]">
-        <button
-          onClick={() => setActiveTab('calendar')}
-          className={`flex-1 py-2.5 rounded-xl transition-all ${
-            activeTab === 'calendar' ? 'bg-white text-[#8e5241] shadow-xs' : 'hover:bg-white/50'
-          }`}
-        >
-          تقویم جلالی روتین
-        </button>
-        <button
-          onClick={() => setActiveTab('photos')}
-          className={`flex-1 py-2.5 rounded-xl transition-all ${
-            activeTab === 'photos' ? 'bg-white text-[#8e5241] shadow-xs' : 'hover:bg-white/50'
-          }`}
-        >
-          تایم‌لاین عکس و مقایسه
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`flex-1 py-2.5 rounded-xl transition-all ${
-            activeTab === 'analytics' ? 'bg-white text-[#8e5241] shadow-xs' : 'hover:bg-white/50'
-          }`}
-        >
-          آمار عادت‌ها
-        </button>
+    <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+      <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center gap-1">
+        {(
+          [
+            { key: 'calendar' as const, labelFa: 'تقویم', icon: Calendar },
+            { key: 'photos' as const, labelFa: 'عکس‌ها', icon: Camera },
+            { key: 'stats' as const, labelFa: 'آمار', icon: BarChart3 },
+          ]
+        ).map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-white dark:bg-slate-900 text-[#8e5241] dark:text-rose-300'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.labelFa}
+            </button>
+          );
+        })}
       </div>
 
-      {/* TAB 1: JALALI CALENDAR VIEW */}
+      {/* --------------------------- تقویم --------------------------- */}
       {activeTab === 'calendar' && (
-        <div className="p-5 rounded-3xl bg-white border border-[#ebe0d4] shadow-xs text-right space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-base text-[#2e2621]">تقویم جلالی ثبت روتین‌ها</h3>
-            <span className="text-xs font-bold text-[#8e5241] bg-[#f6ede5] px-2.5 py-1 rounded-full border border-[#eddcd0]">
+        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-black text-sm text-slate-800 dark:text-white">
+              {PERSIAN_MONTH_NAMES[jalaliToday.jm - 1]} {toPersianDigits(jalaliToday.jy)}
+            </h3>
+            <span className="text-xs font-bold text-[#8e5241] dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-full">
               {getTodayPersianHeader()}
             </span>
           </div>
 
-          <p className="text-xs text-[#8a766c]">
-            هر روز که روتین صبح و شب خود را کامل کنید، در تقویم علامت سبز ثبت خواهد شد.
-          </p>
-
-          {/* Simple 7-day calendar strip preview */}
-          <div className="grid grid-cols-7 gap-1.5 text-center pt-2">
-            {['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map((dayName, idx) => (
-              <span key={idx} className="text-[11px] font-bold text-[#8a766c]">
-                {dayName}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {PERSIAN_WEEK_HEADERS.map((day) => (
+              <span key={day} className="text-xs font-bold text-slate-400 py-1">
+                {day}
               </span>
             ))}
 
-            {Array.from({ length: 30 }).map((_, i) => {
-              const dayNum = i + 1;
-              const date = new Date(); date.setDate(date.getDate() - (29 - i)); const iso = date.toISOString().slice(0, 10);
-              const isLogged = logs.some((log) => log.date === iso);
-              const isToday = iso === new Date().toISOString().slice(0, 10);
+            {monthCells.map((cell, index) => {
+              if (!cell.iso || cell.jd === null) return <span key={`blank-${index}`} />;
+              const data = dayMap.get(cell.iso);
+              const isToday = cell.iso === todayIso;
+              const isFuture = cell.iso > todayIso;
 
               return (
                 <div
-                  key={i}
-                  className={`p-2 rounded-2xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
+                  key={cell.iso}
+                  title={formatJalaliDate(cell.iso)}
+                  className={`aspect-square rounded-xl flex items-center justify-center text-sm font-bold ${
                     isToday
-                      ? 'bg-[#8e5241] text-white border-[#8e5241] shadow-sm'
-                      : isLogged
-                      ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                      : 'bg-[#faf6f0] text-[#705c4f] border-[#ebe0d4]'
+                      ? 'bg-[#8e5241] text-white'
+                      : data?.hasRoutine
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                        : data?.hasLog
+                          ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
+                          : isFuture
+                            ? 'text-slate-300 dark:text-slate-700'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-500'
                   }`}
                 >
-                  <span>{toPersianDigits(dayNum)}</span>
-                  {isLogged && !isToday && <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />}
+                  {toPersianDigits(cell.jd)}
                 </div>
               );
             })}
           </div>
+
+          <div className="flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 pt-1">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-emerald-400 inline-block" />
+              روتین
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-amber-400 inline-block" />
+              ثبت روزانه
+            </span>
+          </div>
         </div>
       )}
 
-      {/* TAB 2: PHOTO TIMELINE & BEFORE/AFTER COMPARE */}
+      {/* --------------------------- عکس‌ها --------------------------- */}
       {activeTab === 'photos' && (
-        <div className="space-y-4 text-right">
-          <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-base text-[#2e2621]">تایم‌لاین و مقایسه تغییرات پوست</h3>
-
-            <label className="px-3.5 py-2 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-black text-sm text-slate-800 dark:text-white">عکس‌های من</h3>
+            <label className="cursor-pointer px-4 py-2 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5">
               <Camera className="w-4 h-4" />
-              <span>ثبت عکس جدید</span>
-              <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+              عکس جدید
+              <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
             </label>
           </div>
 
-          <div className="p-3 rounded-2xl bg-[#f6ede5] border border-[#e5d8cb] text-xs text-[#6e5d50] flex items-center justify-between">
-            <span>مقایسه قبل و بعد (Side-by-Side)</span>
-            <button
-              onClick={() => setCompareMode(!compareMode)}
-              className={`px-3 py-1.5 rounded-xl font-bold border ${
-                compareMode ? 'bg-amber-600 text-white' : 'bg-white text-[#8e5241]'
-              }`}
-            >
-              {compareMode ? 'بستن حالت مقایسه' : 'فعال‌سازی مقایسه'}
-            </button>
-          </div>
+          {/* خطای ذخیره الان دیده می‌شود. نسخه ۱ بی‌صدا شکست می‌خورد. */}
+          {uploadError && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-rose-900 dark:text-rose-200 leading-relaxed">{uploadError}</p>
+            </div>
+          )}
 
-          {/* Side by side comparison view */}
-          {compareMode && (
-            <div className="p-4 rounded-3xl bg-white border border-[#ebe0d4] shadow-xs space-y-3">
+          {storage && storage.quotaMb > 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              فضای مصرف‌شده: {toPersianDigits(storage.usedMb)} مگابایت
+            </p>
+          )}
+
+          {/* مقایسه قبل و بعد */}
+          {photos.length >= 2 && (
+            <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+              <h4 className="text-sm font-black text-slate-800 dark:text-white">مقایسه قبل و بعد</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="text-center space-y-1">
-                  <span className="text-[11px] font-bold text-[#8a766c]">عکس قبل</span>
-                  <div className="h-44 rounded-2xl bg-[#f4ebe1] border border-[#e5d8cb] flex items-center justify-center overflow-hidden">
-                    {selectedPhotoBefore ? (
-                      <img src={selectedPhotoBefore.imagePath} alt="Before" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs text-[#a39284]">عکسی موجود نیست</span>
-                    )}
-                  </div>
-                </div>
+                {(
+                  [
+                    { labelFa: 'قبل', value: compareBefore, set: setCompareBefore, photo: beforePhoto },
+                    { labelFa: 'بعد', value: compareAfter, set: setCompareAfter, photo: afterPhoto },
+                  ]
+                ).map((slot) => (
+                  <div key={slot.labelFa} className="space-y-1.5">
+                    <select
+                      value={slot.value || ''}
+                      onChange={(event) => slot.set(event.target.value || null)}
+                      className="w-full py-2.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold"
+                    >
+                      <option value="">{slot.labelFa}</option>
+                      {photos.map((photo) => (
+                        <option key={photo.id} value={photo.id}>
+                          {formatJalaliDate(photo.date)}
+                        </option>
+                      ))}
+                    </select>
 
-                <div className="text-center space-y-1">
-                  <span className="text-[11px] font-bold text-[#8e5241]">عکس جدید (بعد)</span>
-                  <div className="h-44 rounded-2xl bg-[#f4ebe1] border border-[#e5d8cb] flex items-center justify-center overflow-hidden">
-                    {selectedPhotoAfter ? (
-                      <img src={selectedPhotoAfter.imagePath} alt="After" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs text-[#a39284]">عکسی موجود نیست</span>
-                    )}
+                    <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
+                      {slot.photo ? (
+                        <PhotoImage photo={slot.photo} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs text-slate-400">انتخاب کن</span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Photos grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {photos.length === 0 ? (
-              <div className="col-span-2 p-8 text-center rounded-3xl bg-white border border-[#ebe0d4] text-[#8a766c] text-xs font-bold space-y-2">
-                <ImageIcon className="w-8 h-8 mx-auto text-[#c7b5a5]" />
-                <p>هنوز عکسی از روند تغییرات پوست ثبت نکرده‌اید.</p>
-              </div>
-            ) : (
-              photos.map((p) => (
-                <div key={p.id} className="p-2 rounded-2xl bg-white border border-[#ebe0d4] shadow-2xs space-y-1.5">
-                  <div className="h-36 rounded-xl overflow-hidden bg-gray-100">
-                    <img src={p.imagePath} alt="Skin progress" className="w-full h-full object-cover" />
+          {photos.length === 0 ? (
+            <EmptyState
+              icon={ImageIcon}
+              titleFa="هنوز عکسی ثبت نکرده‌ای"
+              descriptionFa="هر دو هفته یک عکس در همان نور و همان زاویه بگیر. عکس‌ها فقط روی همین گوشی می‌مانند و به هیچ سروری نمی‌روند."
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {photos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className="p-2 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-1.5"
+                >
+                  <div className="h-36 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
+                    <PhotoImage photo={photo} className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex items-center justify-between px-1 text-[10px] font-bold text-[#8a766c]">
-                    <span>{formatJalaliDate(p.date)}</span>
-                    <span className="text-amber-700">امتیاز: {toPersianDigits(p.skinConditionScore)}</span>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      {formatJalaliDate(photo.date)}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await deletePhoto(photo);
+                        bump();
+                      }}
+                      aria-label="حذف عکس"
+                      className="icon-only p-1.5 rounded-lg text-slate-400"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 3: HABIT ANALYTICS */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-3 text-right">
-          <div className="p-5 rounded-3xl bg-white border border-[#ebe0d4] shadow-xs space-y-3">
-            <h3 className="font-extrabold text-base text-[#2e2621]">گزارش مداومت بر سبک زندگی</h3>
+      {/* --------------------------- آمار --------------------------- */}
+      {activeTab === 'stats' && (
+        <div className="space-y-3">
+          {habits.every((habit) => habit.percent === null) ? (
+            <EmptyState
+              icon={BarChart3}
+              titleFa="آمار عادت‌ها"
+              descriptionFa="بعد از چند روز ثبت، درصد واقعی پایبندی را نشان می‌دهیم. عدد حدسی نمی‌سازیم."
+              progress={{ current: logged, required: 5, unitFa: 'روز ثبت' }}
+            />
+          ) : (
+            <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+              <h3 className="font-black text-sm text-slate-800 dark:text-white">پایبندی ۳۰ روز اخیر</h3>
 
-            <div className="space-y-2">
-              <div>
-                <div className="flex justify-between text-xs font-bold text-[#5c4a3e] mb-1">
-                  <span>هیدراتاسیون و نوشیدن آب</span>
-                  <span className="text-sky-700">۸۵٪ پایبندی</span>
+              {habits.map((habit) => (
+                <div key={habit.key} className="space-y-1">
+                  <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                    <span>{habit.labelFa}</span>
+                    <span className="text-rose-600">
+                      {habit.percent === null ? 'داده کافی نیست' : `${toPersianDigits(habit.percent)}٪`}
+                    </span>
+                  </div>
+                  <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-l from-rose-400 to-amber-400"
+                      style={{ width: `${habit.percent || 0}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    محاسبه‌شده از {toPersianDigits(habit.loggedDays)} روز ثبت‌شده
+                  </span>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-[#eee4d8] overflow-hidden">
-                  <div className="h-full bg-sky-500 rounded-full" style={{ width: `${logs.length ? Math.min(100, Math.round((logs.filter(l => l.waterGlasses > 0).length / logs.length) * 100) : 0}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-bold text-[#5c4a3e] mb-1">
-                  <span>کیفیت و ساعات خواب</span>
-                  <span className="text-indigo-700">۷۸٪ پایبندی</span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-[#eee4d8] overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${logs.length ? Math.min(100, Math.round((logs.filter(l => l.sleepHours > 0).length / logs.length) * 100) : 0}%` }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-bold text-[#5c4a3e] mb-1">
-                  <span>استفاده مداوم از ضدآفتاب</span>
-                  <span className="text-amber-700">۹۲٪ پایبندی</span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-[#eee4d8] overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full" style={{ width: `${logs.length ? Math.min(100, Math.round((logs.filter(l => l.exerciseMinutes > 0).length / logs.length) * 100) : 0}%` }} />
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

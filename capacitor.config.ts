@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'ir.roza.skin',
   appName: 'رزا',
   webDir: 'dist',
-  bundledWebRuntime: false,
   plugins: {
     LocalNotifications: { smallIcon: 'ic_stat_roza', iconColor: '#c98978' },
     SplashScreen: {
@@ -16,4 +15,5 @@ const config: CapacitorConfig = {
   },
   android: { allowMixedContent: false },
 };
+
 export default config;

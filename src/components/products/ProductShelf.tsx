@@ -1,220 +1,314 @@
-import React, { useState } from 'react';
-import { Package, Plus, Star, Trash2, X, Sparkles, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Product, ProductCategory } from '../../types';
-import { LocalDB } from '../../services/db';
+import React, { useMemo, useState } from 'react';
+import { Package, Plus, Trash2, X, AlertTriangle, ShoppingBag, CalendarClock } from 'lucide-react';
+import { Product, ProductCategory, UserState } from '../../types';
+import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
+import { findShelfConflicts } from '../../services/safety';
+import { createId } from '../../services/db';
+import { isFeatureEnabled } from '../../config/appConfig';
+import { openPurchase } from '../../services/shop/catalogService';
+import { addDays, formatJalaliDayMonth, getDaysDifference, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
+import { JalaliDatePicker } from '../common/JalaliDatePicker';
+import { EmptyState } from '../common/EmptyState';
 
 interface ProductShelfProps {
   products: Product[];
   onUpdateProducts: (products: Product[]) => void;
+  userState: UserState;
 }
 
-export const ProductShelf: React.FC<ProductShelfProps> = ({
-  products,
-  onUpdateProducts,
-}) => {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newProdName, setNewProdName] = useState('');
-  const [newProdBrand, setNewProdBrand] = useState('');
-  const [newProdCategory, setNewProdCategory] = useState<ProductCategory>('serum');
-  const [newProdIngredients, setNewProdIngredients] = useState('');
-  const [newProdNotes, setNewProdNotes] = useState('');
+const CATEGORY_LABELS: Record<ProductCategory, string> = {
+  cleanser: 'شوینده و پاک‌کننده',
+  moisturizer: 'مرطوب‌کننده',
+  serum: 'سرم',
+  sunscreen: 'ضدآفتاب',
+  treatment: 'درمان موضعی',
+  mask: 'ماسک',
+  eyecare: 'دور چشم',
+  toner: 'تونر',
+  exfoliant: 'لایه‌بردار',
+  haircare: 'مراقبت از مو',
+};
 
-  const handleAddProduct = () => {
-    if (!newProdName.trim()) return;
+/**
+ * قفسه محصولات.
+ *
+ * دو تغییر مهم:
+ *  ۱) ترکیبات به دیتابیس لینک می‌شوند، پس می‌توانیم بگوییم «سرم تو با
+ *     کرم شبت تداخل دارد». در نسخه ۱ ترکیبات متن آزاد بودند و بلااستفاده.
+ *  ۲) تاریخ باز کردن و انقضا — در نسخه ۱ در مدل بود ولی در فرم نبود، در
+ *     حالی که منو ادعای «مدیریت تاریخ انقضا» می‌کرد.
+ */
+export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdateProducts, userState }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
+  const [category, setCategory] = useState<ProductCategory>('serum');
+  const [ingredientIds, setIngredientIds] = useState<string[]>([]);
+  const [openedDate, setOpenedDate] = useState('');
+  const [expirationMonths, setExpirationMonths] = useState('12');
+  const [notes, setNotes] = useState('');
 
-    const newProd: Product = {
-      id: `prod_${Date.now()}`,
-      name: newProdName,
-      brand: newProdBrand || 'نامشخص',
-      category: newProdCategory,
-      ingredients: newProdIngredients ? newProdIngredients.split('،').map((s) => s.trim()) : [],
+  const conflicts = useMemo(() => findShelfConflicts(products), [products]);
+  const todayIso = getTodayIsoDate();
+
+  const expiring = products.filter((product) => {
+    if (!product.openedDate || !product.expirationMonths) return false;
+    const expiryIso = addDays(product.openedDate, product.expirationMonths * 30);
+    return getDaysDifference(todayIso, expiryIso) <= 30;
+  });
+
+  const addProduct = () => {
+    if (!name.trim()) return;
+    const product: Product = {
+      id: createId('prod'),
+      name: name.trim(),
+      brand: brand.trim() || 'نامشخص',
+      category,
+      ingredientIds,
+      customIngredients: [],
       owned: true,
-      notes: newProdNotes,
-      rating: 5,
+      notes: notes.trim() || undefined,
+      openedDate: openedDate || undefined,
+      expirationMonths: parseInt(expirationMonths, 10) || undefined,
+      source: 'user',
+      updatedAt: new Date().toISOString(),
     };
-
-    const updated = [newProd, ...products];
-    onUpdateProducts(updated);
-    LocalDB.saveProducts(updated);
-
-    // Reset form
-    setNewProdName('');
-    setNewProdBrand('');
-    setNewProdIngredients('');
-    setNewProdNotes('');
-    setShowAddModal(false);
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    const updated = products.filter((p) => p.id !== id);
-    onUpdateProducts(updated);
-    LocalDB.saveProducts(updated);
-  };
-
-  const categoryLabels: Record<ProductCategory, string> = {
-    cleanser: 'شوینده و پاک‌کننده',
-    moisturizer: 'مرطوب‌کننده و آبرسان',
-    serum: 'سرم تخصصی',
-    sunscreen: 'ضدآفتاب',
-    treatment: 'درمان موضـعی (ضدجوش/ضدلک)',
-    mask: 'ماسک صورت',
-    eyecare: 'کرم دور چشم',
-    toner: 'تونر و میست',
-    exfoliant: 'لایه‌بردار',
-    haircare: 'مراقبت از مو',
+    onUpdateProducts([product, ...products]);
+    setName('');
+    setBrand('');
+    setIngredientIds([]);
+    setOpenedDate('');
+    setNotes('');
+    setShowForm(false);
   };
 
   return (
-    <div className="pb-28 pt-2 px-4 max-w-lg mx-auto space-y-4">
-      {/* Header & Add Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-black text-[#2e2621]">کیف محصولات پوستی من</h2>
-          <p className="text-xs text-[#8a766c]">مدیریت محصولات موجود جهت شخصی‌سازی روتین</p>
+    <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-base font-black text-slate-800 dark:text-white">قفسه محصولات من</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {toPersianDigits(products.length)} محصول ثبت شده
+          </p>
         </div>
-
         <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2.5 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+          onClick={() => setShowForm(true)}
+          className="px-4 py-2 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          افزایش محصول جدید
+          افزودن
         </button>
       </div>
 
-      {/* Product List */}
-      <div className="space-y-3">
-        {products.length === 0 ? (
-          <div className="p-8 text-center rounded-3xl bg-white border border-[#ebe0d4] text-[#8a766c] text-xs font-bold space-y-2">
-            <Package className="w-8 h-8 mx-auto text-[#c7b5a5]" />
-            <p>هنوز هیچ محصولی به کیف خود اضافه نکرده‌اید.</p>
-          </div>
-        ) : (
-          products.map((prod) => (
+      {/* تداخل درون قفسه — قابلیتی که نسخه ۱ از دست داده بود */}
+      {conflicts.length > 0 && (
+        <div className="p-4 rounded-3xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-2">
+          <h3 className="text-sm font-black text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4" />
+            در قفسه خودت تداخل داری
+          </h3>
+          {conflicts.slice(0, 4).map((conflict, index) => (
+            <div key={index} className="p-3 rounded-2xl bg-white dark:bg-slate-900 space-y-1">
+              <span className="text-xs font-bold text-slate-800 dark:text-white block">
+                {conflict.productNamesFa.join(' و ')}
+              </span>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{conflict.reasonFa}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* یادآوری انقضا */}
+      {expiring.length > 0 && (
+        <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-1.5">
+          <h3 className="text-sm font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+            <CalendarClock className="w-4 h-4" />
+            موعد تمام شدن نزدیک است
+          </h3>
+          {expiring.map((product) => (
+            <p key={product.id} className="text-sm text-amber-900 dark:text-amber-200">
+              {product.brand} {product.name} · تا{' '}
+              {formatJalaliDayMonth(addDays(product.openedDate as string, (product.expirationMonths || 12) * 30))}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {products.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          titleFa="قفسه‌ات خالی است"
+          descriptionFa="محصولاتی که داری را اضافه کن تا روتین با همین محصولات ساخته شود و رزا بتواند تداخل‌ها را پیدا کند."
+          actionLabelFa="افزودن محصول"
+          onAction={() => setShowForm(true)}
+        />
+      ) : (
+        <div className="space-y-2">
+          {products.map((product) => (
             <div
-              key={prod.id}
-              className="p-4 rounded-3xl bg-white border border-[#ebe0d4] shadow-xs text-right space-y-2 relative"
+              key={product.id}
+              className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-2"
             >
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#f6ede5] text-[#8e5241] text-[10px] font-extrabold border border-[#eddcd0]">
-                    {categoryLabels[prod.category]}
-                  </span>
-                  <h3 className="font-extrabold text-sm text-[#2e2621] mt-1">
-                    {prod.name}
-                  </h3>
-                  <span className="text-xs text-[#8a766c] font-medium">{prod.brand}</span>
+                <div className="min-w-0">
+                  <h4 className="font-black text-sm text-slate-800 dark:text-white">{product.name}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {product.brand} · {CATEGORY_LABELS[product.category]}
+                  </p>
                 </div>
-
                 <button
-                  onClick={() => handleDeleteProduct(prod.id)}
-                  className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
-                  title="حذف محصول"
+                  onClick={() => onUpdateProducts(products.filter((item) => item.id !== product.id))}
+                  aria-label="حذف"
+                  className="icon-only p-2 rounded-xl text-slate-400 shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
 
-              {prod.ingredients && prod.ingredients.length > 0 && (
-                <div className="text-xs text-[#6e5d50]">
-                  <strong>ترکیبات اصلی: </strong>
-                  {prod.ingredients.join('، ')}
+              {product.ingredientIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {product.ingredientIds.map((id) => (
+                    <span
+                      key={id}
+                      className="px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold"
+                    >
+                      {INGREDIENTS_DATABASE.find((item) => item.id === id)?.nameFa || id}
+                    </span>
+                  ))}
                 </div>
               )}
 
-              {prod.notes && (
-                <p className="text-xs text-[#705c4f] bg-[#f9f4ee] p-2.5 rounded-xl border border-[#efe2d6]">
-                  {prod.notes}
-                </p>
+              {product.notes && (
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{product.notes}</p>
+              )}
+
+              {/* دکمه خرید — فاز فروشگاه. تا وقتی فلگ خاموش است، نمایش داده نمی‌شود. */}
+              {isFeatureEnabled('shop') && product.catalogId && (
+                <button
+                  onClick={() => openPurchase(product.catalogId as string, userState.deviceId)}
+                  className="w-full py-2.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs font-bold flex items-center justify-center gap-1.5"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  خرید دوباره
+                </button>
               )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Add Product Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-md p-6 rounded-3xl bg-[#faf6f0] text-right space-y-4 shadow-2xl border border-[#ebe0d4]"
-            >
-              <div className="flex items-center justify-between border-b border-[#e5d8cb] pb-3">
-                <h3 className="text-base font-black text-[#2e2621]">افزایش محصول جدید به کیف</h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="p-2 rounded-2xl bg-white text-[#5c4a3e] border border-[#e5d8cb]"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-[#5c4a3e] block mb-1">نام محصول:</label>
-                  <input
-                    type="text"
-                    value={newProdName}
-                    onChange={(e) => setNewProdName(e.target.value)}
-                    placeholder="مثلاً: سرم نیاسینامید اوردینری"
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white border border-[#ebe0d4] text-xs font-bold text-[#382f29]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#5c4a3e] block mb-1">برند:</label>
-                  <input
-                    type="text"
-                    value={newProdBrand}
-                    onChange={(e) => setNewProdBrand(e.target.value)}
-                    placeholder="مثلاً: The Ordinary"
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white border border-[#ebe0d4] text-xs font-bold text-[#382f29]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#5c4a3e] block mb-1">دسته‌بندی:</label>
-                  <select
-                    value={newProdCategory}
-                    onChange={(e) => setNewProdCategory(e.target.value as ProductCategory)}
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white border border-[#ebe0d4] text-xs font-bold text-[#382f29]"
-                  >
-                    {Object.entries(categoryLabels).map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#5c4a3e] block mb-1">
-                    ترکیبات اصلی (با ویرگول جدا کنید):
-                  </label>
-                  <input
-                    type="text"
-                    value={newProdIngredients}
-                    onChange={(e) => setNewProdIngredients(e.target.value)}
-                    placeholder="نیاسینامید، زینک، هیالورونیک اسید"
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white border border-[#ebe0d4] text-xs font-bold text-[#382f29]"
-                  />
-                </div>
-              </div>
-
+      {/* فرم افزودن */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-base text-slate-800 dark:text-white">محصول جدید</h3>
               <button
-                onClick={handleAddProduct}
-                className="w-full py-3 rounded-2xl bg-[#8e5241] text-white text-xs font-bold shadow-md active:scale-95 transition-all mt-2"
+                onClick={() => setShowForm(false)}
+                aria-label="بستن"
+                className="icon-only p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500"
               >
-                ذخیره محصول در کیف
+                <X className="w-5 h-5" />
               </button>
-            </motion.div>
+            </div>
+
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="نام محصول"
+              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+            />
+            <input
+              value={brand}
+              onChange={(event) => setBrand(event.target.value)}
+              placeholder="برند (مانند لافارر، سینره، سی‌گل)"
+              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+            />
+
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value as ProductCategory)}
+              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+            >
+              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <div className="space-y-1.5">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
+                ترکیبات فعال (روی بسته نوشته شده)
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {INGREDIENTS_DATABASE.map((ingredient) => {
+                  const isOn = ingredientIds.includes(ingredient.id);
+                  return (
+                    <button
+                      key={ingredient.id}
+                      onClick={() =>
+                        setIngredientIds(
+                          isOn
+                            ? ingredientIds.filter((id) => id !== ingredient.id)
+                            : [...ingredientIds, ingredient.id],
+                        )
+                      }
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                        isOn
+                          ? 'bg-rose-500 text-white border-rose-500'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {ingredient.nameFa}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <JalaliDatePicker
+              labelFa="تاریخ باز کردن (اختیاری)"
+              value={openedDate}
+              onChange={setOpenedDate}
+              allowFuture={false}
+            />
+
+            <div>
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                چند ماه بعد از باز شدن تمام می‌شود؟
+              </label>
+              <select
+                value={expirationMonths}
+                onChange={(event) => setExpirationMonths(event.target.value)}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+              >
+                {[3, 6, 12, 24].map((months) => (
+                  <option key={months} value={String(months)}>
+                    {toPersianDigits(months)} ماه
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              placeholder="یادداشت (اختیاری)"
+              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm leading-relaxed"
+            />
+
+            <button
+              onClick={addProduct}
+              disabled={!name.trim()}
+              className="w-full py-3.5 rounded-2xl bg-[#8e5241] disabled:opacity-40 text-white font-bold text-sm"
+            >
+              ذخیره
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };

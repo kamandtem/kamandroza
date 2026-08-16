@@ -26,7 +26,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'طبیعی و خانگی',
     targetSkinTypesFa: ['پوست‌های مستعد جوش', 'پوست‌های کدر و دارای لک'],
     durationMinutes: 15,
-    imageUrl: '/assets/masks/mask_1.svg',
+    imageUrl: '/assets/real/masks/set1-1.webp',
     summaryFa: 'یک ماسک فوق‌العاده ضدالتهاب، آنتی‌باکتریال و درخشان‌کننده برای کاهش قرمزی جوش‌ها و یکدست‌سازی رنگ صورت.',
     ingredientsFa: ['۱ قاشق غذاخوری عسل طبیعی', '۱/۲ قاشق چای‌خوری کورکومین (زردچوبه)', '۱ قاشق غذاخوری ماست کم‌چرب'],
     stepsFa: [
@@ -45,7 +45,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'طبیعی و خانگی',
     targetSkinTypesFa: ['پوست حساس', 'پوست دهیدراته و آفتاب‌سوخته'],
     durationMinutes: 20,
-    imageUrl: '/assets/masks/mask_2.svg',
+    imageUrl: '/assets/real/masks/set1-2.webp',
     summaryFa: 'بمب آبرسانی و خنک‌کننده فوری برای تسکین داغی، التهاب رزاسه و کم‌آبی شدید پوست.',
     ingredientsFa: ['۲ قاشق غذاخوری ژل آلوئه‌ورای خالص', 'نصف خیار رنده‌شده و پوره شده'],
     stepsFa: [
@@ -62,7 +62,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['پوست چرب', 'منافذ باز و جوش سرسیاه'],
     durationMinutes: 10,
-    imageUrl: '/assets/masks/mask_3.svg',
+    imageUrl: '/assets/real/masks/set1-3.webp',
     summaryFa: 'پاکسازی عمیق منافذ از چربی و آلودگی‌های محیطی، مات‌کننده چربی بی‌رویه فاز PMS.',
     ingredientsFa: ['۱ قاشق پودر خاک رس بنتونیت', '۱ قاشق آب یا گلاب ملایم', 'چند قطره سرم زینک PCA'],
     stepsFa: [
@@ -80,7 +80,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'طبیعی و خانگی',
     targetSkinTypesFa: ['پوست خشک و شکننده', 'پوست دارای آسیب سد دفاعی'],
     durationMinutes: 15,
-    imageUrl: '/assets/masks/mask_4.svg',
+    imageUrl: '/assets/real/masks/set1-4.webp',
     summaryFa: 'مرهمی بی‌نظیر برای بازسازی سد دفاعی پوست با پودر پربیوتیک جو دو سر.',
     ingredientsFa: ['۲ قاشق غذاخوری پرک جو دو سر آسیاب‌شده', '۱ قاشق غذاخوری ماست پرچرب یا شیر'],
     stepsFa: [
@@ -97,7 +97,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'طبیعی و خانگی',
     targetSkinTypesFa: ['پوست‌های بسیار خشک و دهیدراته', 'پوست‌های بالغ'],
     durationMinutes: 20,
-    imageUrl: '/assets/masks/mask_5.svg',
+    imageUrl: '/assets/real/masks/set2-1.webp',
     summaryFa: 'تغذیه عمیق سلولی با اسیدهای چرب ضروری امگا ۳ و آنتی‌اکسیدان ویتامین E.',
     ingredientsFa: ['۱/۴ آووکادوی له شده', '۱ قاشق چای‌خوری روغن زیتون خمیر شده', 'کپسول ویتامین E'],
     stepsFa: [
@@ -114,7 +114,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['انواع پوست', 'پوست‌های خسته و کدر'],
     durationMinutes: 15,
-    imageUrl: '/assets/masks/mask_6.svg',
+    imageUrl: '/assets/real/masks/set2-2.webp',
     summaryFa: 'اکسیر آنتی‌اکسیدان برای مقابله با رادیکال‌های آزاد آلودگی هوا و شفاف‌سازی چهره.',
     ingredientsFa: ['۱ کیسه چای سبز دم شده خنک', '۱ قاشق آرد برنج خمیر شده', '۲ قطره سرم نیاسینامید'],
     stepsFa: [
@@ -131,7 +131,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['پوست کم‌آب', 'قبل از مهمانی و آرایش'],
     durationMinutes: 15,
-    imageUrl: '/assets/masks/mask_7.svg',
+    imageUrl: '/assets/real/masks/set2-3.webp',
     summaryFa: 'ماسک ورقه‌ای آماده هیدرولیزشده برای تزریق ۲۴ ساعته آب به لایه‌های عمقی.',
     ingredientsFa: ['پد ورقه‌ای پنبه‌ای', 'سرم هیالورونیک اسید', 'اسنس مرطوب‌کننده'],
     stepsFa: [
@@ -148,7 +148,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['پوست‌های خسته', 'پوست‌های در حال بازسازی شبانه'],
     durationMinutes: 480, // Overnight
-    imageUrl: '/assets/masks/mask_8.svg',
+    imageUrl: '/assets/real/masks/set2-4.webp',
     summaryFa: 'ماسک شبانه بدون نیاز به آبکشی که تا صبح سلول‌های آسیب‌دیده را بازسازی می‌کند.',
     ingredientsFa: ['کرم مرطوب‌کننده غنی از سرامید', 'سرم B5 پانتنول'],
     stepsFa: [
@@ -165,7 +165,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['پوست چرب و آکنه‌ای'],
     durationMinutes: 10,
-    imageUrl: '/assets/masks/mask_9.svg',
+    imageUrl: '/assets/real/masks/set3-1.webp',
     summaryFa: 'سم‌زدایی کامل از منافذ پوستی و جذب فلزات سنگین و دود آلودگی‌های شهری.',
     ingredientsFa: ['کپسول زغال فعال طبی', 'ژل سالیسیلیک اسید', 'کمی آب مقطر'],
     stepsFa: [
@@ -182,7 +182,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
     categoryFa: 'تخصصی و درمانی',
     targetSkinTypesFa: ['پوست‌های کدر و دارای بافت ناهموار'],
     durationMinutes: 8,
-    imageUrl: '/assets/masks/mask_10.svg',
+    imageUrl: '/assets/real/masks/set3-2.webp',
     summaryFa: 'لایه‌برداری ملایم سطحی برای ریختن سلول‌های مرده و درخشان شدن فوری چهره.',
     ingredientsFa: ['چند قطره سرم گلیکولیک یا لاکتیک اسید ۵٪', 'گلاب خالص'],
     stepsFa: [

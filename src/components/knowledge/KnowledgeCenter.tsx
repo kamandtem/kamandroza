@@ -3,6 +3,7 @@ import { Search, BookOpen, Clock, Tag, X, ChevronLeft, Sparkles, Award } from 'l
 import { motion, AnimatePresence } from 'motion/react';
 import { Article } from '../../types';
 import { ARTICLES_DATABASE } from '../../services/db';
+import { EXTRA_ARTICLES } from '../../services/content/extraArticles';
 import { toPersianDigits } from '../../services/jalali';
 
 export const KnowledgeCenter: React.FC = () => {
@@ -23,7 +24,8 @@ export const KnowledgeCenter: React.FC = () => {
     { id: 'cat_hair', nameFa: 'مراقبت از مو و پوست سر' },
   ];
 
-  const filteredArticles = ARTICLES_DATABASE.filter((art) => {
+  const allArticles = [...ARTICLES_DATABASE, ...EXTRA_ARTICLES];
+  const filteredArticles = allArticles.filter((art) => {
     const matchesCategory = selectedCategory === 'all' || art.categoryId === selectedCategory;
     const matchesSearch =
       searchQuery.trim() === '' ||
@@ -39,10 +41,10 @@ export const KnowledgeCenter: React.FC = () => {
       <div className="p-4 rounded-3xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-emerald-500/10 border border-rose-200/60 dark:border-slate-800 text-right space-y-1">
         <h2 className="text-base font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5">
           <BookOpen className="w-4 h-4 text-rose-500" />
-          دانشنامه هوشمند و تخصصی پوست
+          مقالات کوتاه و کاربردی
         </h2>
         <p className="text-xs text-slate-600 dark:text-slate-400">
-          مقالات علمی، راهنمای ترکیبات موثره و ارتباط چرخه ماهانه با پوست
+          اول جواب ساده را بخوان؛ جزئیات علمی را فقط اگر خواستی باز کن.
         </p>
       </div>
 

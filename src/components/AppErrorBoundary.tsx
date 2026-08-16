@@ -1,18 +1,45 @@
 import React from 'react';
 
-interface State { hasError: boolean }
-export class AppErrorBoundary extends React.Component<React.PropsWithChildren, State> {
+interface State {
+  hasError: boolean;
+}
+
+/**
+ * دام خطا.
+ *
+ * نسخه ۱ فقط یک دیو خالی نشان می‌داد. الان پیام فارسی و دکمه
+ * تلاش مجدد دارد و مهم‌تر: به کاربر اطمینان می‌دهد داده‌اش پاک نشده.
+ */
+export class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
   state: State = { hasError: false };
-  static getDerivedStateFromError(): State { return { hasError: true }; }
-  componentDidCatch(error: Error) { console.error('Roza UI error', error); }
+
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Roza crashed', error);
+  }
+
   render() {
     if (!this.state.hasError) return this.props.children;
-    return <main dir="rtl" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: '#faf8f5', color: '#3a2f27', fontFamily: 'sans-serif' }}>
-      <section style={{ maxWidth: 420, textAlign: 'center' }}>
-        <h1>رزا موقتاً آماده نیست</h1>
-        <p>اطلاعات ذخیره‌شده شما دست‌نخورده است. برنامه را دوباره باز کنید.</p>
-        <button onClick={() => location.reload()} style={{ border: 0, borderRadius: 14, padding: '12px 24px', background: '#8e5241', color: '#fff', fontWeight: 700 }}>تلاش دوباره</button>
-      </section>
-    </main>;
+
+    return (
+      <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center p-6 text-center">
+        <div className="max-w-sm space-y-4">
+          <div className="text-4xl">🌿</div>
+          <h1 className="text-lg font-black text-slate-800">متاسفم، رزا مشکلی پیدا کرد</h1>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            اطلاعات شما روی گوشی سالم است و پاک نشده. لطفاً برنامه را دوباره باز کنید.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 rounded-2xl bg-rose-500 text-white font-bold text-sm"
+          >
+            تلاش مجدد
+          </button>
+        </div>
+      </div>
+    );
   }
 }

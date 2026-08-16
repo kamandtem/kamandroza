@@ -1,44 +1,76 @@
+/**
+ * مدل داده رزا.
+ *
+ * دو قاعده که برای فازهای بعدی (فروشگاه وب، آرایشگاه و پزشک طرف قرارداد)
+ * رعایت شده‌اند:
+ *  ۱) هر رکوردی که قرار است روزی با سرور سنکرون شود، SyncMeta دارد.
+ *  ۲) هر موجودیتی که می‌تواند هم مال خود کاربر باشد و هم از دایرکتوری
+ *     ما بیاید (محصول، آرایشگاه، پزشک) فیلد source دارد.
+ */
+
+/* ============================ پایه ============================ */
+
+/** فیلدهای مشترک برای سنک آینده با سرور. حتی در حالت آفلاین پر می‌شوند. */
+export interface SyncMeta {
+  /** زمان آخرین تغییر (ISO کامل با ساعت). ملاک حل تعارض در سنک. */
+  updatedAt: string;
+  /** حذف نرم. رکورد می‌ماند تا حذف به سرور هم منتقل شود. */
+  deletedAt?: string;
+  /** تغییر محلی هنوز به سرور نرفته. */
+  dirty?: boolean;
+  /** شناسه رکورد در سرور، اگر قبلاً سنک شده باشد. */
+  remoteId?: string;
+}
+
+/** منبع یک رکورد: خود کاربر وارد کرده یا از دایرکتوری رزا آمده. */
+export type RecordSource = 'user' | 'directory';
+
+/* ============================ پوست و پروفایل ============================ */
+
 export type SkinType = 'dry' | 'oily' | 'combination' | 'normal' | 'sensitive' | 'dehydrated';
 
 export type SkinTone = 'fair' | 'light' | 'medium' | 'tan' | 'dark';
 
-export type SkinConcern = 
-  | 'acne' 
-  | 'hyperpigmentation' 
-  | 'wrinkles' 
-  | 'fine_lines' 
-  | 'dryness' 
-  | 'oiliness' 
-  | 'redness' 
-  | 'rosacea' 
-  | 'eczema' 
-  | 'pores' 
-  | 'texture' 
+export type SkinConcern =
+  | 'acne'
+  | 'hyperpigmentation'
+  | 'wrinkles'
+  | 'fine_lines'
+  | 'dryness'
+  | 'oiliness'
+  | 'redness'
+  | 'rosacea'
+  | 'eczema'
+  | 'pores'
+  | 'texture'
   | 'dark_circles';
+
+export type HairType = 'straight' | 'wavy' | 'curly' | 'coily';
 
 export interface SkinProfile {
   name?: string;
   avatarUrl?: string;
   age: number;
-  gender: 'female' | 'male' | 'other';
   city: string;
-  occupation: string;
   skinType: SkinType;
   skinTone: SkinTone;
-  sensitivityScore: number; // 1-10
+  sensitivityScore: number; // ۱ تا ۱۰
   primaryConcerns: SkinConcern[];
-  hairType: 'straight' | 'wavy' | 'curly' | 'coily';
+  hairType: HairType;
   hairConcerns: string[];
+  /** فیلدهای ایمنی — در موتور توصیه و هشدار ترکیبات استفاده می‌شوند. */
   isPregnant: boolean;
   isBreastfeeding: boolean;
+  /** مصرف رتینوئید خوراکی (ایزوترتینوئین/راکوتان). پرهیزهای جدی دارد. */
+  onOralRetinoid: boolean;
   medications: string[];
   allergies: string[];
 }
 
 export interface LifestyleProfile {
-  waterTargetGlasses: number; // e.g., 8
-  sleepTargetHours: number; // e.g., 8
-  stressLevel: 'low' | 'medium' | 'high'; // low, medium, high
+  waterTargetGlasses: number;
+  sleepTargetHours: number;
+  stressLevel: 'low' | 'medium' | 'high';
   exerciseDaysPerWeek: number;
   sunExposureHours: number;
   junkFoodFrequency: 'rarely' | 'sometimes' | 'frequently';
@@ -46,62 +78,102 @@ export interface LifestyleProfile {
   isSmoking: boolean;
 }
 
+/* ============================ چرخه ============================ */
+
 export type MenstrualPhase = 'menstrual' | 'follicular' | 'ovulation' | 'luteal';
 
+export type CycleRegularity = 'regular' | 'somewhat_irregular' | 'irregular' | 'unknown';
+
 export interface MenstrualCycleConfig {
+  /** کاملاً اختیاری. اگر false باشد، هیچ محتوای چرخه‌ای در اپ دیده نمی‌شود. */
   enabled: boolean;
-  lastPeriodDate: string; // ISO date 'YYYY-MM-DD'
-  cycleLength: number; // Average cycle length in days (e.g., 28)
-  periodLength: number; // Days of period bleeding (e.g., 5)
-  regularity: 'regular' | 'irregular' | 'somewhat_irregular';
-  pmsStartDaysBefore: number; // Usually 7 days before period
+  /** طول متوسط چرخه که کاربر اعلام کرده. پیش‌بینی واقعی از تاریخچه می‌آید. */
+  cycleLength: number;
+  periodLength: number;
+  regularity: CycleRegularity;
+  /** چند روز قبل از پریود، بازه حساس محسوب شود. */
+  pmsStartDaysBefore: number;
+  /** مشکوک یا تشخیص‌داده‌شده PCOS — فقط برای تنطیم لحن و گزارش پزشک. */
+  pcosFlagged: boolean;
+  /** منسوخ: در نسخه ۱ تنها منبع تاریخ بود. فقط برای مایگریشن مانده. */
+  lastPeriodDate?: string;
 }
 
-export interface CycleSymptom {
-  date: string; // ISO date YYYY-MM-DD
-  acne: number; // 0-5
-  oiliness: number; // 0-5
-  dryness: number; // 0-5
-  redness: number; // 0-5
-  sensitivity: number; // 0-5
-  mood: 'great' | 'calm' | 'anxious' | 'irritated' | 'fatigued';
-  stress: number; // 1-5
-  pain: number; // 0-5
-  bloating: boolean;
-  notes?: string;
+/** یک دوره پریود ثبت‌شده. منبع حقیقت برای همه محاسبات چرخه. */
+export interface PeriodLog extends SyncMeta {
+  id: string;
+  startIso: string;
+  /** خالی = هنوز در جریان است. */
+  endIso?: string;
+  flow?: 'light' | 'medium' | 'heavy';
+  notesFa?: string;
 }
 
-export type ProductCategory = 
-  | 'cleanser' 
-  | 'moisturizer' 
-  | 'serum' 
-  | 'sunscreen' 
-  | 'treatment' 
-  | 'mask' 
-  | 'eyecare' 
-  | 'toner' 
-  | 'exfoliant' 
+export type SymptomKey =
+  | 'acne'
+  | 'oiliness'
+  | 'dryness'
+  | 'redness'
+  | 'sensitivity'
+  | 'pain'
+  | 'bloating'
+  | 'headache'
+  | 'lowMood'
+  | 'irritability'
+  | 'fatigue'
+  | 'cravings'
+  | 'badSleep';
+
+export interface CycleSymptom extends SyncMeta {
+  date: string;
+  /** شدت‌های ۰ تا ۵. فقط مواردی که کاربر ثبت کرده پر می‌شوند. */
+  scores: Partial<Record<SymptomKey, number>>;
+  mood?: 'great' | 'calm' | 'anxious' | 'irritated' | 'fatigued';
+  notesFa?: string;
+}
+
+/* ============================ محصول و ترکیبات ============================ */
+
+export type ProductCategory =
+  | 'cleanser'
+  | 'moisturizer'
+  | 'serum'
+  | 'sunscreen'
+  | 'treatment'
+  | 'mask'
+  | 'eyecare'
+  | 'toner'
+  | 'exfoliant'
   | 'haircare';
 
-export interface Product {
+export interface Product extends SyncMeta {
   id: string;
   name: string;
   brand: string;
   category: ProductCategory;
-  ingredients: string[]; // List of ingredient names or IDs
+  /** شناسه ترکیبات از INGREDIENTS_DATABASE (مانند ing_retinol). ملاک تداخل‌سنجی. */
+  ingredientIds: string[];
+  /** ترکیباتی که در دیتابیس ما نیستند و کاربر خودش نوشته. */
+  customIngredients: string[];
   owned: boolean;
   notes?: string;
-  usageInstructionsFa?: string;
-  warningsFa?: string;
-  rating?: number; // 1-5
+  rating?: number;
   openedDate?: string;
   expirationMonths?: number;
+  /* --- فاز فروشگاه: این فیلدها الان خالی‌اند و بعداً از کاتالوگ پر می‌شوند --- */
+  source: RecordSource;
+  /** شناسه محصول در کاتالوگ فروشگاه. */
+  catalogId?: string;
+  sku?: string;
+  priceToman?: number;
+  /** تولید در زمان اجرا از SHOP_BASE_URL. هرگز داخل رکورد ذخیره نمی‌شود. */
+  purchaseUrl?: string;
 }
 
 export interface Ingredient {
   id: string;
-  name: string; // English scientific name e.g. "Niacinamide"
-  nameFa: string; // Persian name e.g. "نیاسینامید"
+  name: string;
+  nameFa: string;
   category: 'active' | 'hydrator' | 'soother' | 'exfoliant' | 'antioxidant' | 'barrier_repair' | 'oil';
   benefitsFa: string[];
   risksFa?: string[];
@@ -110,17 +182,24 @@ export interface Ingredient {
   usageTime: 'morning' | 'night' | 'both';
   pregnancySafety: 'safe' | 'avoid' | 'consult_doctor';
   breastfeedingSafety: 'safe' | 'avoid' | 'consult_doctor';
-  compatibleIngredients: string[]; // Names of ingredients that pair well
-  avoidCombining: string[]; // Names of ingredients to avoid mixing
+  /** شناسه‌های ترکیبات سازگار (نه متن آزاد). */
+  compatibleIngredientIds: string[];
+  /** شناسه‌های ترکیباتی که نباید همزمان مصرف شوند. */
+  avoidCombiningIds: string[];
+  /** دلیل تداخل، برای نمایش به کاربر. */
+  conflictReasonFa?: string;
   sideEffectsFa?: string;
   irritationRisk: 'low' | 'moderate' | 'high';
   descriptionFa: string;
+  imageUrl?: string;
+  /** پرهیز همزمان با خدمات زیبایی (لیزر، پیلینگ، اپیلاسیون). */
+  pauseBeforeProcedures?: boolean;
 }
 
 export interface Article {
   id: string;
   titleFa: string;
-  categoryId: string; // category key
+  categoryId: string;
   categoryFa: string;
   summaryFa: string;
   fullContentFa: string;
@@ -144,7 +223,13 @@ export interface SkinConditionInfo {
   suitableIngredients: string[];
   avoidIngredients: string[];
   imageUrl?: string;
+  /** اگر true، اپ واضح می‌گوید که این مورد نیاز به پزشک دارد. */
+  needsDoctorFa?: string;
 }
+
+/* ============================ روتین ============================ */
+
+export type RoutineType = 'morning' | 'night';
 
 export interface RoutineStep {
   id: string;
@@ -155,69 +240,215 @@ export interface RoutineStep {
   completed: boolean;
   timeSeconds?: number;
   descriptionFa: string;
+  /** چرا این گام در روتین امروز هست. شفافیت به جای جعبه سیاه. */
+  reasonFa?: string;
   isCustom?: boolean;
+  /** گام به خاطر نوبت آرایشگاه/کلینیک یا داروی پزشک حذف یا جایگزین شده. */
+  blockedReasonFa?: string;
 }
 
-export type RoutineType = 'morning' | 'night';
-
-export interface Routine {
+export interface Routine extends SyncMeta {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   type: RoutineType;
   steps: RoutineStep[];
-  completed: boolean;
   completedAt?: string;
 }
 
-export interface DailyTrackerEntry {
+/* ============================ ثبت روزانه ============================ */
+
+export interface DailyTrackerEntry extends SyncMeta {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   waterGlasses: number;
   sleepHours: number;
-  stressLevel: 1 | 2 | 3 | 4 | 5;
+  stressLevel: number; // ۰ = ثبت نشده
   exerciseMinutes: number;
+  usedSunscreen: boolean;
   junkFood: boolean;
   sugarIntake: 'low' | 'moderate' | 'high';
-  skinStatusScore: number; // 1-10 (1 = poor, 10 = radiant)
+  skinStatusScore: number; // ۰ = ثبت نشده، وگرنه ۱ تا ۱۰
   mood: string;
-  rednessScore: number; // 0-5
-  drynessScore: number; // 0-5
-  acneScore: number; // 0-5
-  oilinessScore: number; // 0-5
+  rednessScore: number;
+  drynessScore: number;
+  acneScore: number;
+  oilinessScore: number;
   notes?: string;
 }
 
-export interface PhotoProgress {
+export interface PhotoProgress extends SyncMeta {
   id: string;
-  date: string; // YYYY-MM-DD
-  imagePath: string; // Data URL or local blob path
+  date: string;
+  /** شناسه فایل در مخزن blobs. دیگر base64 در localStorage نیست. */
+  blobId: string;
   notes?: string;
+  /** امتیاز ی خود کاربر (۰ = امتیاز نداده). هرگز خودکار پر نمی‌شود. */
   skinConditionScore: number;
   tagsFa: string[];
+  /** عکس قبل/بعد یک نوبت آرایشگاه یا کلینیک. */
+  appointmentId?: string;
+  appointmentPhase?: 'before' | 'after';
 }
+
+/* ============================ آرایشگاه و پزشک ============================ */
+
+export type ProviderKind = 'salon' | 'clinic';
+
+export type ProviderSpecialty =
+  | 'hair'
+  | 'skin'
+  | 'nail'
+  | 'laser'
+  | 'makeup'
+  | 'dermatologist'
+  | 'gynecologist'
+  | 'nutritionist';
+
+/**
+ * شیوه گرفتن نوبت.
+ *  manual  : کاربر خودش هماهنگ کرده، اپ فقط ثبت و یادآوری می‌کند (فاز ۲)
+ *  call    : دایرکتوری ما، تماس تلفنی (فاز ۳)
+ *  request : درخواست نوبت از طریق اپ، تایید دستی آرایشگاه (فاز ۳)
+ *  instant : رزرو آنی روی تقویم واقعی طرف قرارداد (فاز ۳+)
+ */
+export type BookingMode = 'manual' | 'call' | 'request' | 'instant';
+
+export interface Provider extends SyncMeta {
+  id: string;
+  kind: ProviderKind;
+  source: RecordSource;
+  name: string;
+  specialties: ProviderSpecialty[];
+  contactName?: string;
+  phone?: string;
+  instagram?: string;
+  city?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  /** امتیاز خود کاربر، ۱ تا ۵. مستقل از امتیاز دایرکتوری. */
+  myRating?: number;
+  isFavorite: boolean;
+  notesFa?: string;
+  bookingMode: BookingMode;
+  /* --- فاز دایرکتوری / درآمدزایی --- */
+  /** شناسه طرف قرارداد در سمت ما. ملاک تسویه حساب ارجاع. */
+  partnerId?: string;
+  /** اگر true، در UI باید برچسب «معرفی رزا» بخورد. شفافیت اجباری است. */
+  isSponsored?: boolean;
+  directoryRating?: number;
+  verifiedAt?: string;
+}
+
+export type ServiceCategory =
+  | 'haircut'
+  | 'hair_color'
+  | 'highlight'
+  | 'keratin'
+  | 'hair_treatment'
+  | 'facial'
+  | 'cleansing'
+  | 'microneedling'
+  | 'peeling'
+  | 'laser'
+  | 'wax'
+  | 'threading'
+  | 'brow'
+  | 'lash'
+  | 'nail'
+  | 'makeup'
+  | 'consultation'
+  | 'procedure';
+
+export interface ProviderService extends SyncMeta {
+  id: string;
+  providerId: string;
+  nameFa: string;
+  category: ServiceCategory;
+  durationMin?: number;
+  priceToman?: number;
+  /** بازه تکرار تقریبی — ملاک یادآوری خودکار جلسه بعدی. */
+  repeatIntervalDays?: number;
+  aftercareFa?: string[];
+}
+
+export type AppointmentStatus = 'planned' | 'requested' | 'confirmed' | 'done' | 'canceled' | 'missed';
+
+export interface Appointment extends SyncMeta {
+  id: string;
+  providerId: string;
+  providerKind: ProviderKind;
+  serviceIds: string[];
+  /** عنوان آزاد، وقتی کاربر خدمت تعریف‌شده انتخاب نکرده. */
+  titleFa?: string;
+  dateIso: string;
+  timeHhmm?: string;
+  status: AppointmentStatus;
+  paidToman?: number;
+  satisfaction?: number;
+  notesFa?: string;
+  /** چند روز قبل یادآوری شود. معمولاً [۳، ۱، ۰]. */
+  remindersDaysBefore: number[];
+  /** تولیدشده توسط موتور هماهنگی: پرهیزهای قبل و بعد جلسه. */
+  prepChecklistFa?: string[];
+  aftercareChecklistFa?: string[];
+  /** ملاک ارجاع: این نوبت از دایرکتوری رزا انجام شده یا دستی. */
+  referralId?: string;
+}
+
+/* ============================ پرونده پزشکی ============================ */
+
+export interface Visit extends SyncMeta {
+  id: string;
+  providerId: string;
+  dateIso: string;
+  complaintFa?: string;
+  diagnosisFa?: string;
+  ordersFa?: string;
+  costToman?: number;
+  /** شناسه فایل‌ها در مخزن blobs (عکس نسخه، برگه آزمایش). */
+  attachmentBlobIds: string[];
+  nextVisitDateIso?: string;
+}
+
+export interface Medication extends SyncMeta {
+  id: string;
+  visitId?: string;
+  nameFa: string;
+  form: 'topical' | 'oral' | 'injection';
+  dose?: string;
+  timing: ('morning' | 'noon' | 'night')[];
+  startDateIso: string;
+  durationDays?: number;
+  isActive: boolean;
+  /** شناسه ترکیباتی که با این دارو تداخل دارند. موتور روتین رعایت می‌کند. */
+  conflictingIngredientIds?: string[];
+  cautionsFa?: string[];
+}
+
+export interface LabResult extends SyncMeta {
+  id: string;
+  testNameFa: string;
+  dateIso: string;
+  value?: string;
+  attachmentBlobId?: string;
+  nextDueDateIso?: string;
+}
+
+/* ============================ گیمیفیکیشن ============================ */
 
 export interface Achievement {
   id: string;
   titleFa: string;
   descriptionFa: string;
   iconName: string;
-  xp: number;
   target: number;
   current: number;
   unlocked: boolean;
   unlockedAt?: string;
 }
 
-export interface Challenge {
-  id: string;
-  titleFa: string;
-  descriptionFa: string;
-  categoryFa: string;
-  targetDays: number;
-  currentDays: number;
-  completed: boolean;
-  rewardXp: number;
-}
+/* ============================ آب‌وهوا ============================ */
 
 export interface WeatherData {
   city: string;
@@ -226,11 +457,42 @@ export interface WeatherData {
   humidity: number;
   uvIndex: number;
   recommendationFa: string;
-  city?: string;
   weatherCode?: number;
   updatedAt?: string;
   isStale?: boolean;
+  /** اگر false، کارت آب‌وهوا کاملاً مخفی می‌شود (بدون نمایش خطا). */
+  hasData: boolean;
 }
+
+/* ============================ تلمتری و ارجاع ============================ */
+
+/**
+ * رویدادهای مربوط به مدل درآمدزایی. الان فقط محلی صف می‌شوند؛
+ * وقتی سرور آمد، همین صف برای اثبات ارجاع به آرایشگاه یا پزشک می‌رود.
+ * هیچ داده سلامتی یا عکس در این رویدادها قرار نمی‌گیرد.
+ */
+export type TelemetryEventType =
+  | 'provider_viewed'
+  | 'provider_called'
+  | 'provider_directions'
+  | 'booking_created'
+  | 'booking_completed'
+  | 'booking_canceled'
+  | 'product_viewed'
+  | 'product_purchase_clicked';
+
+export interface TelemetryEvent {
+  id: string;
+  type: TelemetryEventType;
+  atIso: string;
+  /** شناسه طرف قرارداد یا محصول کاتالوگ. بدون این، رویداد ذخیره نمی‌شود. */
+  partnerId?: string;
+  catalogId?: string;
+  referralId?: string;
+  synced: boolean;
+}
+
+/* ============================ وضعیت کلی ============================ */
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -241,17 +503,30 @@ export interface NotificationSettings {
   nightHour: number;
   nightMinute: number;
   cycleInsight: boolean;
+  appointmentReminder: boolean;
+  medicationReminder: boolean;
+  /** متن اعلان‌ها خنطی باشد (روی صفحه قفل چیزی لو نرود). */
+  discreetText: boolean;
+}
+
+export interface PrivacySettings {
+  /** قفل ورود به اپ. */
+  lockEnabled: boolean;
+  /** در صورت خاموش بودن، بخش چرخه از منو و داشبورد محو می‌شود. */
+  hideCycleSection: boolean;
 }
 
 export interface UserState {
+  /** شناسه بی‌نام دستگاه. برای اتصال به حساب و فروشگاه در فازهای بعد. */
+  deviceId: string;
+  schemaVersion: number;
   profile: SkinProfile;
   lifestyle: LifestyleProfile;
   cycleConfig: MenstrualCycleConfig;
-  userXp: number;
-  userLevel: number;
   currentStreakDays: number;
   bestStreakDays: number;
   onboardingCompleted: boolean;
   themeMode: 'light' | 'dark' | 'system';
   notifications: NotificationSettings;
+  privacy: PrivacySettings;
 }

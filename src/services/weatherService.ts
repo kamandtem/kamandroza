@@ -1,25 +1,41 @@
-import { WeatherData } from '../types';
+/**
+ * آب‌وهوا — تنها قابلیت آنلاین برنامه و کاملاً اختیاری.
+ *
+ * در نسخه ۱، وقتی اینترنت نبود کارت روی داشبورد صفر نشان می‌داد و
+ * پیام «اینترنت را روشن کنید» می‌داد. برای کاربر ایرانی که اکسراً
+ * وضعیت اینترنت ناپایدار دارد، این یعنی یک نقص دائمی روی صفحه اول.
+ * الان: اگر داده نباشد hasData=false می‌شود و کارت کاملاً مخفی می‌ماند.
+ */
 
-const CACHE_KEY = 'roza_weather_cache_v1';
+import { WeatherData } from '../types';
+import { isFeatureEnabled } from '../config/appConfig';
+import { readJson, writeJson } from './storage/persistence';
+
+const CACHE_KEY = 'roza_weather_cache_v2';
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+
+export interface WeatherCoords { latitude: number; longitude: number; }
 
 export interface WeatherSnapshot extends WeatherData {
   latitude?: number;
   longitude?: number;
-  weatherCode?: number;
-  updatedAt?: string;
-  isStale?: boolean;
 }
 
 export const EMPTY_WEATHER: WeatherSnapshot = {
-  city: '', temp: 0, conditionFa: 'اطلاعات آب‌وهوا در دسترس نیست', humidity: 0,
-  uvIndex: 0, recommendationFa: 'برای دریافت آب‌وهوای تازه، اتصال اینترنت را روشن کنید.',
-  updatedAt: '', isStale: false,
+  city: '',
+  temp: 0,
+  conditionFa: '',
+  humidity: 0,
+  uvIndex: 0,
+  recommendationFa: '',
+  hasData: false,
+  isStale: false,
 };
 
 function conditionFromCode(code = -1, isNight = false): string {
-  if (code === 0) return isNight ? 'آسمان صاف شب' : 'آفتابی';
+  if (code === 0) return isNight ? 'آسمان صاف' : 'آفتابی';
   if ([1, 2].includes(code)) return 'کمی ابری';
   if (code === 3) return 'ابری';
   if ([45, 48].includes(code)) return 'مه‌آلود';
@@ -27,44 +43,82 @@ function conditionFromCode(code = -1, isNight = false): string {
   if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'بارانی';
   if ([71, 73, 75, 77, 85, 86].includes(code)) return 'برفی';
   if ([95, 96, 99].includes(code)) return 'رعدوبرق';
-  return 'وضعیت نامشخص';
+  return '';
 }
 
 function makeRecommendation(temp: number, humidity: number, uv: number, code: number, skinType?: string): string {
-  if (uv >= 6) return 'تابش آفتاب بالاست؛ ضدآفتاب را فراموش نکنید و در صورت حضور بیرون آن را تجدید کنید.';
-  if (humidity < 35 || skinType === 'dry') return 'رطوبت هوا پایین است؛ مرطوب‌کننده را روی پوست کمی نم‌دار استفاده کنید.';
-  if (code >= 51 && code <= 82) return 'امروز هوا مرطوب یا بارانی است؛ پوست را بعد از بازگشت به‌آرامی پاکسازی و مرطوب کنید.';
-  if (temp >= 32) return 'هوا گرم است؛ در ساعات تابش شدید، سایه و ضدآفتاب را جدی بگیرید.';
-  return 'امروز یک روتین ملایم و مرطوب‌کننده برای پوست کافی است.';
+  if (uv >= 6) return 'تابش آفتاب بالاست؛ ضدآفتاب را تجدید کنید.';
+  if (humidity > 0 && (humidity < 35 || skinType === 'dry')) return 'رطوبت هوا پایین است؛ مرطوب‌کننده را روی پوست نم‌دار بزنید.';
+  if (code >= 51 && code <= 82) return 'هوا مرطوب است؛ بعد از بازگشت به خانه پوست را ملایم پاکسازی کنید.';
+  if (temp >= 32) return 'هوا گرم است؛ در ساعات تابش شدید سایه را جدی بگیرید.';
+  return '';
 }
 
 function readCache(): WeatherSnapshot | null {
-  try { const raw = localStorage.getItem(CACHE_KEY); return raw ? { ...JSON.parse(raw), isStale: true } : null; } catch { return null; }
+  const cached = readJson<WeatherSnapshot | null>(CACHE_KEY, null);
+  if (!cached) return null;
+  const age = cached.updatedAt ? Date.now() - new Date(cached.updatedAt).getTime() : Infinity;
+  return { ...cached, isStale: age > CACHE_TTL_MS };
 }
-function writeCache(value: WeatherSnapshot) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(value)); } catch { /* storage is optional */ } }
 
-export async function fetchWeather(city: string, skinType?: string): Promise<WeatherSnapshot> {
-  const fallback = readCache();
-  if (!city.trim()) return fallback || EMPTY_WEATHER;
+export async function fetchWeather(city: string, skinType?: string, coords?: WeatherCoords): Promise<WeatherSnapshot> {
+  if (!isFeatureEnabled('weather')) return EMPTY_WEATHER;
+
+  const cached = readCache();
+  if (!city.trim() && !coords) return cached || EMPTY_WEATHER;
+  if (cached && !cached.isStale && (!city || cached.city === city) && !coords) return cached;
+
   try {
-    const geoResponse = await fetch(`${GEOCODING_URL}?name=${encodeURIComponent(city)}&count=1&language=fa&format=json`);
-    if (!geoResponse.ok) throw new Error('geocoding_failed');
-    const geo = await geoResponse.json();
-    const place = geo.results?.[0];
-    if (!place) return fallback || { ...EMPTY_WEATHER, city, recommendationFa: 'شهر پیدا نشد؛ نام شهر را بررسی کنید.' };
-    const query = new URLSearchParams({ latitude: String(place.latitude), longitude: String(place.longitude), current: 'temperature_2m,relative_humidity_2m,weather_code,is_day', daily: 'uv_index_max,precipitation_probability_max', timezone: 'auto' });
+    let place: { name: string; latitude: number; longitude: number } | undefined;
+    if (coords) {
+      place = { name: city || 'موقعیت شما', latitude: coords.latitude, longitude: coords.longitude };
+    } else {
+      const geoResponse = await fetch(
+        `${GEOCODING_URL}?name=${encodeURIComponent(city)}&count=1&language=fa&format=json`,
+      );
+      if (!geoResponse.ok) throw new Error('geocoding_failed');
+      const geo = (await geoResponse.json()) as { results?: { name: string; latitude: number; longitude: number }[] };
+      place = geo.results?.[0];
+    }
+    if (!place) return cached || EMPTY_WEATHER;
+
+    const query = new URLSearchParams({
+      latitude: String(place.latitude),
+      longitude: String(place.longitude),
+      current: 'temperature_2m,relative_humidity_2m,weather_code,is_day',
+      daily: 'uv_index_max',
+      timezone: 'auto',
+    });
     const response = await fetch(`${FORECAST_URL}?${query}`);
     if (!response.ok) throw new Error('forecast_failed');
-    const json = await response.json();
+
+    const json = (await response.json()) as {
+      current?: Record<string, number>;
+      daily?: { uv_index_max?: number[] };
+    };
     const current = json.current || {};
     const uv = Number(json.daily?.uv_index_max?.[0] || 0);
+    const temp = Math.round(Number(current.temperature_2m || 0));
+    const humidity = Math.round(Number(current.relative_humidity_2m || 0));
+    const code = Number(current.weather_code);
+
     const snapshot: WeatherSnapshot = {
-      city: place.name || city, temp: Math.round(Number(current.temperature_2m || 0)),
-      conditionFa: conditionFromCode(Number(current.weather_code), Number(current.is_day) === 0),
-      humidity: Math.round(Number(current.relative_humidity_2m || 0)), uvIndex: Math.round(uv * 10) / 10,
-      weatherCode: Number(current.weather_code), recommendationFa: makeRecommendation(Number(current.temperature_2m || 0), Number(current.relative_humidity_2m || 0), uv, Number(current.weather_code), skinType),
-      updatedAt: new Date().toISOString(), latitude: place.latitude, longitude: place.longitude, isStale: false,
+      city: place.name || city || 'موقعیت شما',
+      temp,
+      humidity,
+      uvIndex: Math.round(uv * 10) / 10,
+      conditionFa: conditionFromCode(code, Number(current.is_day) === 0),
+      weatherCode: code,
+      recommendationFa: makeRecommendation(temp, humidity, uv, code, skinType),
+      updatedAt: new Date().toISOString(),
+      latitude: place.latitude,
+      longitude: place.longitude,
+      isStale: false,
+      hasData: true,
     };
-    writeCache(snapshot); return snapshot;
-  } catch { return fallback || { ...EMPTY_WEATHER, city, isStale: false }; }
+    writeJson(CACHE_KEY, snapshot);
+    return snapshot;
+  } catch {
+    return cached || EMPTY_WEATHER;
+  }
 }

@@ -1,0 +1,166 @@
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import {
+  PERSIAN_MONTH_NAMES,
+  PERSIAN_WEEK_HEADERS,
+  buildJalaliMonthGrid,
+  formatJalaliDate,
+  getJalaliToday,
+  getTodayIsoDate,
+  gregorianToJalali,
+  toPersianDigits,
+} from '../../services/jalali';
+
+interface JalaliDatePickerProps {
+  /** تاریخ مقدار به شکل میلادی YYYY-MM-DD (ذخیره داخلی). */
+  value: string;
+  onChange: (isoDate: string) => void;
+  labelFa?: string;
+  /** اجازه انتخاب تاریخ آینده. برای ثبت پریود باید false باشد. */
+  allowFuture?: boolean;
+  allowPast?: boolean;
+}
+
+/**
+ * تاریخ‌گیر شمسی.
+ *
+ * مشکل نسخه ۱: همه ورودی‌ها <input type="date"> میلادی بودند در حالی که
+ * همه نمایش‌ها شمسی. کاربر ایرانی تاریخ میلادی آخرین پریودش را نمی‌داند.
+ */
+export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
+  value,
+  onChange,
+  labelFa,
+  allowFuture = true,
+  allowPast = true,
+}) => {
+  const todayIso = getTodayIsoDate();
+  const initial = value
+    ? (() => {
+        const [gy, gm, gd] = value.split('-').map((part) => parseInt(part, 10));
+        return gregorianToJalali(gy, gm, gd);
+      })()
+    : getJalaliToday();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(initial.jy);
+  const [viewMonth, setViewMonth] = useState(initial.jm);
+
+  const goPrevious = () => {
+    if (viewMonth === 1) {
+      setViewMonth(12);
+      setViewYear(viewYear - 1);
+    } else setViewMonth(viewMonth - 1);
+  };
+
+  const goNext = () => {
+    if (viewMonth === 12) {
+      setViewMonth(1);
+      setViewYear(viewYear + 1);
+    } else setViewMonth(viewMonth + 1);
+  };
+
+  const cells = buildJalaliMonthGrid(viewYear, viewMonth);
+
+  const isDisabled = (iso: string): boolean => {
+    if (!allowFuture && iso > todayIso) return true;
+    if (!allowPast && iso < todayIso) return true;
+    return false;
+  };
+
+  return (
+    <div className="space-y-2">
+      {labelFa && <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{labelFa}</label>}
+
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-white flex items-center justify-between gap-2 text-right"
+      >
+        <span className={value ? '' : 'text-slate-400 font-normal'}>
+          {value ? formatJalaliDate(value) : 'انتخاب تاریخ'}
+        </span>
+        <Calendar className="w-5 h-5 text-rose-500 shrink-0" />
+      </button>
+
+      {isOpen && (
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="ماه بعد"
+              className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            <span className="text-sm font-black text-slate-800 dark:text-white">
+              {PERSIAN_MONTH_NAMES[viewMonth - 1]} {toPersianDigits(viewYear)}
+            </span>
+
+            <button
+              type="button"
+              onClick={goPrevious}
+              aria-label="ماه قبل"
+              className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {PERSIAN_WEEK_HEADERS.map((day) => (
+              <span key={day} className="text-xs font-bold text-slate-400 py-1">
+                {day}
+              </span>
+            ))}
+
+            {cells.map((cell, index) => {
+              if (!cell.iso || cell.jd === null) return <span key={`blank-${index}`} />;
+              const disabled = isDisabled(cell.iso);
+              const isSelected = cell.iso === value;
+              const isToday = cell.iso === todayIso;
+
+              return (
+                <button
+                  key={cell.iso}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    onChange(cell.iso as string);
+                    setIsOpen(false);
+                  }}
+                  className={`icon-only aspect-square rounded-xl text-sm font-bold transition-all ${
+                    isSelected
+                      ? 'bg-rose-500 text-white'
+                      : isToday
+                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300'
+                        : disabled
+                          ? 'text-slate-300 dark:text-slate-700'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {toPersianDigits(cell.jd)}
+                </button>
+              );
+            })}
+          </div>
+
+          {allowPast && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange(todayIso);
+                setIsOpen(false);
+              }}
+              className="w-full py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm font-bold text-rose-600 dark:text-rose-400"
+            >
+              امروز
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};

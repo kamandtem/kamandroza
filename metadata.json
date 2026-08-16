@@ -1,6 +1,6 @@
 {
-  "name": "Roza Skincare & Cycle Companion | رزا دستیار هوشمند پوست",
-  "description": "دستیار تخصصی و آفلاین مراقبت از پوست، هورمون‌ها، روتین روزانه و آنالیز سلامت پوست به زبان فارسی",
+  "name": "رزا | همراه پوست، مو و چرخه",
+  "description": "همراه آفلاین مراقبت از پوست، مو، چرخه ماهانه و نوبت‌های آرایشگاه و پزشک، به زبان فارسی و تقویم شمسی",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
