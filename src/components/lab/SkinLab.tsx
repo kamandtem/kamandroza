@@ -124,9 +124,7 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
                   </span>
                 </div>
 
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
-                  {ingredient.descriptionFa}
-                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">{ingredient.descriptionFa}</p><p className="text-xs text-slate-500 dark:text-slate-500 leading-6"><strong>یعنی:</strong> {ingredient.id === 'ing_retinol' ? 'کمک به نوسازی پوست، مثل یک برنامه تمرینی آرام برای سلول‌های پوست.' : ingredient.id === 'ing_hyaluronic_acid' ? 'آب‌رسانی، مثل یک اسفنج کوچک که رطوبت را نگه می‌دارد.' : ingredient.id === 'ing_niacinamide' ? 'کمک به آرام‌تر شدن چربی و ظاهر منافذ پوست.' : 'یک ماده مراقبتی که برای هدف مشخصی در محصول استفاده شده است.'}</p>
 
                 {verdict.reasonsFa.length > 0 && (
                   <p className="text-xs font-bold text-rose-600 dark:text-rose-400">{verdict.reasonsFa[0]}</p>

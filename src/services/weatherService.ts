@@ -122,3 +122,18 @@ export async function fetchWeather(city: string, skinType?: string, coords?: Wea
     return cached || EMPTY_WEATHER;
   }
 }
+
+export function requestWeatherLocation(): Promise<WeatherCoords> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { reject(new Error('geolocation_unavailable')); return; }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        localStorage.setItem('roza_weather_coords_v1', JSON.stringify(coords));
+        resolve(coords);
+      },
+      (error) => reject(error),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 },
+    );
+  });
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Camera, Trash2, ImageIcon, Calendar, BarChart3, AlertTriangle } from 'lucide-react';
+import { Camera, Trash2, ImageIcon, BarChart3, AlertTriangle } from 'lucide-react';
 import { PhotoProgress } from '../../types';
 import { LocalDB } from '../../services/db';
 import { deletePhoto, getPhotoUrl, savePhoto } from '../../services/photoService';
@@ -18,7 +18,7 @@ import {
 import { EmptyState } from '../common/EmptyState';
 
 interface ProgressTrackerProps {
-  initialTab?: 'calendar' | 'photos' | 'stats';
+  initialTab?: 'photos' | 'stats';
 }
 
 /** عکس را از IndexedDB می‌خواند (دیگر base64 در localStorage نیست). */
@@ -49,12 +49,13 @@ const PhotoImage: React.FC<{ photo: PhotoProgress; className?: string }> = ({ ph
  *  ۲) تقویم با toISOString() ساخته می‌شد (UTC) و در ایران بعد از طهر یک روز جلو می‌افتاد.
  *  ۳) بعد از آپلود عکس، کل صفحه reload می‌شد.
  */
-export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = 'calendar' }) => {
+export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = 'photos' }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [refresh, setRefresh] = useState(0);
   const bump = () => setRefresh((value) => value + 1);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [photoDate, setPhotoDate] = useState(getTodayIsoDate());
   const [storage, setStorage] = useState<{ usedMb: number; quotaMb: number } | null>(null);
 
   const photos = useMemo(() => LocalDB.getPhotos(), [refresh]);
@@ -73,7 +74,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = '
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadError(null);
-    const result = await savePhoto(file);
+    const result = await savePhoto(file, { dateIso: photoDate });
     if (!result.ok) {
       setUploadError(result.errorFa || 'ذخیره عکس ممکن نشد.');
       return;
@@ -94,7 +95,6 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = '
       <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center gap-1">
         {(
           [
-            { key: 'calendar' as const, labelFa: 'تقویم', icon: Calendar },
             { key: 'photos' as const, labelFa: 'عکس‌ها', icon: Camera },
             { key: 'stats' as const, labelFa: 'آمار', icon: BarChart3 },
           ]
@@ -117,76 +117,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = '
         })}
       </div>
 
-      {/* --------------------------- تقویم --------------------------- */}
-      {activeTab === 'calendar' && (
-        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-black text-sm text-slate-800 dark:text-white">
-              {PERSIAN_MONTH_NAMES[jalaliToday.jm - 1]} {toPersianDigits(jalaliToday.jy)}
-            </h3>
-            <span className="text-xs font-bold text-[#8e5241] dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-full">
-              {getTodayPersianHeader()}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {PERSIAN_WEEK_HEADERS.map((day) => (
-              <span key={day} className="text-xs font-bold text-slate-400 py-1">
-                {day}
-              </span>
-            ))}
-
-            {monthCells.map((cell, index) => {
-              if (!cell.iso || cell.jd === null) return <span key={`blank-${index}`} />;
-              const data = dayMap.get(cell.iso);
-              const isToday = cell.iso === todayIso;
-              const isFuture = cell.iso > todayIso;
-
-              return (
-                <div
-                  key={cell.iso}
-                  title={formatJalaliDate(cell.iso)}
-                  className={`aspect-square rounded-xl flex items-center justify-center text-sm font-bold ${
-                    isToday
-                      ? 'bg-[#8e5241] text-white'
-                      : data?.hasRoutine
-                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
-                        : data?.hasLog
-                          ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300'
-                          : isFuture
-                            ? 'text-slate-300 dark:text-slate-700'
-                            : 'bg-slate-50 dark:bg-slate-800 text-slate-500'
-                  }`}
-                >
-                  {toPersianDigits(cell.jd)}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 pt-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-emerald-400 inline-block" />
-              روتین
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-amber-400 inline-block" />
-              ثبت روزانه
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* --------------------------- عکس‌ها --------------------------- */}
       {activeTab === 'photos' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-black text-sm text-slate-800 dark:text-white">عکس‌های من</h3>
-            <label className="cursor-pointer px-4 py-2 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5">
+            <div className="flex items-center gap-2"><input type="date" value={photoDate} onChange={(event) => setPhotoDate(event.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2 text-xs font-bold" /><label className="cursor-pointer px-4 py-2 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5">
               <Camera className="w-4 h-4" />
               عکس جدید
               <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
-            </label>
+            </label></div>
           </div>
 
           {/* خطای ذخیره الان دیده می‌شود. نسخه ۱ بی‌صدا شکست می‌خورد. */}

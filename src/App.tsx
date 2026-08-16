@@ -3,7 +3,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { DailyTrackerEntry, Product, UserState } from './types';
 import { LocalDB } from './services/db';
 import { getTodayIsoDate } from './services/jalali';
-import { EMPTY_WEATHER, WeatherSnapshot, fetchWeather } from './services/weatherService';
+import { EMPTY_WEATHER, WeatherSnapshot, fetchWeather, requestWeatherLocation } from './services/weatherService';
 import { scheduleRozaNotifications } from './services/notificationService';
 import { isLockConfigured } from './services/security/appLock';
 import { computeStreak } from './services/routineService';
@@ -29,6 +29,8 @@ import { FaceMasksView } from './components/masks/FaceMasksView';
 import { AppointmentsView } from './components/appointments/AppointmentsView';
 import { MakeupTipsView } from './components/makeup/MakeupTipsView';
 import { DayPlanFab } from './components/routine/DayPlanFab';
+import { PersonalRoutineView } from './components/routine/PersonalRoutineView';
+import { SplashScreen } from './components/common/SplashScreen';
 
 export type SectionKey =
   | 'profile'
@@ -40,7 +42,9 @@ export type SectionKey =
   | 'masks'
   | 'salon'
   | 'clinic'
-  | 'makeup';
+  | 'makeup'
+  | 'personalRoutine'
+  | 'knowledge';
 
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: 'پروفایل و تنطیمات',
@@ -53,6 +57,8 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   salon: 'آرایشگاه و نوبت‌های من',
   clinic: 'پزشک و پرونده پوست',
   makeup: 'ترفندهای آرایش',
+  personalRoutine: 'روتین پوستی من',
+  knowledge: 'مقالات کوتاه',
 };
 
 function createEmptyLog(dateIso: string): DailyTrackerEntry {
@@ -82,6 +88,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const lastBackAt = React.useRef(0);
+  const [showSplash, setShowSplash] = useState(true);
   const [showIntro, setShowIntro] = useState(() => localStorage.getItem('roza_intro_seen_v3') !== '1');
   const [tourKey, setTourKey] = useState<TourKey | null>(() => {
     if (localStorage.getItem('roza_intro_seen_v3') !== '1') return null;
@@ -97,6 +106,7 @@ export default function App() {
   );
   const [weather, setWeather] = useState<WeatherSnapshot>(EMPTY_WEATHER);
   const [weatherLocationStatus, setWeatherLocationStatus] = useState<'idle' | 'loading' | 'denied'>('idle');
+  const requestWeatherGps = async () => { setWeatherLocationStatus('loading'); try { const coords = await requestWeatherLocation(); const value = await fetchWeather(userState.profile.city, userState.profile.skinType, coords); setWeather(value); setWeatherLocationStatus('idle'); } catch { setWeatherLocationStatus('denied'); } };
 
   /* --------------------------- تم --------------------------- */
   useEffect(() => {
@@ -160,7 +170,14 @@ export default function App() {
       setActiveTab('home');
       return true;
     }
-    return false;
+    const now = Date.now();
+    if (now - lastBackAt.current < 1800) {
+      setShowExitConfirm(true);
+      lastBackAt.current = 0;
+    } else {
+      lastBackAt.current = now;
+    }
+    return true;
   }, [isDrawerOpen, activeSection, activeTab]);
 
   useEffect(() => {
@@ -201,6 +218,8 @@ export default function App() {
   const cycleVisible = userState.cycleConfig.enabled && !userState.privacy.hideCycleSection;
 
   const sectionTitle = useMemo(() => (activeSection ? SECTION_TITLES[activeSection] : ''), [activeSection]);
+
+  if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
 
   if (showIntro) {
     return <IntroSlides onDone={() => { setShowIntro(false); setTourKey(null); }} />;
@@ -250,9 +269,15 @@ export default function App() {
         {activeSection === 'salon' && <AppointmentsView kind="salon" userState={userState} />}
         {activeSection === 'clinic' && <AppointmentsView kind="clinic" userState={userState} />}
         {activeSection === 'makeup' && <MakeupTipsView />}
+        {activeSection === 'personalRoutine' && <PersonalRoutineView />}
+        {activeSection === 'knowledge' && <KnowledgeCenter />}
       </div>
     );
   };
+
+  if (showExitConfirm) {
+    return <div className="fixed inset-0 z-[90] bg-[#20334d]/45 flex items-center justify-center p-5"><div className="w-full max-w-sm rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 text-center shadow-2xl space-y-4"><h2 className="text-base font-black text-[#263b56] dark:text-white">از برنامه خارج می‌شوی؟</h2><p className="text-sm leading-7 text-slate-500 dark:text-slate-400">برای بستن برنامه، تأیید کن.</p><div className="flex gap-2"><button onClick={() => setShowExitConfirm(false)} className="flex-1 rounded-2xl bg-slate-100 dark:bg-slate-800 py-3 text-sm font-bold">انصراف</button><button onClick={() => void CapacitorApp.exitApp()} className="flex-1 rounded-2xl bg-rose-500 py-3 text-sm font-bold text-white">خروج</button></div></div></div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
@@ -290,6 +315,9 @@ export default function App() {
               products={products}
               todayLog={todayLog}
               weather={weather}
+              onRequestWeatherLocation={requestWeatherGps}
+              weatherLocationLoading={weatherLocationStatus === 'loading'}
+              weatherLocationError={weatherLocationStatus === 'denied'}
               cycleVisible={cycleVisible}
               onUpdateDailyLog={handleUpdateTodayLog}
               onNavigateTab={(tab) => { setActiveTab(tab); const key = tab as TourKey; setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key); }}
@@ -301,9 +329,9 @@ export default function App() {
             <RoutineView userState={userState} weather={weather} products={products} />
           )}
 
-          {activeTab === 'knowledge' && <KnowledgeCenter />}
+          {activeTab === 'cycle' && <CycleDashboard userState={userState} onUpdateCycleConfig={(config) => handleUpdateUserState({ ...userState, cycleConfig: config })} />}
 
-          {activeTab === 'progress' && <ProgressTracker initialTab="calendar" />}
+          {activeTab === 'progress' && <ProgressTracker initialTab="photos" />}
         </main>
       )}
 
@@ -317,7 +345,7 @@ export default function App() {
         }}
       />
       {tourKey && <FeatureTourOverlay tourKey={tourKey} onDone={() => setTourKey(null)} />}
-      <DayPlanFab />
+      <DayPlanFab onOpen={() => setActiveSection('personalRoutine')} />
     </div>
   );
 }

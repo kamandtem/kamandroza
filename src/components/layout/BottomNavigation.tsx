@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, CheckCircle2, BookOpen, TrendingUp } from 'lucide-react';
+import { Home, CheckCircle2, Moon, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export type NavTab = 'home' | 'routine' | 'knowledge' | 'progress';
+export type NavTab = 'home' | 'routine' | 'cycle' | 'progress';
 interface BottomNavigationProps { activeTab: NavTab; onTabChange: (tab: NavTab) => void; }
 
 /** نوبار پایین با الگوی مرجع: کپسول سفید و تب فعال خاکستری-آبی. */
@@ -10,7 +10,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
   const tabs = [
     { id: 'home' as NavTab, label: 'خانه', icon: Home },
     { id: 'routine' as NavTab, label: 'روتین', icon: CheckCircle2 },
-    { id: 'knowledge' as NavTab, label: 'دانش', icon: BookOpen },
+    { id: 'cycle' as NavTab, label: 'سیکل', icon: Moon },
     { id: 'progress' as NavTab, label: 'پیشرفت', icon: TrendingUp },
   ];
   return (

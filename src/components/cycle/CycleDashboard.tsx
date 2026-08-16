@@ -165,7 +165,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           onClick={() => setShowManual(!showManual)}
           className="w-full text-xs font-bold text-rose-100 underline"
         >
-          ثبت تاریخ گذشته
+          ویرایش پریود
         </button>
 
         {showManual && (

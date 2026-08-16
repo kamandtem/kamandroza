@@ -6,7 +6,7 @@ import { Routine, RoutineStep } from '../../types';
 import { loadRoutine, toggleStep } from '../../services/routineService';
 
 /** دکمه شناور برای ساخت برنامه شخصی همان روز، با رفتار شبیه پنل اهداف مرجع. */
-export const DayPlanFab: React.FC = () => {
+export const DayPlanFab: React.FC<{ onOpen?: () => void }> = ({ onOpen }) => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [minutes, setMinutes] = useState('10');
@@ -29,7 +29,7 @@ export const DayPlanFab: React.FC = () => {
   const toggle = (id: string) => { if (!routine) return; const updated = toggleStep(routine, id); setRoutine(updated); };
 
   return <>
-    <button aria-label="افزودن برنامه شخصی امروز" onClick={() => setOpen(true)} className="fixed z-40 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-5 w-14 h-14 rounded-full bg-[#263b56] text-white shadow-[0_10px_26px_rgba(38,59,86,.3)] flex items-center justify-center active:scale-95 transition-transform"><Plus className="w-7 h-7" /></button>
+    <button aria-label="افزودن برنامه شخصی امروز" onClick={() => onOpen ? onOpen() : setOpen(true)} className="fixed z-40 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-[calc(50%-150px)] w-14 h-14 rounded-full bg-[#263b56] text-white shadow-[0_10px_26px_rgba(38,59,86,.3)] flex items-center justify-center active:scale-95 transition-transform"><Plus className="w-7 h-7" /></button>
     {open && <div className="fixed inset-0 z-[55] bg-[#20334d]/30 flex items-end justify-center p-4" onClick={() => setOpen(false)}><section className="w-full max-w-md max-h-[78vh] overflow-y-auto rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
       <div className="flex items-center justify-between mb-4"><div><h2 className="text-lg font-black text-[#263b56] dark:text-white">برنامه شخصی امروز</h2><p className="text-xs text-slate-500 mt-1">کارهای خودت را اضافه کن و بعد تیک بزن.</p></div><button onClick={() => setOpen(false)} className="icon-only p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500"><X className="w-5 h-5" /></button></div>
       <div className="flex gap-2 mb-4"><input value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') add(); }} placeholder="مثلاً ماسک آبرسان" className="flex-1 min-w-0 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm font-bold" /><input value={minutes} onChange={(event) => setMinutes(event.target.value.replace(/\D/g, ''))} inputMode="numeric" aria-label="مدت به دقیقه" className="w-20 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-3 text-sm font-bold text-center" /><button onClick={add} disabled={!title.trim()} className="icon-only w-12 rounded-2xl bg-[#263b56] text-white disabled:opacity-40"><Plus className="w-5 h-5 mx-auto" /></button></div>

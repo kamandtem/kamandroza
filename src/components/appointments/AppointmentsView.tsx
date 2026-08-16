@@ -238,7 +238,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
   };
 
   return (
-    <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-40 px-4 max-w-lg mx-auto space-y-4">
       {/* معرفی بخش */}
       <div className="rounded-3xl bg-gradient-to-l from-rose-500/10 to-amber-500/10 border border-rose-200 dark:border-slate-800 overflow-hidden">
         <button onClick={() => setIntroOpen((value) => !value)} className="w-full p-4 flex items-center justify-between gap-3 text-right">

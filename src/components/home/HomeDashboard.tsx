@@ -28,6 +28,9 @@ interface HomeDashboardProps {
   products: Product[];
   todayLog: DailyTrackerEntry;
   weather: WeatherData;
+  onRequestWeatherLocation?: () => void;
+  weatherLocationLoading?: boolean;
+  weatherLocationError?: boolean;
   cycleVisible: boolean;
   onUpdateDailyLog: (log: DailyTrackerEntry) => void;
   onNavigateTab: (tab: NavTab) => void;
@@ -49,6 +52,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   products,
   todayLog,
   weather,
+  onRequestWeatherLocation,
+  weatherLocationLoading,
+  weatherLocationError,
   cycleVisible,
   onUpdateDailyLog,
   onNavigateTab,
@@ -288,7 +294,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </button>
       )}
 
-      <WeatherClimateCard weather={weather} />
+      <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} />
 
       <Monthly30DayTracker onOpenProgress={() => onNavigateTab('progress')} />
     </div>
