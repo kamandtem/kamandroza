@@ -12,12 +12,14 @@ import {
   HeartPulse,
   Sparkles,
   EyeOff,
+  Download, Upload, Trash2,
 } from 'lucide-react';
 import { SkinConcern, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import { clearPin, isLockConfigured, setPin } from '../../services/security/appLock';
 import { isFeatureEnabled } from '../../config/appConfig';
 import { toPersianDigits } from '../../services/jalali';
+import { wipeAllData } from '../../services/storage/persistence';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -258,12 +260,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
           labelFa="دوران شیردهی"
           value={draft.profile.isBreastfeeding}
           onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, isBreastfeeding: value } })}
-        />
-        <Toggle
-          labelFa="رتینوئید خوراکی مصرف می‌کنم"
-          value={draft.profile.onOralRetinoid}
-          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, onOralRetinoid: value } })}
-          hintFa="روتین ملایم می‌شود و لایه‌برداری و لیزر هشدار می‌گیرند"
         />
       </Section>
 
@@ -524,9 +520,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
         </div>
       </Section>
 
+      <Section titleFa="مدیریت داده‌ها" icon={Settings}>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => { const blob = new Blob([JSON.stringify(LocalDB.exportBackupData(), null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'roza-backup.json'; a.click(); URL.revokeObjectURL(url); }} className="py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-sm font-bold flex items-center justify-center gap-1.5"><Download className="w-4 h-4" /> پشتیبان</button>
+          <label className="py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer"><Upload className="w-4 h-4" /> بازگردانی<input type="file" accept=".json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const result = LocalDB.importBackupData(JSON.parse(String(reader.result))); alert(result.ok ? 'اطلاعات بازگردانی شد.' : result.errorFa); }; reader.readAsText(file); }} /></label>
+        </div>
+        <button onClick={async () => { if (window.confirm('همه اطلاعات رزا پاک شود؟ این کار قابل بازگشت نیست.')) { await wipeAllData(); window.location.reload(); } }} className="w-full py-3 rounded-2xl text-rose-600 bg-rose-50 dark:bg-rose-950/30 text-sm font-bold flex items-center justify-center gap-1.5"><Trash2 className="w-4 h-4" /> پاک کردن کامل داده‌ها</button>
+      </Section>
+
       <button
         onClick={save}
-        className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        className= bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
       >
         {savedMessage ? (
           <>

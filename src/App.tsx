@@ -27,6 +27,8 @@ import { CycleDashboard } from './components/cycle/CycleDashboard';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { FaceMasksView } from './components/masks/FaceMasksView';
 import { AppointmentsView } from './components/appointments/AppointmentsView';
+import { MakeupTipsView } from './components/makeup/MakeupTipsView';
+import { DayPlanFab } from './components/routine/DayPlanFab';
 
 export type SectionKey =
   | 'profile'
@@ -37,7 +39,8 @@ export type SectionKey =
   | 'photo'
   | 'masks'
   | 'salon'
-  | 'clinic';
+  | 'clinic'
+  | 'makeup';
 
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: 'پروفایل و تنطیمات',
@@ -49,6 +52,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   masks: 'ماسک‌های پوستی',
   salon: 'آرایشگاه و نوبت‌های من',
   clinic: 'پزشک و پرونده پوست',
+  makeup: 'ترفندهای آرایش',
 };
 
 function createEmptyLog(dateIso: string): DailyTrackerEntry {
@@ -78,9 +82,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [showIntro, setShowIntro] = useState(() => localStorage.getItem('roza_intro_seen_v2') !== '1');
+  const [showIntro, setShowIntro] = useState(() => localStorage.getItem('roza_intro_seen_v3') !== '1');
   const [tourKey, setTourKey] = useState<TourKey | null>(() => {
-    if (localStorage.getItem('roza_intro_seen_v2') !== '1') return null;
+    if (localStorage.getItem('roza_intro_seen_v3') !== '1') return null;
     return localStorage.getItem('roza_tour_home_v1') === '1' ? null : 'home';
   });
 
@@ -245,6 +249,7 @@ export default function App() {
         {activeSection === 'masks' && <FaceMasksView onClose={() => setActiveSection(null)} />}
         {activeSection === 'salon' && <AppointmentsView kind="salon" userState={userState} />}
         {activeSection === 'clinic' && <AppointmentsView kind="clinic" userState={userState} />}
+        {activeSection === 'makeup' && <MakeupTipsView />}
       </div>
     );
   };
@@ -256,6 +261,8 @@ export default function App() {
         weather={weather}
         onOpenDrawer={() => setIsDrawerOpen(true)}
         onToggleTheme={handleToggleTheme}
+        onNavigateTab={(tab) => { setActiveTab(tab); setActiveSection(null); }}
+        onOpenSection={(section) => { setActiveSection(section); setIsDrawerOpen(false); }}
       />
 
       <DrawerMenu
@@ -310,6 +317,7 @@ export default function App() {
         }}
       />
       {tourKey && <FeatureTourOverlay tourKey={tourKey} onDone={() => setTourKey(null)} />}
+      <DayPlanFab />
     </div>
   );
 }

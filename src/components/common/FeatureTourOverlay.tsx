@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Check, Sparkles } from 'lucide-react';
-export type TourKey = 'home' | 'routine' | 'cycle' | 'products' | 'progress' | 'salon' | 'clinic' | 'knowledge';
-interface FeatureTourOverlayProps { tourKey: TourKey; onDone: () => void; }
-const tourCopy: Record<TourKey, { titleFa: string; steps: { titleFa: string; textFa: string }[] }> = {
-  home: { titleFa: 'خانه رزا', steps: [{ titleFa: 'پیشنهاد امروز', textFa: 'اینجا خلاصه‌ای کوتاه از کارهای مهم امروزت را می‌بینی، نه یک عالمه عدد و نمودار.' }, { titleFa: 'ثبت سریع', textFa: 'آب، ضدآفتاب و حال پوستت را همین‌جا ثبت کن تا گزارش‌ها واقعاً بر اساس داده خودت باشند.' }] },
-  routine: { titleFa: 'روتین امروز', steps: [{ titleFa: 'تیک بزن، رها کن', textFa: 'هر گام را که انجام دادی تیک بزن. ثبت‌ها ذخیره می‌شوند و با بستن برنامه از بین نمی‌روند.' }, { titleFa: 'چرا این پیشنهاد؟', textFa: 'زیر هر گام دلیلش را می‌بینی. اگر نوبت لیزر یا شرایط ایمنی داشته باشی، روتین خودش ملایم می‌شود.' }] },
-  cycle: { titleFa: 'چرخه ماهانه', steps: [{ titleFa: 'ثبت با یک لمس', textFa: 'روز اول پریود را ثبت کن و بعد هر روز علائم مهم را با چند انتخاب کوتاه ثبت کن.' }, { titleFa: 'الگوی خودت، نه حدس عمومی', textFa: 'بعد از چند چرخه، رزا الگوی واقعی جوش و علائم خودت را پیدا می‌کند. پیش‌بینی‌ها همیشه با میزان اطمینان نمایش داده می‌شوند.' }] },
-  products: { titleFa: 'قفسه محصولات', steps: [{ titleFa: 'محصولات خودت را اضافه کن', textFa: 'ترکیبات فعال را انتخاب کن تا رزا بتواند تداخل بین محصولاتی که داری را پیدا کند.' }, { titleFa: 'انقضا را فراموش نکن', textFa: 'تاریخ باز کردن را ثبت کن تا قبل از تمام شدن عمر محصول، یادآوری بگیری.' }] },
-  progress: { titleFa: 'پیشرفت واقعی', steps: [{ titleFa: 'تقویم ثبت‌ها', textFa: 'روزهایی که روتین یا ثبت روزانه داشته‌ای روی تقویم مشخص می‌شوند.' }, { titleFa: 'عکس‌ها خصوصی‌اند', textFa: 'عکس‌ها فشرده و روی همین گوشی ذخیره می‌شوند. هیچ امتیاز خودکاری برای عکس ساخته نمی‌شود.' }] },
-  salon: { titleFa: 'آرایشگاه و نوبت‌ها', steps: [{ titleFa: 'نوبت را ثبت کن', textFa: 'آرایشگاه، خدمت، تاریخ و هزینه را اضافه کن تا سابقه‌اش مرتب بماند.' }, { titleFa: 'مراقبت هماهنگ', textFa: 'برای لیزر، وکس و پیلینگ، رزا روزهای قطع ترکیبات فعال و روتین بعد از خدمت را یادآوری می‌کند.' }] },
-  clinic: { titleFa: 'پزشک و پرونده', steps: [{ titleFa: 'پرونده را مرتب کن', textFa: 'پزشک، تاریخ ویزیت، داروها و دستورهای پزشک را در یک جا نگه دار.' }, { titleFa: 'رزا پزشک نیست', textFa: 'این بخش فقط برای ثبت و یادآوری است. تشخیص و تجویز همیشه با پزشک متخصص است.' }] },
-  knowledge: { titleFa: 'مقالات کوتاه', steps: [{ titleFa: 'اول جواب کوتاه', textFa: 'هر مقاله با خلاصه ساده شروع می‌شود. اگر خواستی، جزئیات علمی را باز می‌کنی.' }, { titleFa: 'از جستجو استفاده کن', textFa: 'نام دغدغه یا ترکیب را جستجو کن و مقاله‌های مرتبط را بخوان.' }] },
+import React, { useEffect } from 'react';
+import { Check, Sparkles } from 'lucide-react';
+export type TourKey = 'home' | 'routine' | 'cycle' | 'products' | 'progress' | 'salon' | 'clinic' | 'knowledge' | 'makeup';
+interface Props { tourKey: TourKey; onDone: () => void; }
+const copy: Record<TourKey, { title: string; text: string }> = {
+  home: { title: 'اینجا خانه رزا است', text: 'پیشنهاد امروز، ثبت سریع و وضعیت پوستت را یک‌جا می‌بینی.' },
+  routine: { title: 'روتین امروز', text: 'هر گام را انجام دادی تیک بزن؛ ثبت‌ها ذخیره می‌شوند.' },
+  cycle: { title: 'چرخه ماهانه', text: 'روز پریود و علائم را ثبت کن تا الگوی شخصی‌ات ساخته شود.' },
+  products: { title: 'قفسه محصولات', text: 'محصولاتت را اضافه کن و ترکیبات فعال را از داخل فهرست انتخاب کن.' },
+  progress: { title: 'پیشرفت واقعی', text: 'تقویم و آمار فقط از ثبت‌های واقعی خودت ساخته می‌شوند.' },
+  salon: { title: 'نوبت‌های زیبایی', text: 'نوبت را ثبت کن تا رزا مراقبت قبل و بعد را یادآوری کند.' },
+  clinic: { title: 'پرونده پزشک', text: 'ویزیت، دارو و یادداشت‌ها را مرتب نگه دار. رزا جای پزشک نیست.' },
+  knowledge: { title: 'مقالات کوتاه', text: 'اول خلاصه ساده را بخوان، جزئیات علمی را فقط در صورت نیاز باز کن.' },
+  makeup: { title: 'ترفندهای آرایش', text: 'ترفندهای کوتاه و قابل انجام برای لب، چشم، گونه و ناخن.' },
 };
-export const FeatureTourOverlay: React.FC<FeatureTourOverlayProps> = ({ tourKey, onDone }) => {
-  const [index, setIndex] = useState(0); const copy = tourCopy[tourKey]; const isLast = index === copy.steps.length - 1;
+export const FeatureTourOverlay: React.FC<Props> = ({ tourKey, onDone }) => {
+  useEffect(() => { const timer = window.setTimeout(onDone, 6500); return () => window.clearTimeout(timer); }, [onDone]);
   const finish = () => { localStorage.setItem(`roza_tour_${tourKey}_v1`, '1'); onDone(); };
-  return <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/55 p-4 backdrop-blur-sm"><div className="w-full max-w-md space-y-4 rounded-[2rem] bg-[#fffdfa] p-5 text-right shadow-2xl dark:bg-slate-900"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300"><Sparkles className="h-5 w-5" /></span><div><p className="text-xs font-bold text-rose-600">راهنمای کوتاه</p><h2 className="text-base font-black text-slate-800 dark:text-white">{copy.titleFa}</h2></div></div><button onClick={finish} className="text-xs font-bold text-slate-500 dark:text-slate-400">بعداً</button></div><div className="rounded-2xl bg-rose-50 p-4 dark:bg-rose-950/25"><h3 className="text-base font-black text-slate-800 dark:text-white">{copy.steps[index].titleFa}</h3><p className="mt-2 text-sm leading-8 text-slate-600 dark:text-slate-300">{copy.steps[index].textFa}</p></div><div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-slate-400">{index + 1} از {copy.steps.length}</span><button onClick={() => (isLast ? finish() : setIndex((value) => value + 1))} className="flex items-center gap-2 rounded-2xl bg-[#8e5241] px-5 py-3 text-sm font-bold text-white">{isLast ? 'فهمیدم' : 'بعدی'}{isLast ? <Check className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}</button></div></div></div>;
+  return <div className="fixed inset-0 z-[60] pointer-events-none"><div className="absolute inset-0 bg-[#20334d]/10" /><div className="pointer-events-auto absolute bottom-24 left-5 right-5 mx-auto max-w-md rounded-[1.7rem] bg-[#fffdf9] p-5 shadow-2xl border border-[#f0e5d6] dark:bg-slate-900 dark:border-slate-800"><div className="flex items-start gap-3"><span className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5" /></span><div className="flex-1"><h2 className="text-base font-black text-[#263b56] dark:text-white">{copy[tourKey].title}</h2><p className="mt-1 text-sm leading-7 text-slate-600 dark:text-slate-300">{copy[tourKey].text}</p></div></div><button onClick={finish} className="mt-4 w-full rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white flex items-center justify-center gap-2"><Check className="w-4 h-4" /> فهمیدم</button></div></div>;
 };

@@ -20,7 +20,7 @@ const SKIN_TYPES: { type: SkinType; titleFa: string; hintFa: string }[] = [
   { type: 'normal', titleFa: 'نرمال', hintFa: 'متعادل و بدون دغدغه خاص' },
 ];
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 /**
  * انبوردینگ.
@@ -42,7 +42,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
   const [isPregnant, setIsPregnant] = useState(false);
   const [isBreastfeeding, setIsBreastfeeding] = useState(false);
-  const [onOralRetinoid, setOnOralRetinoid] = useState(false);
 
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const [lastPeriod, setLastPeriod] = useState('');
@@ -81,7 +80,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         sensitivityScore: sensitivity,
         isPregnant,
         isBreastfeeding,
-        onOralRetinoid,
       },
       cycleConfig: {
         ...current.cycleConfig,
@@ -279,7 +277,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <h2 className="text-lg font-black text-[#2e2621] dark:text-white flex items-center gap-2">
               <HeartPulse className="w-5 h-5 text-rose-500" />
-              چند سوال مهم ایمنی
+              دو سؤال کوتاه برای پیشنهاد امن‌تر
             </h2>
             <p className="text-sm text-[#705c4f] dark:text-slate-400 leading-relaxed">
               بعضی ترکیبات مانند رتینول در بارداری و شیردهی توصیه نمی‌شوند. پاسخ‌ها فقط روی گوشی خودت می‌مانند.
@@ -289,11 +287,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               {[
                 { value: isPregnant, set: setIsPregnant, labelFa: 'باردار هستم' },
                 { value: isBreastfeeding, set: setIsBreastfeeding, labelFa: 'در دوران شیردهی هستم' },
-                {
-                  value: onOralRetinoid,
-                  set: setOnOralRetinoid,
-                  labelFa: 'داروی رتینوئید خوراکی مصرف می‌کنم (ایزوترتینوئین یا راکوتان)',
-                },
               ].map((item) => (
                 <label
                   key={item.labelFa}
@@ -310,7 +303,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               ))}
             </div>
 
-            {(isPregnant || isBreastfeeding || onOralRetinoid) && (
+            {(isPregnant || isBreastfeeding) && (
               <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
                 روتین تو بر این اساس تنطیم می‌شود و ترکیبات نامناسب حذف می‌شوند. با این حال، رزا جای پزشک را نمی‌گیرد.
               </div>

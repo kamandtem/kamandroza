@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import {
   Plus,
   Phone,
@@ -103,6 +104,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
 
   const [showProviderForm, setShowProviderForm] = useState(false);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [introOpen, setIntroOpen] = useState(false);
 
   const categories = kind === 'salon' ? SALON_CATEGORIES : CLINIC_CATEGORIES;
 
@@ -238,15 +240,12 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
   return (
     <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
       {/* معرفی بخش */}
-      <div className="p-4 rounded-3xl bg-gradient-to-l from-rose-500/10 to-amber-500/10 border border-rose-200 dark:border-slate-800 space-y-1">
-        <h2 className="text-base font-black text-slate-800 dark:text-white">
-          {kind === 'salon' ? 'آرایشگاه و نوبت‌های من' : 'پزشک پوست و ویزیت‌ها'}
-        </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-          {kind === 'salon'
-            ? 'نوبت‌هایت را ثبت کن تا رزا روتین روزهای قبل و بعد را خودکار تنطیم کند و بگوید کدام روزهای ماه مناسب‌ترند.'
-            : 'ویزیت‌ها، داروها و دستورهای پزشک را در یک جا داشته باش. دفعه بعد در مطب چیزی یادت نمی‌رود.'}
-        </p>
+      <div className="rounded-3xl bg-gradient-to-l from-rose-500/10 to-amber-500/10 border border-rose-200 dark:border-slate-800 overflow-hidden">
+        <button onClick={() => setIntroOpen((value) => !value)} className="w-full p-4 flex items-center justify-between gap-3 text-right">
+          <h2 className="text-base font-black text-slate-800 dark:text-white">{kind === 'salon' ? 'آرایشگاه و نوبت‌های من' : 'پزشک پوست و ویزیت‌ها'}</h2>
+          <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${introOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {introOpen && <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-7">{kind === 'salon' ? 'نوبت‌هایت را ثبت کن تا رزا روتین روزهای قبل و بعد را خودکار تنظیم کند و روزهای مناسب‌تر را پیشنهاد دهد.' : 'ویزیت‌ها، داروها و دستورهای پزشک را در یک جا داشته باش؛ این بخش برای ثبت و یادآوری است، نه تشخیص پزشکی.'}</p>}
       </div>
 
       {kind === 'clinic' && (

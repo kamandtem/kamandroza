@@ -17,7 +17,7 @@
  */
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/assets/fonts/Vazirmatn-Regular.woff2') format('woff2');
+  src: url('/assets/fonts/roza-font-regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -38,14 +38,14 @@
 }
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/assets/fonts/Vazirmatn-Bold.woff2') format('woff2');
+  src: url('/assets/fonts/roza-font-medium.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/assets/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');
+  src: url('/assets/fonts/roza-font-bold.woff2') format('woff2');
   font-weight: 800;
   font-style: normal;
   font-display: swap;
@@ -62,11 +62,13 @@
      * فارسی در این سایز روی موبایل خوانا نیست. با بزرگ کردن پایه،
      * همه کلاس‌های rem یکجا بزرگ می‌شوند.
      */
-    font-size: 18px;
+    font-size: 16px;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
     font-family: var(--font-sans);
     direction: rtl;
     background-color: #faf8f5;
@@ -80,7 +82,7 @@
   .text-2xs,
   .text-\[10px\],
   .text-\[11px\] {
-    font-size: 0.8rem !important;
+    font-size: 0.75rem !important;
   }
 
   h1, h2, h3, h4 {

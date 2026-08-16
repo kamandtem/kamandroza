@@ -47,6 +47,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
   const [openedDate, setOpenedDate] = useState('');
   const [expirationMonths, setExpirationMonths] = useState('12');
   const [notes, setNotes] = useState('');
+  const [ingredientsOpen, setIngredientsOpen] = useState(false);
 
   const conflicts = useMemo(() => findShelfConflicts(products), [products]);
   const todayIso = getTodayIsoDate();
@@ -237,34 +238,19 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
               ))}
             </select>
 
-            <div className="space-y-1.5">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
-                ترکیبات فعال (روی بسته نوشته شده)
-              </span>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <button type="button" onClick={() => setIngredientsOpen((value) => !value)} className="w-full min-h-[58px] px-4 py-3 flex items-center justify-between gap-3 text-right bg-slate-50 dark:bg-slate-800">
+                <span><strong className="block text-sm font-black text-slate-800 dark:text-white">ترکیبات فعال</strong><small className="block text-xs text-slate-500 mt-1">{ingredientIds.length ? `${ingredientIds.length} ترکیب انتخاب شده` : 'برای بررسی تداخل، از روی بسته انتخاب کن'}</small></span>
+                <span className={`text-slate-400 transition-transform ${ingredientsOpen ? 'rotate-180' : ''}`}>⌄</span>
+              </button>
+              {ingredientsOpen && <div className="p-3 grid grid-cols-1 gap-2 bg-white dark:bg-slate-900">
                 {INGREDIENTS_DATABASE.map((ingredient) => {
                   const isOn = ingredientIds.includes(ingredient.id);
-                  return (
-                    <button
-                      key={ingredient.id}
-                      onClick={() =>
-                        setIngredientIds(
-                          isOn
-                            ? ingredientIds.filter((id) => id !== ingredient.id)
-                            : [...ingredientIds, ingredient.id],
-                        )
-                      }
-                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                        isOn
-                          ? 'bg-rose-500 text-white border-rose-500'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {ingredient.nameFa}
-                    </button>
-                  );
+                  return <button type="button" key={ingredient.id} onClick={() => setIngredientIds(isOn ? ingredientIds.filter((id) => id !== ingredient.id) : [...ingredientIds, ingredient.id])} className={`w-full min-h-[52px] px-3 rounded-xl text-sm font-bold border flex items-center gap-3 text-right ${isOn ? 'bg-rose-500 text-white border-rose-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}>
+                    {ingredient.imageUrl && <img src={ingredient.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />}{ingredient.nameFa}<span className="mr-auto">{isOn ? '✓' : '+'}</span>
+                  </button>;
                 })}
-              </div>
+              </div>}
             </div>
 
             <JalaliDatePicker
