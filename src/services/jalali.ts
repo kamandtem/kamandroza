@@ -173,6 +173,13 @@ export function formatJalaliShort(iso: string): string {
   return `${toPersianDigits(jy)}/${toPersianDigits(String(jm).padStart(2, '0'))}/${toPersianDigits(String(jd).padStart(2, '0'))}`;
 }
 
+/** «سه‌شنبه ۲۷ مرداد» — بدون ویرگول، برای هدر دایره چرخه. */
+export function formatWeekdayDayMonth(iso: string): string {
+  if (!isValidIsoDate(iso)) return '';
+  const weekday = PERSIAN_WEEKDAYS[fromIsoDate(iso).getDay()];
+  return `${weekday} ${formatJalaliDayMonth(iso)}`;
+}
+
 export function getTodayPersianHeader(): string {
   const today = new Date();
   return `${PERSIAN_WEEKDAYS[today.getDay()]}، ${formatJalaliDate(getTodayIsoDate())}`;

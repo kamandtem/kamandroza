@@ -123,14 +123,13 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 text-center">
           <CycleWheel
             currentDay={state.cycleDay}
-            totalDays={state.cycleLength}
+            cycleLength={state.cycleLength}
             periodLength={state.stats.averagePeriodLength || userState.cycleConfig.periodLength}
-            activePhase={selectedPhase}
+            pmsStartDaysBefore={userState.cycleConfig.pmsStartDaysBefore}
+            todayIso={todayIso}
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             onSelectPhase={setSelectedPhase}
-            centerTitle={state.inPeriod ? 'قاعدگی' : state.inPmsWindow ? 'PMS' : selectedPhase === 'ovulation' ? 'تخمک‌گذاری' : 'چرخه ماهانه'}
-            centerSubtitle={state.inPeriod ? `تا پایان پریود ${toPersianDigits(Math.max(0, (state.stats.averagePeriodLength || userState.cycleConfig.periodLength) - state.cycleDay + 1))} روز` : state.inPmsWindow ? 'تا شروع پریود نزدیک است' : state.daysUntilNextPeriod !== null ? `${toPersianDigits(state.daysUntilNextPeriod)} روز تا پریود` : 'ویرایش تاریخ پریود'}
             onEditPeriod={() => setShowManual(true)}
           />
           {showManual && <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-2 text-right"><JalaliDatePicker labelFa="تاریخ شروع پریود" value={manualDate} onChange={setManualDate} allowFuture={false} /><div className="grid grid-cols-2 gap-2"><button onClick={() => { if (manualDate) { logPeriodStart(manualDate); setManualDate(''); setShowManual(false); bump(); } }} disabled={!manualDate} className="py-3 rounded-xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold">ثبت تاریخ جدید</button><button onClick={() => { logPeriodStart(todayIso); setShowManual(false); bump(); }} className="py-3 rounded-xl bg-purple-600 text-white text-sm font-bold">امروز پریود شدم</button></div></div>}

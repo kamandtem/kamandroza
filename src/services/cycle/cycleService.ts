@@ -215,6 +215,27 @@ export function getTodayCycleState(config: MenstrualCycleConfig): CycleState {
   return computeCycleState(config, LocalDB.getPeriodLogs(), getTodayIsoDate());
 }
 
+/**
+ * روز تقریبی تخمک‌گذاری در یک چرخه به طول مشخص.
+ * قاعده بالینی: فاز لوتئال نسبتاً ثابت است و حدود ۱۴ روز قبل از پریود بعدی رخ می‌دهد.
+ */
+export function estimateOvulationDay(cycleLength: number, periodLength: number): number {
+  return Math.max(periodLength + 3, cycleLength - 14);
+}
+
+/** فاز یک روز مشخص از چرخه (۱ تا cycleLength) — برای مرور دستی دایره چرخه. */
+export function getPhaseForCycleDay(
+  cycleDay: number,
+  cycleLength: number,
+  periodLength: number,
+  ovulationDay = estimateOvulationDay(cycleLength, periodLength),
+): MenstrualPhase {
+  if (cycleDay <= periodLength) return 'menstrual';
+  if (cycleDay < ovulationDay - 2) return 'follicular';
+  if (cycleDay <= ovulationDay + 1) return 'ovulation';
+  return 'luteal';
+}
+
 /* ---------------------------- الگوی شخصی ---------------------------- */
 
 export interface PersonalPattern {
