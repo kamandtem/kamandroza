@@ -79,6 +79,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+      {weather.hasData || onRequestWeatherLocation ?       <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} /> : null}
+
+      {cycleVisible && <HormoneCycleCard cycleConfig={userState.cycleConfig} onOpenCycle={() => onOpenSection('cycle')} compact />}
+
       {/* هشدارهای ایمنی — بالاترین اولویت */}
       {guidance.safetyWarningsFa.map((warning, index) => (
         <div
@@ -270,31 +274,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </p>
         </div>
       </div>
-
-      {/* چرخه — فقط اگر خود کاربر فعالش کرده باشد */}
-      {cycleVisible ? (
-        <HormoneCycleCard cycleConfig={userState.cycleConfig} onOpenCycle={() => onOpenSection('cycle')} />
-      ) : (
-        <button
-          onClick={() => onOpenSection('profile')}
-          className="w-full p-4 rounded-3xl bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-700 text-right flex items-center justify-between gap-3"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center shrink-0">
-              <MoonIcon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-sm font-black text-slate-800 dark:text-white">ردیابی چرخه خاموش است</span>
-              <span className="block text-xs text-slate-500 dark:text-slate-400">
-                اختیاری است. هر وقت خواستی از پروفایل روشنش کن.
-              </span>
-            </div>
-          </div>
-          <ChevronLeft className="w-4 h-4 text-slate-400 shrink-0" />
-        </button>
-      )}
-
-      <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} />
 
       <Monthly30DayTracker onOpenProgress={() => onNavigateTab('progress')} />
     </div>

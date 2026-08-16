@@ -7,6 +7,7 @@ import { formatJalaliDayMonth, toPersianDigits } from '../../services/jalali';
 interface HormoneCycleCardProps {
   cycleConfig: MenstrualCycleConfig;
   onOpenCycle: () => void;
+  compact?: boolean;
 }
 
 const PHASE_INFO: Record<MenstrualPhase, { titleFa: string; skinFa: string; actionFa: string; color: string }> = {
@@ -56,7 +57,7 @@ const CONFIDENCE_LABEL: Record<string, string> = {
  *     نمی‌آمدند. نمایش درصد هورمون بدن کاربر هم گمراه‌کننده است و هم
  *     ریسک حقوقی. جایش توصیف کیفی و قابل استفاده آمد.
  */
-export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig, onOpenCycle }) => {
+export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig, onOpenCycle, compact = false }) => {
   const state = getTodayCycleState(cycleConfig);
 
   if (!state.available || !state.phase || state.cycleDay === null) {
@@ -84,7 +85,7 @@ export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig,
   const info = PHASE_INFO[state.phase];
 
   return (
-    <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+    <div className={`p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 ${compact ? 'max-h-[270px] overflow-hidden' : ''}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0">

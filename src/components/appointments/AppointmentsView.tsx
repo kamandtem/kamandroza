@@ -37,6 +37,7 @@ import { PROCEDURE_RULES, findProcedureRule } from '../../services/providers/pro
 import { MEDICAL_DISCLAIMER_FA } from '../../services/safety';
 import { formatJalaliDate, formatRelativeDay, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
+import { PrettySelect } from '../common/PrettySelect';
 import { EmptyState } from '../common/EmptyState';
 import { trackReferralEvent } from '../../services/telemetry';
 
@@ -238,7 +239,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
   };
 
   return (
-    <div className="pb-40 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[220px] px-4 max-w-lg mx-auto space-y-4">
       {/* معرفی بخش */}
       <div className="rounded-3xl bg-gradient-to-l from-rose-500/10 to-amber-500/10 border border-rose-200 dark:border-slate-800 overflow-hidden">
         <button onClick={() => setIntroOpen((value) => !value)} className="w-full p-4 flex items-center justify-between gap-3 text-right">
@@ -268,70 +269,6 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
               {item.provider ? ` (${item.provider.name})` : ''}.
             </p>
           ))}
-        </div>
-      )}
-
-      {/* نوبت بعدی */}
-      {upcoming.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-black text-slate-800 dark:text-white px-1">نوبت‌های پیش رو</h3>
-
-          {upcoming.map((appointment) => {
-            const provider = providerOf(appointment);
-            return (
-              <div
-                key={appointment.id}
-                className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h4 className="font-black text-sm text-slate-800 dark:text-white">{serviceNamesOf(appointment)}</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {provider?.name} · {formatJalaliDate(appointment.dateIso)}
-                      {appointment.timeHhmm ? ` · ساعت ${toPersianDigits(appointment.timeHhmm)}` : ''}
-                    </p>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-black shrink-0">
-                    {formatRelativeDay(appointment.dateIso)}
-                  </span>
-                </div>
-
-                {/* چک‌لیست قبل از جلسه — مهم‌ترین بخش */}
-                {(appointment.prepChecklistFa || []).length > 0 && (
-                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-1.5">
-                    <span className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                      <ClipboardList className="w-4 h-4" />
-                      قبل از جلسه
-                    </span>
-                    <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 pr-4 list-disc leading-relaxed">
-                      {(appointment.prepChecklistFa || []).map((item, index) => (
-                        <li key={index}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => markDone(appointment)}
-                    className="flex-1 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    انجام شد
-                  </button>
-                  <button
-                    onClick={() => {
-                      updateAppointmentStatus(appointment, 'canceled');
-                      bump();
-                    }}
-                    className="py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold"
-                  >
-                    لغو
-                  </button>
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -433,6 +370,70 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* نوبت بعدی */}
+      {upcoming.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-black text-slate-800 dark:text-white px-1">نوبت‌های پیش رو</h3>
+
+          {upcoming.map((appointment) => {
+            const provider = providerOf(appointment);
+            return (
+              <div
+                key={appointment.id}
+                className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h4 className="font-black text-sm text-slate-800 dark:text-white">{serviceNamesOf(appointment)}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {provider?.name} · {formatJalaliDate(appointment.dateIso)}
+                      {appointment.timeHhmm ? ` · ساعت ${toPersianDigits(appointment.timeHhmm)}` : ''}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-black shrink-0">
+                    {formatRelativeDay(appointment.dateIso)}
+                  </span>
+                </div>
+
+                {/* چک‌لیست قبل از جلسه — مهم‌ترین بخش */}
+                {(appointment.prepChecklistFa || []).length > 0 && (
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-1.5">
+                    <span className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <ClipboardList className="w-4 h-4" />
+                      قبل از جلسه
+                    </span>
+                    <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 pr-4 list-disc leading-relaxed">
+                      {(appointment.prepChecklistFa || []).map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => markDone(appointment)}
+                    className="flex-1 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    انجام شد
+                  </button>
+                  <button
+                    onClick={() => {
+                      updateAppointmentStatus(appointment, 'canceled');
+                      bump();
+                    }}
+                    className="py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold"
+                  >
+                    لغو
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -547,7 +548,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
       {/* --------------------------- مودال نوبت جدید --------------------------- */}
       {showAppointmentForm && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 max-h-[88vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-base text-slate-800 dark:text-white">نوبت جدید</h3>
               <button
@@ -559,36 +560,9 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
               </button>
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">مرکز</label>
-              <select
-                value={apptProviderId}
-                onChange={(event) => setApptProviderId(event.target.value)}
-                className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-              >
-                <option value="">انتخاب کنید</option>
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PrettySelect label="مرکز" value={apptProviderId} onChange={setApptProviderId} options={providers.map((provider) => ({ value: provider.id, label: provider.name, description: provider.address || provider.phone }))} />
 
-            <div>
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">خدمت</label>
-              <select
-                value={apptCategory}
-                onChange={(event) => setApptCategory(event.target.value as ServiceCategory)}
-                className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {CATEGORY_LABELS[category]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <PrettySelect label="نوع خدمت" value={apptCategory} onChange={(value) => setApptCategory(value as ServiceCategory)} options={categories.map((category) => ({ value: category, label: CATEGORY_LABELS[category], description: findProcedureRule(category)?.labelFa }))} />
 
             <JalaliDatePicker labelFa="تاریخ نوبت" value={apptDate} onChange={setApptDate} allowPast={false} />
 

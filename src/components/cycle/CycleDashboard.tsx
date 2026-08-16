@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity } from 'lucide-react';
 import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, SymptomKey, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
@@ -84,8 +84,11 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const openPeriod = useMemo(() => getOpenPeriod(), [refresh]);
 
   const [selectedPhase, setSelectedPhase] = useState<MenstrualPhase>(state.phase || 'follicular');
+  const [selectedDay, setSelectedDay] = useState(state.cycleDay || 1);
+  useEffect(() => { if (state.cycleDay !== null) setSelectedDay(state.cycleDay); }, [state.cycleDay]);
   const [manualDate, setManualDate] = useState('');
   const [showManual, setShowManual] = useState(false);
+  const [patternOpen, setPatternOpen] = useState(false);
 
   /* ------------------------- ثبت علائم امروز ------------------------- */
   const existingToday = symptoms.find((item) => item.date === todayIso);
@@ -115,84 +118,6 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
   return (
     <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
-      {/* ثبت با یک تاچ — نسخه ۱ این را نداشت و کاربر باید دستی از پروفایل عوض می‌کرد */}
-      <div className="p-5 rounded-3xl bg-gradient-to-l from-rose-600 to-purple-600 text-white space-y-3">
-        {state.available && state.cycleDay !== null ? (
-          <>
-            <h2 className="text-lg font-black">
-              روز {toPersianDigits(state.cycleDay)} چرخه · فاز {state.phaseNameFa}
-            </h2>
-            {state.nextPeriodFromIso && state.nextPeriodToIso && (
-              <p className="text-sm text-rose-50 leading-relaxed">
-                پریود بعدی حدود {formatJalaliDayMonth(state.nextPeriodFromIso)} تا{' '}
-                {formatJalaliDayMonth(state.nextPeriodToIso)}
-                {state.stats.completedCycles > 0
-                  ? ` · بر اساس ${toPersianDigits(state.stats.completedCycles)} چرخه ثبت‌شده`
-                  : ' · بر اساس میانگین رایج'}
-              </p>
-            )}
-          </>
-        ) : (
-          <h2 className="text-lg font-black">اولین پریودت را ثبت کن</h2>
-        )}
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => {
-              logPeriodStart(todayIso);
-              bump();
-            }}
-            className="py-3 rounded-2xl bg-white text-rose-600 font-black text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-          >
-            <Droplet className="w-4 h-4" />
-            امروز پریود شدم
-          </button>
-
-          <button
-            onClick={() => {
-              logPeriodEnd(todayIso);
-              bump();
-            }}
-            disabled={!openPeriod}
-            className="py-3 rounded-2xl bg-white/20 disabled:opacity-40 text-white font-black text-sm flex items-center justify-center gap-1.5"
-          >
-            <Check className="w-4 h-4" />
-            تمام شد
-          </button>
-        </div>
-
-        <button
-          onClick={() => setShowManual(!showManual)}
-          className="w-full text-xs font-bold text-rose-100 underline"
-        >
-          ویرایش پریود
-        </button>
-
-        {showManual && (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 space-y-2">
-            <JalaliDatePicker
-              labelFa="روز اول پریود"
-              value={manualDate}
-              onChange={setManualDate}
-              allowFuture={false}
-            />
-            <button
-              onClick={() => {
-                if (!manualDate) return;
-                logPeriodStart(manualDate);
-                setManualDate('');
-                setShowManual(false);
-                bump();
-              }}
-              disabled={!manualDate}
-              className="w-full py-2.5 rounded-xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold"
-            >
-              ثبت
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* چرخ فازها */}
       {state.available && state.cycleDay !== null && (
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 text-center">
@@ -201,24 +126,14 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             totalDays={state.cycleLength}
             periodLength={state.stats.averagePeriodLength || userState.cycleConfig.periodLength}
             activePhase={selectedPhase}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
             onSelectPhase={setSelectedPhase}
+            centerTitle={state.inPeriod ? 'قاعدگی' : state.inPmsWindow ? 'PMS' : selectedPhase === 'ovulation' ? 'تخمک‌گذاری' : 'چرخه ماهانه'}
+            centerSubtitle={state.inPeriod ? `تا پایان پریود ${toPersianDigits(Math.max(0, (state.stats.averagePeriodLength || userState.cycleConfig.periodLength) - state.cycleDay + 1))} روز` : state.inPmsWindow ? 'تا شروع پریود نزدیک است' : state.daysUntilNextPeriod !== null ? `${toPersianDigits(state.daysUntilNextPeriod)} روز تا پریود` : 'ویرایش تاریخ پریود'}
+            onEditPeriod={() => setShowManual(true)}
           />
-
-          <div className="grid grid-cols-4 gap-1.5">
-            {(['menstrual', 'follicular', 'ovulation', 'luteal'] as MenstrualPhase[]).map((phase) => (
-              <button
-                key={phase}
-                onClick={() => setSelectedPhase(phase)}
-                className={`py-2.5 px-1 rounded-2xl text-xs font-bold border transition-colors ${
-                  selectedPhase === phase
-                    ? 'bg-[#8e5241] text-white border-[#8e5241]'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                }`}
-              >
-                {PHASE_GUIDE[phase].titleFa}
-              </button>
-            ))}
-          </div>
+          {showManual && <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-2 text-right"><JalaliDatePicker labelFa="تاریخ شروع پریود" value={manualDate} onChange={setManualDate} allowFuture={false} /><div className="grid grid-cols-2 gap-2"><button onClick={() => { if (manualDate) { logPeriodStart(manualDate); setManualDate(''); setShowManual(false); bump(); } }} disabled={!manualDate} className="py-3 rounded-xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold">ثبت تاریخ جدید</button><button onClick={() => { logPeriodStart(todayIso); setShowManual(false); bump(); }} className="py-3 rounded-xl bg-purple-600 text-white text-sm font-bold">امروز پریود شدم</button></div></div>}
         </div>
       )}
 
@@ -266,12 +181,11 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
       </div>
 
       {/* الگوی شخصی */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-800 space-y-3">
-        <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5">
-          <TrendingUp className="w-4 h-4 text-purple-600" />
-          الگوی شخصی تو
-        </h3>
-
+      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-800 overflow-hidden">
+        <button onClick={() => setPatternOpen((value) => !value)} className="w-full p-4 flex items-center justify-between text-right">
+          <span className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-purple-600" />الگوی شخصی تو</span><span className={`text-slate-400 transition-transform ${patternOpen ? 'rotate-180' : ''}`}>⌄</span>
+        </button>
+        {patternOpen && <div className="p-4 pt-0 space-y-3">
         {acneSentence || painSentence ? (
           <>
             {acneSentence && (
@@ -321,6 +235,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             }}
           />
         )}
+      </div>}
       </div>
 
       {/* ثبت علائم — نسخه ۱ از ۱۰ فیلد فقط ۳ اسلایدر داشت */}

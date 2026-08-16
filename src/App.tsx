@@ -91,9 +91,9 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lastBackAt = React.useRef(0);
   const [showSplash, setShowSplash] = useState(true);
-  const [showIntro, setShowIntro] = useState(() => localStorage.getItem('roza_intro_seen_v3') !== '1');
+  const [showIntro, setShowIntro] = useState(() => localStorage.getItem('roza_intro_seen_v4') !== '1');
   const [tourKey, setTourKey] = useState<TourKey | null>(() => {
-    if (localStorage.getItem('roza_intro_seen_v3') !== '1') return null;
+    if (localStorage.getItem('roza_intro_seen_v4') !== '1') return null;
     return localStorage.getItem('roza_tour_home_v1') === '1' ? null : 'home';
   });
 
@@ -280,7 +280,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
+    <div className="min-h-screen pt-[92px] bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
       <Header
         userState={userState}
         weather={weather}

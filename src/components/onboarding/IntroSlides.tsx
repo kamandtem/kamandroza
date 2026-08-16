@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 
 interface IntroSlidesProps { onDone: () => void; }
 const slides = [
-  { title: 'مراقبت را ساده شروع کن', text: 'رزا با چند سؤال کوتاه، روتینی متناسب با پوست و سبک زندگی تو می‌سازد.', image: '/assets/onboarding/intro-a.svg' },
-  { title: 'الگوی پوستت را بشناس', text: 'اگر خواستی چرخه و علائمت را ثبت کن تا الگوی واقعی بدنت را ببینی.', image: '/assets/onboarding/intro-b.svg' },
-  { title: 'همه مراقبت‌ها یک‌جا', text: 'محصولات، نوبت‌های آرایشگاه و پزشک، عکس‌ها و آموزش‌های کوتاه در یک مسیر.', image: '/assets/onboarding/intro-c.svg' },
+  { title: 'مراقبت را ساده شروع کن', text: 'رزا با چند سؤال کوتاه، روتینی متناسب با پوست و سبک زندگی تو می‌سازد.', image: '/assets/onboarding/medicine-amico.svg' },
+  { title: 'الگوی پوستت را بشناس', text: 'اگر خواستی چرخه و علائمت را ثبت کن تا الگوی واقعی بدنت را ببینی.', image: '/assets/onboarding/warning-amico.svg' },
+  { title: 'همه مراقبت‌ها یک‌جا', text: 'محصولات، نوبت‌های آرایشگاه و پزشک، عکس‌ها و آموزش‌های کوتاه در یک مسیر.', image: '/assets/onboarding/time-management.svg' },
 ];
 
 /** سه اسلاید معرفی با وکتورهای آفلاین آپلودشده، بدون شخصیت یا محتوای برنامه دیگر. */
@@ -24,7 +24,6 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
         </div>
         <div className="flex justify-center gap-2">{slides.map((item, itemIndex) => <span key={item.title} className={`h-2 rounded-full transition-all ${itemIndex === index ? 'w-8 bg-[#c47b62]' : 'w-2 bg-[#ddcfc0]'}`} />)}</div>
         <div className="flex items-center gap-3">{index > 0 && <button onClick={() => setIndex((value) => value - 1)} className="rounded-2xl bg-[#f1ece6] px-5 py-3 text-sm font-bold text-[#40506a]">قبلی</button>}<button onClick={() => (isLast ? finish() : setIndex((value) => value + 1))} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white shadow-md">{isLast ? <><Check className="h-4 w-4" /> شروع</> : <>ادامه <ArrowLeft className="h-4 w-4" /></>}</button></div>
-        <p className="flex items-center justify-center gap-2 text-center text-xs leading-6 text-slate-500"><ShieldCheck className="h-4 w-4 text-emerald-500" /> اطلاعات شخصی و عکس‌ها روی همین گوشی می‌مانند.</p>
       </section>
     </main>
   );

@@ -157,7 +157,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
   );
 
   return (
-    <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] px-4 max-w-lg mx-auto space-y-4">
       {/* کارت هویت */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 flex items-center gap-4">
         <div className="relative shrink-0">
@@ -528,9 +528,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
         <button onClick={async () => { if (window.confirm('همه اطلاعات رزا پاک شود؟ این کار قابل بازگشت نیست.')) { await wipeAllData(); window.location.reload(); } }} className="w-full py-3 rounded-2xl text-rose-600 bg-rose-50 dark:bg-rose-950/30 text-sm font-bold flex items-center justify-center gap-1.5"><Trash2 className="w-4 h-4" /> پاک کردن کامل داده‌ها</button>
       </Section>
 
+      <Section titleFa="ارتباط با برنامه‌نویس" icon={Settings}>
+        <p className="text-sm text-slate-600 dark:text-slate-300 leading-7">اگر مشکلی دیدی یا پیشنهادی برای بهتر شدن رزا داری، پیام بفرست.</p>
+        <a href="mailto:arjmandmahtab7@gmail.com?subject=پیشنهاد%20برای%20رزا" className="block w-full text-center py-3 rounded-2xl bg-[#eef3fa] dark:bg-slate-800 text-[#263b56] dark:text-white text-sm font-bold">ارسال پیام به برنامه‌نویس</a>
+      </Section>
+
       <button
         onClick={save}
-        className="bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
       >
         {savedMessage ? (
           <>

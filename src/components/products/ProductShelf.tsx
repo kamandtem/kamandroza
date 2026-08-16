@@ -9,6 +9,7 @@ import { openPurchase } from '../../services/shop/catalogService';
 import { addDays, formatJalaliDayMonth, getDaysDifference, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
+import { PrettySelect } from '../common/PrettySelect';
 
 interface ProductShelfProps {
   products: Product[];
@@ -84,7 +85,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
   };
 
   return (
-    <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[220px] px-4 max-w-lg mx-auto space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-base font-black text-slate-800 dark:text-white">قفسه محصولات من</h2>
@@ -201,7 +202,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
       {/* فرم افزودن */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[88vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-base text-slate-800 dark:text-white">محصول جدید</h3>
               <button
@@ -226,17 +227,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
               className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
             />
 
-            <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value as ProductCategory)}
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            >
-              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <PrettySelect label="نوع محصول" value={category} onChange={(value) => setCategory(value as ProductCategory)} options={Object.entries(CATEGORY_LABELS).map(([key, label]) => ({ value: key, label }))} />
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <button type="button" onClick={() => setIngredientsOpen((value) => !value)} className="w-full min-h-[58px] px-4 py-3 flex items-center justify-between gap-3 text-right bg-slate-50 dark:bg-slate-800">
