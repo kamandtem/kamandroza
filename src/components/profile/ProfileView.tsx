@@ -530,7 +530,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
 
       <button
         onClick={save}
-        className= bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        className="bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
       >
         {savedMessage ? (
           <>
