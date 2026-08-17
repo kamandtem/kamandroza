@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bell, CalendarClock, CheckCircle2, Moon, Sparkles, Sun, X } from 'lucide-react';
+import { Bell, CalendarClock, CheckCircle2, Egg, Moon, Sparkles, Sun, X } from 'lucide-react';
 import { LocalDB } from '../../services/db';
 import { getTodayCycleState } from '../../services/cycle/cycleService';
 import { getUpcomingAppointments } from '../../services/providers/appointmentService';
+import { getCachedWeather } from '../../services/weatherService';
 import { getTodayIsoDate, getDaysDifference, toPersianDigits } from '../../services/jalali';
 import type { NavTab } from './BottomNavigation';
 import type { SectionKey } from '../../App';
@@ -24,10 +25,31 @@ export const NotificationBell: React.FC<Props> = ({ onNavigateTab, onOpenSection
     const days = getDaysDifference(today, appointment.dateIso);
     if (days <= 3) notices.push({ id: appointment.id, text: `${days === 0 ? 'امروز' : `${toPersianDigits(days)} روز دیگر`} نوبت ${providers.find((p) => p.id === appointment.providerId)?.name || ''}`, icon: CalendarClock, action: () => onOpenSection(appointment.providerKind === 'salon' ? 'salon' : 'clinic') });
   });
-  if (user.cycleConfig.enabled && !user.privacy.hideCycleSection) {
+
+  if (user.cycleConfig.enabled && !user.privacy.hideCycleSection && !user.profile.isPregnant) {
     const cycle = getTodayCycleState(user.cycleConfig);
-    if (cycle.inPmsWindow) notices.push({ id: 'pms', text: 'برای روزهای پیش از قاعدگی، روتین ملایم‌تری را ببین', icon: Moon, action: () => onOpenSection('cycle') });
+    if (cycle.available) {
+      if (cycle.inPmsWindow) {
+        notices.push({ id: 'pms', text: 'برای روزهای پیش از قاعدگی، روتین ملایم‌تری را ببین', icon: Moon, action: () => onOpenSection('cycle') });
+      } else if (cycle.pmsStartIso && getDaysDifference(today, cycle.pmsStartIso) === 1) {
+        notices.push({ id: 'pms-tomorrow', text: 'از فردا احتمالاً وارد بازه پیش از قاعدگی می‌شوی', icon: Moon, action: () => onOpenSection('cycle') });
+      }
+
+      if (cycle.phase === 'ovulation') {
+        notices.push({ id: 'ovulation', text: 'الان احتمالاً در فاز تخمک‌گذاری هستی؛ مراقب باش', icon: Egg, action: () => onOpenSection('cycle') });
+      }
+
+      if (cycle.predictedPeriodStartIso && getDaysDifference(today, cycle.predictedPeriodStartIso) === 1 && cycle.confidence !== 'none') {
+        notices.push({ id: 'period-tomorrow', text: 'به احتمال زیاد فردا پریودت شروع می‌شود', icon: Moon, action: () => onOpenSection('cycle') });
+      }
+    }
   }
+
+  const weather = getCachedWeather();
+  if (weather?.hasData && !weather.isStale && weather.uvIndex >= 6) {
+    notices.push({ id: 'uv', text: `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست؛ ضدآفتاب را تجدید کن`, icon: Sun, action: () => onOpenSection('personalRoutine') });
+  }
+
   const products = LocalDB.getProducts();
   if (products.length === 0) notices.push({ id: 'products', text: 'محصولاتت را اضافه کن تا روتین شخصی‌تر شود', icon: Sparkles, action: () => onOpenSection('products') });
 

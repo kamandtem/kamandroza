@@ -7,6 +7,7 @@
  * الان: اگر داده نباشد hasData=false می‌شود و کارت کاملاً مخفی می‌ماند.
  */
 
+import { Geolocation } from '@capacitor/geolocation';
 import { WeatherData } from '../types';
 import { isFeatureEnabled } from '../config/appConfig';
 import { readJson, writeJson } from './storage/persistence';
@@ -59,6 +60,11 @@ function readCache(): WeatherSnapshot | null {
   if (!cached) return null;
   const age = cached.updatedAt ? Date.now() - new Date(cached.updatedAt).getTime() : Infinity;
   return { ...cached, isStale: age > CACHE_TTL_MS };
+}
+
+/** آخرین آب‌وهوای کش‌شده، بدون درخواست شبکه — برای هشدار یووی در سرویس اعلان‌ها. */
+export function getCachedWeather(): WeatherSnapshot | null {
+  return readCache();
 }
 
 export async function fetchWeather(city: string, skinType?: string, coords?: WeatherCoords): Promise<WeatherSnapshot> {
@@ -123,17 +129,27 @@ export async function fetchWeather(city: string, skinType?: string, coords?: Wea
   }
 }
 
-export function requestWeatherLocation(): Promise<WeatherCoords> {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { reject(new Error('geolocation_unavailable')); return; }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-        localStorage.setItem('roza_weather_coords_v1', JSON.stringify(coords));
-        resolve(coords);
-      },
-      (error) => reject(error),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 },
-    );
-  });
+/**
+ * موقعیت دقیق برای آب‌وهوا.
+ *
+ * قبلاً مستقیماً navigator.geolocation صدا زده می‌شد. داخل اپ اندروید/iOS
+ * ساخته‌شده با Capacitor، این API مرورگر معمولاً کار نمی‌کند (پرامپت
+ * دسترسی هیچ‌وقت درست نمایش داده نمی‌شود)، پس دکمه «موقعیت دقیق من»
+ * عملاً همیشه شکست می‌خورد. با پلاگین Geolocation کپسیتور، هم روی اپ
+ * نصب‌شده (پرامپت بومی اندروید/iOS) و هم در مرورگر (نسخه وب همین پلاگین)
+ * درست کار می‌کند.
+ */
+export async function requestWeatherLocation(): Promise<WeatherCoords> {
+  const current = await Geolocation.checkPermissions().catch(() => null);
+  let granted = current?.location === 'granted' || current?.coarseLocation === 'granted';
+  if (!granted) {
+    const requested = await Geolocation.requestPermissions();
+    granted = requested.location === 'granted' || requested.coarseLocation === 'granted';
+  }
+  if (!granted) throw new Error('geolocation_denied');
+
+  const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 });
+  const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  localStorage.setItem('roza_weather_coords_v1', JSON.stringify(coords));
+  return coords;
 }

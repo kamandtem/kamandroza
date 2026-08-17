@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity, ChevronDown } from 'lucide-react';
-import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, SymptomKey, UserState } from '../../types';
+import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity, ChevronDown, X, HeartPulse } from 'lucide-react';
+import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, SkinProfile, SymptomKey, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import {
   buildPersonalPattern,
@@ -19,6 +19,8 @@ import { ToggleSwitch } from '../common/ToggleSwitch';
 interface CycleDashboardProps {
   userState: UserState;
   onUpdateCycleConfig: (config: MenstrualCycleConfig) => void;
+  /** برای پایان‌دادن به حالت بارداری وقتی پریود دوباره شروع شده. */
+  onUpdateProfile: (profile: SkinProfile) => void;
 }
 
 const SYMPTOMS: { key: SymptomKey; labelFa: string; scale: boolean }[] = [
@@ -71,10 +73,76 @@ const PHASE_GUIDE: Record<MenstrualPhase, { titleFa: string; skinFa: string; doF
  * «جوش‌های تو معمولاً از روز ۲۳ شروع و روز ۲۷ به اوج می‌رسند».
  * این تنها چیزی است که کاربر جای دیگری تولید نمی‌شود.
  */
-export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpdateCycleConfig }) => {
+export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpdateCycleConfig, onUpdateProfile }) => {
   const [refresh, setRefresh] = useState(0);
   const bump = () => setRefresh((value) => value + 1);
   const todayIso = getTodayIsoDate();
+
+  /* ------------------------- حالت بارداری ------------------------- */
+  // وقتی «باردار هستم» در پروفایل روشن است، کل بخش چرخه غیرفعال می‌شود
+  // و به‌جایش همین کارت دیده می‌شود — چون پیش‌بینی پریود در بارداری
+  // بی‌معنی است. تنها راه خروج از این حالت، ثبت شروع دوباره پریود از
+  // همین‌جاست؛ همان لحظه هم isPregnant خاموش می‌شود و هم یک رکورد پریود
+  // تازه ثبت می‌شود تا تقویم چرخه بلافاصله برگردد.
+  const [restartDate, setRestartDate] = useState(getTodayIsoDate());
+  const [showRestart, setShowRestart] = useState(false);
+
+  if (userState.profile.isPregnant) {
+    const confirmRestart = () => {
+      logPeriodStart(restartDate);
+      onUpdateProfile({ ...userState.profile, isPregnant: false });
+      setShowRestart(false);
+    };
+
+    return (
+      <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+        <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
+            <HeartPulse className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-black text-amber-900 dark:text-amber-100">وضعیت بارداری فعاله</h3>
+          <p className="text-sm text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
+            تا وقتی این گزینه در پروفایل روشن است، ردیابی چرخه، پیش‌بینی پریود و فاز ماهانه نمایش داده نمی‌شوند.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+          <h4 className="text-sm font-black text-slate-800 dark:text-white">پریودت دوباره شروع شده؟</h4>
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            اگه پریودت دوباره شروع شده، اینجا ثبتش کن تا تقویم پریود به اکانتت برگرده و دوباره حواسمون به چرخه‌ات باشه.
+          </p>
+
+          {!showRestart ? (
+            <button
+              onClick={() => setShowRestart(true)}
+              className="w-full py-3 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-sm font-bold flex items-center justify-center gap-1.5"
+            >
+              <Droplet className="w-4 h-4" />
+              پریودم شروع شده
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <JalaliDatePicker labelFa="روز اول پریود" value={restartDate} onChange={setRestartDate} allowFuture={false} inline />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowRestart(false)}
+                  className="py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold"
+                >
+                  انصراف
+                </button>
+                <button
+                  onClick={confirmRestart}
+                  className="py-3 rounded-2xl bg-rose-500 text-white text-sm font-bold"
+                >
+                  ثبت و برگشت به ردیابی
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const periodLogs = useMemo(() => LocalDB.getPeriodLogs(), [refresh]);
   const symptoms = useMemo(() => LocalDB.getCycleSymptoms(), [refresh]);
@@ -90,7 +158,18 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const [manualDate, setManualDate] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);
-  const [symptomsOpen, setSymptomsOpen] = useState(true);
+  // به‌طور پیش‌فرض بسته است؛ کاربر با یک لمس روی هدر بازش می‌کند
+  const [symptomsOpen, setSymptomsOpen] = useState(false);
+  // راهنمای «این ثبت‌ها فقط روی همین گوشی می‌مانند...» فقط تا وقتی کاربر
+  // آن را نخوانده و نبسته نشان داده می‌شود؛ بعد از بستن، دیگر برنمی‌گردد
+  // و جای خودش را کامل آزاد می‌کند (رندر نمی‌شود، نه فقط مخفی).
+  const [showSymptomInfo, setShowSymptomInfo] = useState(
+    () => localStorage.getItem('roza_symptom_info_dismissed_v1') !== '1',
+  );
+  const dismissSymptomInfo = () => {
+    localStorage.setItem('roza_symptom_info_dismissed_v1', '1');
+    setShowSymptomInfo(false);
+  };
   const [editCycleLength, setEditCycleLength] = useState(userState.cycleConfig.cycleLength || 28);
   const [editPeriodLength, setEditPeriodLength] = useState(userState.cycleConfig.periodLength || 5);
 
@@ -131,7 +210,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   return (
     <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
       {/* چرخ فازها */}
-      {state.available && state.cycleDay !== null && (
+      {state.available && state.cycleDay !== null ? (
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 text-center">
           <CycleWheel
             currentDay={state.cycleDay}
@@ -145,6 +224,18 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             onEditPeriod={openEditPeriod}
           />
         </div>
+      ) : (
+        // اگر ردیابی چرخه بعداً از تنطیمات فعال شده و هنوز هیچ پریودی ثبت
+        // نشده، چرخ فازها (که تنها راه باز کردن فرم ثبت پریود بود) اصلاً
+        // رندر نمی‌شود و کاربر هیچ راهی برای شروع ندارد. این کارت همیشه
+        // یک راه ورودی مستقل به همان فرم می‌دهد.
+        <EmptyState
+          icon={Droplet}
+          titleFa="هنوز پریودی ثبت نشده"
+          descriptionFa="روز اول آخرین پریودت را ثبت کن تا رزا بتواند فاز چرخه و روزهای مناسب لیزر یا فیشیال را نشان بدهد."
+          actionLabelFa="ثبت اولین پریود"
+          onAction={openEditPeriod}
+        />
       )}
 
       {/* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح */}
@@ -345,10 +436,20 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
         {symptomsOpen && (
           <div className="px-4 pb-4 space-y-4">
-            <p className="p-3 rounded-2xl bg-[#fdf3ee] dark:bg-slate-800 text-xs leading-6 text-[#8e5241] dark:text-rose-200 flex items-start gap-2">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>این ثبت‌ها فقط روی همین گوشی می‌مانند. بعد از چند چرخه، رزا از همین‌ها الگوی شخصی تو را می‌سازد — مثلاً اینکه جوش یا درد تو معمولاً از کدام روز چرخه شروع می‌شود (پایین همین صفحه) — و به هیچ سروری فرستاده نمی‌شوند.</span>
-            </p>
+            {showSymptomInfo && (
+              <p className="p-3 rounded-2xl bg-[#fdf3ee] dark:bg-slate-800 text-xs leading-6 text-[#8e5241] dark:text-rose-200 flex items-start gap-2">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="flex-1">این ثبت‌ها فقط روی همین گوشی می‌مانند. بعد از چند چرخه، رزا از همین‌ها الگوی شخصی تو را می‌سازد — مثلاً اینکه جوش یا درد تو معمولاً از کدام روز چرخه شروع می‌شود (پایین همین صفحه) — و به هیچ سروری فرستاده نمی‌شوند.</span>
+                <button
+                  type="button"
+                  onClick={dismissSymptomInfo}
+                  aria-label="بستن این راهنما"
+                  className="icon-only p-1 -m-1 rounded-lg text-[#8e5241] dark:text-rose-200 shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </p>
+            )}
 
             <div className="space-y-3">
               {SYMPTOMS.filter((item) => item.scale).map((item) => (

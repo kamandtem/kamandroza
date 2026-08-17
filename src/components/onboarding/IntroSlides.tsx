@@ -23,19 +23,30 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
   const isLast = index === slides.length - 1;
   const finish = () => { localStorage.setItem('roza_intro_seen_v4', '1'); onDone(); };
   return (
-    <main className="min-h-screen bg-[#fffdf7] flex items-center justify-center px-5 py-8">
-      <section className="w-full max-w-md space-y-5 text-right">
-        <div className="flex items-center justify-between"><span className="text-base font-black text-[#263b56]">رزا</span><button onClick={finish} className="text-xs font-bold text-slate-500">رد کردن</button></div>
+    <main className="min-h-screen bg-[#fffdf7] flex flex-col px-5 pt-[calc(env(safe-area-inset-top)+16px)] pb-[calc(env(safe-area-inset-bottom)+24px)]">
+      {/* عنوان و «رد کردن» بالای صفحه، نه وسط آن */}
+      <div className="w-full max-w-md mx-auto flex items-center justify-between shrink-0">
+        <span className="text-base font-black text-[#263b56]">رزا</span>
+        <button onClick={finish} className="text-xs font-bold text-slate-500">رد کردن</button>
+      </div>
 
+      {/* محتوای اسلاید در میانه‌ی فضای باقی‌مانده، وسط‌چین */}
+      <section className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-5 text-center">
         {/* وکتور مستقیماً روی پس‌زمینه‌ی صفحه؛ دیگر داخل کارت نیست */}
-        <div className="h-[260px] flex items-center justify-center overflow-hidden">
+        <div className="h-[260px] w-full flex items-center justify-center overflow-hidden">
           <img src={slide.image} alt="تصویرسازی معرفی رزا" className="h-full w-full object-contain" />
         </div>
-        <div className="space-y-2 px-1"><h1 className="text-xl font-black text-[#20334d] leading-8">{slide.title}</h1><p className="text-sm leading-7 text-slate-600">{slide.text}</p></div>
+        <div className="space-y-2 px-1">
+          <h1 className="text-xl font-black text-[#20334d] leading-8">{slide.title}</h1>
+          <p className="text-sm leading-7 text-slate-600">{slide.text}</p>
+        </div>
+      </section>
 
+      {/* نقطه‌ها و دکمه‌ها پایین‌تر از قبل، برای ظاهر حرفه‌ای‌تر */}
+      <div className="w-full max-w-md mx-auto space-y-5 shrink-0 pt-6">
         <div className="flex justify-center gap-2">{slides.map((item, itemIndex) => <span key={item.title} className={`h-2 rounded-full transition-all ${itemIndex === index ? 'w-8 bg-[#c47b62]' : 'w-2 bg-[#ddcfc0]'}`} />)}</div>
         <div className="flex items-center gap-3">{index > 0 && <button onClick={() => setIndex((value) => value - 1)} className="rounded-2xl bg-[#f1ece6] px-5 py-3 text-sm font-bold text-[#40506a]">قبلی</button>}<button onClick={() => (isLast ? finish() : setIndex((value) => value + 1))} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white shadow-md">{isLast ? <><Check className="h-4 w-4" /> شروع</> : <>ادامه <ArrowLeft className="h-4 w-4" /></>}</button></div>
-      </section>
+      </div>
     </main>
   );
 };

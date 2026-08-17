@@ -46,6 +46,17 @@ export interface CycleState {
   daysUntilNextPeriod: number | null;
   confidence: PredictionConfidence;
   stats: CycleStats;
+  /**
+   * تاریخ دقیق (بدون بازه) پیش‌بینی شروع پریود بعدی — برای زمان‌بندی
+   * یادآوری «فردا پریودت شروع می‌شود»، برخلاف nextPeriodFromIso/To که
+   * بازه نمایشی به کاربر هستند.
+   */
+  predictedPeriodStartIso: string | null;
+  /** روزی که بازه پیش از قاعدگی (PMS) این چرخه شروع می‌شود. */
+  pmsStartIso: string | null;
+  /** بازه تخمین زده‌شده تخمک‌گذاری این چرخه. */
+  ovulationFromIso: string | null;
+  ovulationToIso: string | null;
 }
 
 const PHASE_NAMES: Record<MenstrualPhase, string> = {
@@ -185,6 +196,10 @@ export function computeCycleState(
     daysUntilNextPeriod: null,
     confidence: 'none',
     stats,
+    predictedPeriodStartIso: null,
+    pmsStartIso: null,
+    ovulationFromIso: null,
+    ovulationToIso: null,
   };
 
   if (!config.enabled) return empty;
@@ -236,6 +251,10 @@ export function computeCycleState(
     daysUntilNextPeriod: daysUntilNextPeriod >= 0 ? daysUntilNextPeriod : null,
     confidence: stats.confidence,
     stats,
+    predictedPeriodStartIso: predictedStart,
+    pmsStartIso: addDays(predictedStart, -pmsDays),
+    ovulationFromIso: addDays(anchor.startIso, ovulationDay - 2 - 1),
+    ovulationToIso: addDays(anchor.startIso, ovulationDay + 1 - 1),
   };
 }
 

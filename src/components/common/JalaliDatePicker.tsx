@@ -71,8 +71,96 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
     return false;
   };
 
+  /*
+   * تقویم قبلاً absolute + top-full + right-0 بود و نسبت به دکمه‌ی محرک
+   * جای می‌گرفت. وقتی این دکمه در یک ستون باریک بود (مثلاً کنار دکمه‌ی
+   * «عکس جدید» در پیشرفت)، عرض ثابت ۱۹rem تقویم از لبه‌ی صفحه بیرون
+   * می‌زد و باعث اسکرول افقی/به‌هم‌ریختن کل پنل می‌شد. الان (در حالت
+   * غیر inline) تقویم به‌شکل یک مودال ثابت و وسط‌چین صفحه نمایش داده
+   * می‌شود، مستقل از عرض یا موقعیت دکمه‌ی محرک، تا هیچ‌وقت از صفحه
+   * بیرون نزند.
+   */
+  const calendarBody = (
+    <>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={goNext}
+          aria-label="ماه بعد"
+          className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        <span className="text-sm font-black text-slate-800 dark:text-white">
+          {PERSIAN_MONTH_NAMES[viewMonth - 1]} {toPersianDigits(viewYear)}
+        </span>
+
+        <button
+          type="button"
+          onClick={goPrevious}
+          aria-label="ماه قبل"
+          className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {PERSIAN_WEEK_HEADERS.map((day) => (
+          <span key={day} className="text-xs font-bold text-slate-400 py-1">
+            {day}
+          </span>
+        ))}
+
+        {cells.map((cell, index) => {
+          if (!cell.iso || cell.jd === null) return <span key={`blank-${index}`} />;
+          const disabled = isDisabled(cell.iso);
+          const isSelected = cell.iso === value;
+          const isToday = cell.iso === todayIso;
+
+          return (
+            <button
+              key={cell.iso}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                onChange(cell.iso as string);
+                if (!inline) setIsOpen(false);
+              }}
+              className={`icon-only aspect-square rounded-xl text-sm font-bold transition-all ${
+                isSelected
+                  ? 'bg-rose-500 text-white'
+                  : isToday
+                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300'
+                    : disabled
+                      ? 'text-slate-300 dark:text-slate-700'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              {toPersianDigits(cell.jd)}
+            </button>
+          );
+        })}
+      </div>
+
+      {allowPast && !inline && (
+        <button
+          type="button"
+          onClick={() => {
+            onChange(todayIso);
+            setIsOpen(false);
+          }}
+          className="w-full py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm font-bold text-rose-600 dark:text-rose-400"
+        >
+          امروز
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <div className={inline ? 'space-y-2' : 'relative space-y-2'}>
+    <div className={inline ? 'space-y-2' : 'space-y-2'}>
       {labelFa && <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{labelFa}</label>}
 
       {!inline && (
@@ -88,92 +176,23 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
         </button>
       )}
 
-      {isOpen && !inline && (
-        <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
+      {isOpen && inline && (
+        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3">
+          {calendarBody}
+        </div>
       )}
 
-      {isOpen && (
+      {isOpen && !inline && (
         <div
-          className={
-            inline
-              ? 'p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3'
-              : 'absolute z-40 top-full mt-2 w-[19rem] max-w-[90vw] right-0 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-2xl space-y-3'
-          }
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4"
+          onClick={() => setIsOpen(false)}
         >
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="ماه بعد"
-              className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <span className="text-sm font-black text-slate-800 dark:text-white">
-              {PERSIAN_MONTH_NAMES[viewMonth - 1]} {toPersianDigits(viewYear)}
-            </span>
-
-            <button
-              type="button"
-              onClick={goPrevious}
-              aria-label="ماه قبل"
-              className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+          <div
+            className="w-full max-w-[19rem] p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-2xl space-y-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {calendarBody}
           </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {PERSIAN_WEEK_HEADERS.map((day) => (
-              <span key={day} className="text-xs font-bold text-slate-400 py-1">
-                {day}
-              </span>
-            ))}
-
-            {cells.map((cell, index) => {
-              if (!cell.iso || cell.jd === null) return <span key={`blank-${index}`} />;
-              const disabled = isDisabled(cell.iso);
-              const isSelected = cell.iso === value;
-              const isToday = cell.iso === todayIso;
-
-              return (
-                <button
-                  key={cell.iso}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    onChange(cell.iso as string);
-                    if (!inline) setIsOpen(false);
-                  }}
-                  className={`icon-only aspect-square rounded-xl text-sm font-bold transition-all ${
-                    isSelected
-                      ? 'bg-rose-500 text-white'
-                      : isToday
-                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300'
-                        : disabled
-                          ? 'text-slate-300 dark:text-slate-700'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                  }`}
-                >
-                  {toPersianDigits(cell.jd)}
-                </button>
-              );
-            })}
-          </div>
-
-          {allowPast && !inline && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange(todayIso);
-                setIsOpen(false);
-              }}
-              className="w-full py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm font-bold text-rose-600 dark:text-rose-400"
-            >
-              امروز
-            </button>
-          )}
         </div>
       )}
     </div>

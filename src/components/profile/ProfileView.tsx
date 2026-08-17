@@ -18,7 +18,7 @@ import { LocalDB } from '../../services/db';
 import { toPersianDigits } from '../../services/jalali';
 import { wipeAllData } from '../../services/storage/persistence';
 import { ToggleSwitch } from '../common/ToggleSwitch';
-import { OptionSheetField } from '../common/OptionSheetField';
+import { PrettySelect } from '../common/PrettySelect';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -231,11 +231,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
       </Section>
 
       <Section titleFa="پوست من" icon={Sparkles}>
-        <OptionSheetField
-          labelFa="نوع پوست"
+        <PrettySelect
+          label="نوع پوست"
           value={draft.profile.skinType}
-          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, skinType: value } })}
-          options={Object.entries(SKIN_TYPE_LABELS).map(([key, label]) => ({ value: key as SkinType, labelFa: label }))}
+          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, skinType: value as SkinType } })}
+          options={Object.entries(SKIN_TYPE_LABELS).map(([key, label]) => ({ value: key, label }))}
         />
 
         <div className="space-y-1.5">
@@ -282,15 +282,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
       </Section>
 
       <Section titleFa="مو و سبک زندگی" icon={Sparkles}>
-        <OptionSheetField
-          labelFa="نوع مو"
+        <PrettySelect
+          label="نوع مو"
           value={draft.profile.hairType}
-          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, hairType: value } })}
+          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, hairType: value as UserState['profile']['hairType'] } })}
           options={[
-            { value: 'straight' as UserState['profile']['hairType'], labelFa: 'صاف' },
-            { value: 'wavy' as UserState['profile']['hairType'], labelFa: 'موج‌دار' },
-            { value: 'curly' as UserState['profile']['hairType'], labelFa: 'فر' },
-            { value: 'coily' as UserState['profile']['hairType'], labelFa: 'خیلی فر' },
+            { value: 'straight', label: 'صاف' },
+            { value: 'wavy', label: 'موج‌دار' },
+            { value: 'curly', label: 'فر' },
+            { value: 'coily', label: 'خیلی فر' },
           ]}
         />
         <div className="grid grid-cols-2 gap-3">
@@ -303,14 +303,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
             <input type="number" min="4" max="14" step="0.5" value={draft.lifestyle.sleepTargetHours || 8} onChange={(event) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, sleepTargetHours: parseFloat(event.target.value) || 8 } })} className="w-full py-3 px-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold" />
           </div>
         </div>
-        <OptionSheetField
-          labelFa="استرس معمول"
+        <PrettySelect
+          label="استرس معمول"
           value={draft.lifestyle.stressLevel}
-          onChange={(value) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, stressLevel: value } })}
+          onChange={(value) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, stressLevel: value as UserState['lifestyle']['stressLevel'] } })}
           options={[
-            { value: 'low' as UserState['lifestyle']['stressLevel'], labelFa: 'کم', hintFa: 'معمولاً آرام و متعادل' },
-            { value: 'medium' as UserState['lifestyle']['stressLevel'], labelFa: 'متوسط', hintFa: 'گاهی پراسترس' },
-            { value: 'high' as UserState['lifestyle']['stressLevel'], labelFa: 'زیاد', hintFa: 'بیشتر روزها پراسترس' },
+            { value: 'low', label: 'کم', description: 'معمولاً آرام و متعادل' },
+            { value: 'medium', label: 'متوسط', description: 'گاهی پراسترس' },
+            { value: 'high', label: 'زیاد', description: 'بیشتر روزها پراسترس' },
           ]}
         />
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">این اطلاعات فقط برای تنظیم پیشنهادهای آب، خواب، روتین مو و لحن یادآوری‌ها استفاده می‌شوند.</p>
@@ -397,8 +397,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
                 onChange={(value) =>
                   setDraft({ ...draft, notifications: { ...draft.notifications, cycleInsight: value } })
                 }
+                hintFa="هر روزی که در این بازه هستی، یک یادآوری می‌آید"
               />
             )}
+
+            {draft.cycleConfig.enabled && (
+              <Toggle
+                labelFa="یادآوری فردا وارد PMS یا پریود می‌شوی"
+                value={draft.notifications.periodReminder}
+                onChange={(value) =>
+                  setDraft({ ...draft, notifications: { ...draft.notifications, periodReminder: value } })
+                }
+                hintFa="یک روز قبل از شروع بازه پیش از قاعدگی و یک روز قبل از شروع پریود"
+              />
+            )}
+
+            {draft.cycleConfig.enabled && (
+              <Toggle
+                labelFa="یادآوری فاز تخمک‌گذاری"
+                value={draft.notifications.ovulationReminder}
+                onChange={(value) =>
+                  setDraft({ ...draft, notifications: { ...draft.notifications, ovulationReminder: value } })
+                }
+              />
+            )}
+
+            <Toggle
+              labelFa="هشدار یووی بالا"
+              value={draft.notifications.uvAlert}
+              onChange={(value) => setDraft({ ...draft, notifications: { ...draft.notifications, uvAlert: value } })}
+              hintFa="بر اساس داده هواشناسی همان شهری که در پروفایل ثبت کرده‌ای"
+            />
 
             {draft.cycleConfig.enabled && (
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-3">

@@ -19,7 +19,9 @@ const MIN_DAYS = 5;
  * می‌فهمید الکی است و به کل اپ بی‌اعتماد می‌شد.
  */
 export const Monthly30DayTracker: React.FC<Monthly30DayTrackerProps> = ({ onOpenProgress }) => {
-  const [open, setOpen] = useState(true);
+  // در پنل خانه به‌صورت آکاردئونی و بسته شروع می‌شود تا صفحه اول شلوغ نباشد؛
+  // با یک لمس روی هدر باز می‌شود.
+  const [open, setOpen] = useState(false);
   const days = buildRecentDays(30);
   const logged = loggedDaysCount(30);
   const adherence = routineAdherence(30);

@@ -502,6 +502,7 @@ export interface NotificationSettings {
   nightRoutine: boolean;
   nightHour: number;
   nightMinute: number;
+  /** یادآوری در طول بازه پیش از قاعدگی (PMS). */
   cycleInsight: boolean;
   appointmentReminder: boolean;
   medicationReminder: boolean;
@@ -509,6 +510,12 @@ export interface NotificationSettings {
   symptomReminder: boolean;
   symptomReminderHour: number;
   symptomReminderMinute: number;
+  /** یادآوری فاز تخمک‌گذاری. */
+  ovulationReminder: boolean;
+  /** یادآوری «از فردا وارد PMS می‌شوی» و «فردا پریودت شروع می‌شود». */
+  periodReminder: boolean;
+  /** هشدار میزان یووی بالا، بر اساس داده هواشناسی. */
+  uvAlert: boolean;
   /** متن اعلان‌ها خنطی باشد (روی صفحه قفل چیزی لو نرود). */
   discreetText: boolean;
 }

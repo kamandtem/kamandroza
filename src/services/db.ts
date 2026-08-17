@@ -148,6 +148,9 @@ export const DEFAULT_USER_STATE: UserState = {
     symptomReminder: false,
     symptomReminderHour: 21,
     symptomReminderMinute: 0,
+    ovulationReminder: true,
+    periodReminder: true,
+    uvAlert: true,
     discreetText: true,
   },
   privacy: {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Geolocation } from '@capacitor/geolocation';
 import { ArrowLeft, Check, Moon, ShieldCheck, Sparkles, HeartPulse } from 'lucide-react';
 import { motion } from 'motion/react';
 import { MenstrualCycleConfig, SkinType, UserState } from '../../types';
@@ -52,19 +53,32 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const [regularity, setRegularity] = useState<MenstrualCycleConfig['regularity']>('unknown');
   const [dontKnowLength, setDontKnowLength] = useState(false);
 
-  const requestLocation = () => {
-    if (!navigator.geolocation) { setLocationStatus('denied'); return; }
+  /*
+   * قبلاً مستقیم navigator.geolocation صدا زده می‌شد که داخل اپ نصب‌شده
+   * (Capacitor WebView) معمولاً پرامپت دسترسی را درست نشان نمی‌دهد و این
+   * دکمه در عمل هیچ‌وقت کار نمی‌کرد. با پلاگین Geolocation کپسیتور، هم
+   * پرامپت بومی اندروید/iOS و هم حالت وب (برای پیش‌نمایش مرورگری) پشتیبانی
+   * می‌شود.
+   */
+  const requestLocation = async () => {
     setLocationStatus('loading');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        localStorage.setItem('roza_weather_coords_v1', JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
-        localStorage.setItem('roza_location_permission_requested_v1', '1');
-        setLocationStatus('success');
-        if (!city.trim()) setCity('موقعیت من');
-      },
-      () => setLocationStatus('denied'),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 86400000 },
-    );
+    try {
+      const current = await Geolocation.checkPermissions();
+      let granted = current.location === 'granted' || current.coarseLocation === 'granted';
+      if (!granted) {
+        const requested = await Geolocation.requestPermissions();
+        granted = requested.location === 'granted' || requested.coarseLocation === 'granted';
+      }
+      if (!granted) { setLocationStatus('denied'); return; }
+
+      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 86400000 });
+      localStorage.setItem('roza_weather_coords_v1', JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+      localStorage.setItem('roza_location_permission_requested_v1', '1');
+      setLocationStatus('success');
+      if (!city.trim()) setCity('موقعیت من');
+    } catch {
+      setLocationStatus('denied');
+    }
   };
 
   const finish = () => {

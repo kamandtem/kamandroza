@@ -94,7 +94,9 @@ export function buildDailyGuidance(args: {
   const restriction = getRoutineRestrictionForDate(dateIso);
 
   /* --- ۳) چرخه --- */
-  const cycle = getTodayCycleState(cycleConfig);
+  // در بارداری، پیش‌بینی فاز/PMS از داده‌های پیش از بارداری بی‌معنی و
+  // گمراه‌کننده است؛ چرخه کاملاً غیرفعال در نظر گرفته می‌شود.
+  const cycle = getTodayCycleState(profile.isPregnant ? { ...cycleConfig, enabled: false } : cycleConfig);
   const recommended = new Set<string>(['ing_hyaluronic_acid', 'ing_ceramides']);
   const avoid = new Set<string>([...safetyBlocked, ...restriction.blockedIngredientIds]);
 

@@ -81,7 +81,27 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
       {weather.hasData || onRequestWeatherLocation ?       <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} /> : null}
 
-      {cycleVisible && <HormoneCycleCard cycleConfig={userState.cycleConfig} onOpenCycle={() => onOpenSection('cycle')} compact />}
+      {/* در حالت بارداری، کارت چرخه به‌جای پیش‌بینی پریود فقط وضعیت بارداری را نشان می‌دهد */}
+      {cycleVisible && userState.profile.isPregnant && (
+        <button
+          onClick={() => onOpenSection('cycle')}
+          className="w-full p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-right flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <MoonIcon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-sm font-black text-amber-900 dark:text-amber-100">وضعیت بارداری فعاله</span>
+              <span className="block text-xs text-amber-900/70 dark:text-amber-200/70">پریودت شروع شده؟ اینجا ثبتش کن</span>
+            </div>
+          </div>
+          <ChevronLeft className="w-4 h-4 text-amber-700/60 dark:text-amber-300/60 shrink-0" />
+        </button>
+      )}
+      {cycleVisible && !userState.profile.isPregnant && (
+        <HormoneCycleCard cycleConfig={userState.cycleConfig} onOpenCycle={() => onOpenSection('cycle')} compact />
+      )}
 
       {/* هشدارهای ایمنی — بالاترین اولویت */}
       {guidance.safetyWarningsFa.map((warning, index) => (
