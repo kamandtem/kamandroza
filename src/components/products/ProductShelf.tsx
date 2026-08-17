@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Package, Plus, Trash2, X, AlertTriangle, ShoppingBag, CalendarClock } from 'lucide-react';
 import { Product, ProductCategory, UserState } from '../../types';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
@@ -200,7 +201,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
       )}
 
       {/* فرم افزودن */}
-      {showForm && (
+      {showForm && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
@@ -284,7 +285,8 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
               ذخیره
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { MenstrualCycleConfig, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import { logPeriodStart } from '../../services/cycle/cycleService';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
+import { ToggleSwitch } from '../common/ToggleSwitch';
 import { toPersianDigits } from '../../services/jalali';
 
 interface OnboardingFlowProps {
@@ -118,15 +119,20 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   );
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] dark:bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-6 rounded-3xl bg-white dark:bg-slate-900 border border-[#ebe0d4] dark:border-slate-800 shadow-xl text-right space-y-5">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#fdf1e9] via-[#faf5fb] to-[#eef4fb] dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 flex items-center justify-center p-4 overflow-hidden">
+      {/* حباب‌های رنگی پس‌زمینه — بدون این‌ها افکت شیشه‌ای (glassmorphism) کارت دیده نمی‌شود */}
+      <div className="pointer-events-none absolute -top-16 -right-16 w-72 h-72 rounded-full bg-rose-300/40 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/3 -left-20 w-72 h-72 rounded-full bg-amber-200/50 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 right-10 w-80 h-80 rounded-full bg-purple-300/30 blur-3xl" />
+
+      <div className="relative w-full max-w-md p-6 rounded-3xl bg-white/45 dark:bg-slate-900/40 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-[0_8px_40px_rgba(142,82,65,.18)] text-right space-y-5">
         {/* نوار پیشرفت */}
         <div className="flex items-center gap-1.5">
           {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
             <span
               key={index}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                index < step ? 'bg-[#8e5241]' : 'bg-[#eee3d8] dark:bg-slate-800'
+                index < step ? 'bg-[#8e5241]' : 'bg-white/50 dark:bg-slate-800'
               }`}
             />
           ))}
@@ -142,7 +148,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               همراه مراقبت از پوست، مو، چرخه ماهانه و نوبت‌های آرایشگاه و پزشک، به زبان فارسی و تقویم شمسی.
             </p>
 
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-950 dark:text-emerald-200 space-y-1.5">
+            <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 backdrop-blur-md border border-emerald-200/70 dark:border-emerald-900/50 text-emerald-950 dark:text-emerald-200 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-sm text-emerald-800 dark:text-emerald-300">
                 <ShieldCheck className="w-4 h-4" />
                 حریم خصوصی
@@ -167,7 +173,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="مثلاً مهتاب"
-                  className="w-full py-3 px-4 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700 text-sm font-bold"
+                  className="w-full py-3 px-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 text-sm font-bold"
                 />
               </div>
 
@@ -179,7 +185,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     onChange={(event) => setAge(event.target.value.replace(/\D/g, '').slice(0, 2))}
                     inputMode="numeric"
                     placeholder="۲۸"
-                    className="w-full py-3 px-4 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700 text-sm font-bold"
+                    className="w-full py-3 px-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 text-sm font-bold"
                   />
                 </div>
                 <div>
@@ -188,7 +194,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     value={city}
                     onChange={(event) => setCity(event.target.value)}
                     placeholder="تهران"
-                    className="w-full py-3 px-4 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700 text-sm font-bold"
+                    className="w-full py-3 px-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 text-sm font-bold"
                   />
                 </div>
               </div>
@@ -209,7 +215,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={() => setStep(1)}
-                className="py-3 px-5 rounded-2xl bg-[#eee3d8] dark:bg-slate-800 text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
+                className="py-3 px-5 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
               >
                 قبلی
               </button>
@@ -232,7 +238,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   className={`w-full p-3.5 rounded-2xl text-right border transition-all ${
                     skinType === item.type
                       ? 'bg-[#8e5241] text-white border-[#8e5241]'
-                      : 'bg-[#faf6f0] dark:bg-slate-800 text-[#5c4a3e] dark:text-slate-300 border-[#ebe0d4] dark:border-slate-700'
+                      : 'bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 border-white/60 dark:border-slate-700/60'
                   }`}
                 >
                   <span className="block text-sm font-black">{item.titleFa}</span>
@@ -243,7 +249,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               ))}
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700 space-y-2">
+            <div className="p-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 space-y-2">
               <div className="flex justify-between text-sm font-bold text-[#5c4a3e] dark:text-slate-300">
                 <span>پوستت چقدر حساس است؟</span>
                 <span className="text-rose-600">{toPersianDigits(sensitivity)} از ۱۰</span>
@@ -261,7 +267,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setStep(2)}
-                className="py-3 px-5 rounded-2xl bg-[#eee3d8] dark:bg-slate-800 text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
+                className="py-3 px-5 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
               >
                 قبلی
               </button>
@@ -288,18 +294,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                 { value: isPregnant, set: setIsPregnant, labelFa: 'باردار هستم' },
                 { value: isBreastfeeding, set: setIsBreastfeeding, labelFa: 'در دوران شیردهی هستم' },
               ].map((item) => (
-                <label
+                <div
                   key={item.labelFa}
-                  className="cursor-pointer flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700"
+                  className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60"
                 >
                   <span className="text-sm font-bold text-[#3a2f27] dark:text-slate-200">{item.labelFa}</span>
-                  <input
-                    type="checkbox"
-                    checked={item.value}
-                    onChange={(event) => item.set(event.target.checked)}
-                    className="w-5 h-5 accent-rose-500 shrink-0"
-                  />
-                </label>
+                  <ToggleSwitch checked={item.value} onChange={item.set} labelFa={item.labelFa} />
+                </div>
               ))}
             </div>
 
@@ -312,7 +313,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setStep(3)}
-                className="py-3 px-5 rounded-2xl bg-[#eee3d8] dark:bg-slate-800 text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
+                className="py-3 px-5 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
               >
                 قبلی
               </button>
@@ -333,18 +334,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               این بخش کاملاً اختیاری است. اگر فعالش کنی، رزا می‌تواند الگوی پوستت را در طول چرخه پیدا کند و بگوید روزهای مناسب لیزر و فیشیال کدامند.
             </p>
 
-            <label className="cursor-pointer flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#fdf5f2] dark:bg-rose-950/20 border border-[#f5dcd5] dark:border-rose-900/40">
+            <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 backdrop-blur-md border border-rose-200/60 dark:border-rose-900/40">
               <span className="text-sm font-black text-[#3a2f27] dark:text-slate-200">ردیابی چرخه را فعال کن</span>
-              <input
-                type="checkbox"
-                checked={cycleEnabled}
-                onChange={(event) => setCycleEnabled(event.target.checked)}
-                className="w-5 h-5 accent-rose-500 shrink-0"
-              />
-            </label>
+              <ToggleSwitch checked={cycleEnabled} onChange={setCycleEnabled} labelFa="ردیابی چرخه را فعال کن" />
+            </div>
 
             {cycleEnabled && (
-              <div className="space-y-4 p-4 rounded-2xl bg-[#faf6f0] dark:bg-slate-800 border border-[#ebe0d4] dark:border-slate-700">
+              <div className="space-y-4 p-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60">
                 <JalaliDatePicker
                   labelFa="روز اول آخرین پریود"
                   value={lastPeriod}
@@ -352,15 +348,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   allowFuture={false}
                 />
 
-                <label className="cursor-pointer flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-[#5c4a3e] dark:text-slate-300">طول چرخه‌ام را نمی‌دانم</span>
-                  <input
-                    type="checkbox"
-                    checked={dontKnowLength}
-                    onChange={(event) => setDontKnowLength(event.target.checked)}
-                    className="w-5 h-5 accent-rose-500 shrink-0"
-                  />
-                </label>
+                  <ToggleSwitch checked={dontKnowLength} onChange={setDontKnowLength} labelFa="طول چرخه‌ام را نمی‌دانم" />
+                </div>
 
                 {dontKnowLength ? (
                   <p className="text-sm text-[#705c4f] dark:text-slate-400 leading-relaxed">
@@ -401,7 +392,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                             className={`py-2.5 rounded-xl text-sm font-bold border ${
                               regularity === item.value
                                 ? 'bg-[#8e5241] text-white border-[#8e5241]'
-                                : 'bg-white dark:bg-slate-900 text-[#5c4a3e] dark:text-slate-300 border-[#ebe0d4] dark:border-slate-700'
+                                : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 border-white/60 dark:border-slate-700/60'
                             }`}
                           >
                             {item.labelFa}
@@ -450,7 +441,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setStep(4)}
-                className="py-3 px-5 rounded-2xl bg-[#eee3d8] dark:bg-slate-800 text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
+                className="py-3 px-5 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 font-bold text-sm"
               >
                 قبلی
               </button>

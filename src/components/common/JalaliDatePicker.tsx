@@ -19,6 +19,8 @@ interface JalaliDatePickerProps {
   /** اجازه انتخاب تاریخ آینده. برای ثبت پریود باید false باشد. */
   allowFuture?: boolean;
   allowPast?: boolean;
+  /** اگر true باشد، تقویم بدون دکمه‌ی محرک، همیشه به‌شکل باز نمایش داده می‌شود. */
+  inline?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
   labelFa,
   allowFuture = true,
   allowPast = true,
+  inline = false,
 }) => {
   const todayIso = getTodayIsoDate();
   const initial = value
@@ -42,7 +45,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
       })()
     : getJalaliToday();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(inline);
   const [viewYear, setViewYear] = useState(initial.jy);
   const [viewMonth, setViewMonth] = useState(initial.jm);
 
@@ -72,16 +75,18 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
     <div className="space-y-2">
       {labelFa && <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{labelFa}</label>}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-white flex items-center justify-between gap-2 text-right"
-      >
-        <span className={value ? '' : 'text-slate-400 font-normal'}>
-          {value ? formatJalaliDate(value) : 'انتخاب تاریخ'}
-        </span>
-        <Calendar className="w-5 h-5 text-rose-500 shrink-0" />
-      </button>
+      {!inline && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full py-3 px-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-white flex items-center justify-between gap-2 text-right"
+        >
+          <span className={value ? '' : 'text-slate-400 font-normal'}>
+            {value ? formatJalaliDate(value) : 'انتخاب تاریخ'}
+          </span>
+          <Calendar className="w-5 h-5 text-rose-500 shrink-0" />
+        </button>
+      )}
 
       {isOpen && (
         <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3">
@@ -129,7 +134,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
                   disabled={disabled}
                   onClick={() => {
                     onChange(cell.iso as string);
-                    setIsOpen(false);
+                    if (!inline) setIsOpen(false);
                   }}
                   className={`icon-only aspect-square rounded-xl text-sm font-bold transition-all ${
                     isSelected
@@ -147,7 +152,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
             })}
           </div>
 
-          {allowPast && (
+          {allowPast && !inline && (
             <button
               type="button"
               onClick={() => {

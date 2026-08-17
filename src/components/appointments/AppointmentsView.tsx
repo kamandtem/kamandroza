@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import {
   Plus,
@@ -479,7 +480,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
       )}
 
       {/* --------------------------- مودال افزودن مرکز --------------------------- */}
-      {showProviderForm && (
+      {showProviderForm && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
@@ -542,11 +543,12 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
               ذخیره
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* --------------------------- مودال نوبت جدید --------------------------- */}
-      {showAppointmentForm && (
+      {showAppointmentForm && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
@@ -663,7 +665,8 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
               ثبت نوبت
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* راهنمای قواعد پرهیز */}

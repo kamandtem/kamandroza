@@ -146,15 +146,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* کارت روتین امروز */}
       <div className="p-5 rounded-3xl bg-gradient-to-br from-rose-500 via-rose-400 to-amber-400 text-white space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-bold">
-              <Sparkles className="w-3.5 h-3.5" />
-              روتین امروز
-            </span>
-            <h2 className="text-base font-black mt-2">
-              {guidance.gentleMode ? 'امروز روتین ملایم' : 'روتین متناسب با امروزت'}
-            </h2>
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-xs font-bold">
+            <Sparkles className="w-3.5 h-3.5" />
+            روتین امروز
+          </span>
 
           {userState.currentStreakDays > 0 && (
             <div className="px-3 py-2 rounded-2xl bg-white/20 text-center shrink-0">
@@ -165,10 +160,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           )}
         </div>
-
-        {guidance.cycleInsightFa && (
-          <p className="text-sm leading-relaxed text-rose-50 bg-white/15 p-3 rounded-2xl">{guidance.cycleInsightFa}</p>
-        )}
 
         <button
           onClick={() => onNavigateTab('routine')}

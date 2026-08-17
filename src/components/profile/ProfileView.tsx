@@ -20,6 +20,7 @@ import { clearPin, isLockConfigured, setPin } from '../../services/security/appL
 import { isFeatureEnabled } from '../../config/appConfig';
 import { toPersianDigits } from '../../services/jalali';
 import { wipeAllData } from '../../services/storage/persistence';
+import { ToggleSwitch } from '../common/ToggleSwitch';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -142,18 +143,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
     onChange,
     hintFa,
   }) => (
-    <label className="cursor-pointer flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
+    <div className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
       <span className="min-w-0">
         <span className="block text-sm font-bold text-slate-800 dark:text-slate-200">{labelFa}</span>
         {hintFa && <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">{hintFa}</span>}
       </span>
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(event) => onChange(event.target.checked)}
-        className="w-5 h-5 accent-rose-500 shrink-0 mt-0.5"
-      />
-    </label>
+      <ToggleSwitch checked={value} onChange={onChange} labelFa={labelFa} />
+    </div>
   );
 
   return (

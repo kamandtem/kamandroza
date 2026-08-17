@@ -14,6 +14,7 @@ import { CycleWheel } from './CycleWheel';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
 import { formatJalaliDate, formatJalaliDayMonth, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
+import { ToggleSwitch } from '../common/ToggleSwitch';
 
 interface CycleDashboardProps {
   userState: UserState;
@@ -132,7 +133,44 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             onSelectPhase={setSelectedPhase}
             onEditPeriod={() => setShowManual(true)}
           />
-          {showManual && <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-2 text-right"><JalaliDatePicker labelFa="تاریخ شروع پریود" value={manualDate} onChange={setManualDate} allowFuture={false} /><div className="grid grid-cols-2 gap-2"><button onClick={() => { if (manualDate) { logPeriodStart(manualDate); setManualDate(''); setShowManual(false); bump(); } }} disabled={!manualDate} className="py-3 rounded-xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold">ثبت تاریخ جدید</button><button onClick={() => { logPeriodStart(todayIso); setShowManual(false); bump(); }} className="py-3 rounded-xl bg-purple-600 text-white text-sm font-bold">امروز پریود شدم</button></div></div>}
+        </div>
+      )}
+
+      {/* مودال ویرایش پریود — فقط یک تقویم شمسی و یک دکمه‌ی ثبت */}
+      {showManual && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
+          onClick={() => setShowManual(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-3 text-right shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-sm font-black text-slate-800 dark:text-white">روز شروع پریود را انتخاب کن</h3>
+            <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline />
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => setShowManual(false)}
+                className="py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={() => {
+                  if (manualDate) {
+                    logPeriodStart(manualDate);
+                    setManualDate('');
+                    setShowManual(false);
+                    bump();
+                  }
+                }}
+                disabled={!manualDate}
+                className="py-3 rounded-2xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold"
+              >
+                ثبت
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -371,19 +409,16 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           />
         </div>
 
-        <label className="cursor-pointer flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
+        <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
             چرخه‌ام نامنطم است یا مشکوک به PCOS هستم
           </span>
-          <input
-            type="checkbox"
+          <ToggleSwitch
             checked={userState.cycleConfig.pcosFlagged}
-            onChange={(event) =>
-              onUpdateCycleConfig({ ...userState.cycleConfig, pcosFlagged: event.target.checked })
-            }
-            className="w-5 h-5 accent-rose-500 shrink-0"
+            onChange={(value) => onUpdateCycleConfig({ ...userState.cycleConfig, pcosFlagged: value })}
+            labelFa="چرخه‌ام نامنطم است یا مشکوک به PCOS هستم"
           />
-        </label>
+        </div>
         <p className="text-xs text-slate-500 dark:text-slate-500 leading-relaxed">
           با روشن بودن این گزینه، رزا پیش‌بینی را با بازه بازتر و با لحن محتاط‌تر نشان می‌دهد.
         </p>

@@ -61,6 +61,21 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   knowledge: 'مقالات کوتاه',
 };
 
+/**
+ * فقط این بخش‌ها راهنمای اولین‌بار (تور) دارند؛ بقیه‌ی SectionKey ها
+ * (پروفایل/تنطیمات، ترکیبات، عکس‌ها، ماسک‌ها، روتین شخصی) تور ندارند.
+ *
+ * باگ نسخه قبل: هر SectionKey بدون بررسی به TourKey تبدیل می‌شد
+ * (`section as TourKey`). چون TourKey فقط ۹ مقدار دارد ولی SectionKey
+ * بیشتر است، باز کردن «تنظیمات» (یا لب/عکس/ماسک/روتین شخصی) برای اولین
+ * بار باعث می‌شد FeatureTourOverlay با یک tourKey نامعتبر رندر شود و
+ * بلافاصله خطا بدهد — همان صفحه‌ی «متاسفم رزا مشکلی پیدا کرد».
+ */
+const TOUR_SECTIONS = new Set<string>(['products', 'salon', 'clinic', 'knowledge', 'makeup']);
+function sectionTourKey(section: SectionKey): TourKey | null {
+  return TOUR_SECTIONS.has(section) ? (section as unknown as TourKey) : null;
+}
+
 function createEmptyLog(dateIso: string): DailyTrackerEntry {
   return {
     id: `log_${dateIso}`,
@@ -301,7 +316,11 @@ export default function App() {
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
         }}
-        onOpenSection={(section) => { setActiveSection(section); setTourKey(localStorage.getItem(`roza_tour_${section}_v1`) === '1' ? null : (section as TourKey)); }}
+        onOpenSection={(section) => {
+          setActiveSection(section);
+          const key = sectionTourKey(section);
+          setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
+        }}
         onToggleTheme={handleToggleTheme}
       />
 
@@ -321,7 +340,11 @@ export default function App() {
               cycleVisible={cycleVisible}
               onUpdateDailyLog={handleUpdateTodayLog}
               onNavigateTab={(tab) => { setActiveTab(tab); const key = tab as TourKey; setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key); }}
-              onOpenSection={(section) => { setActiveSection(section); setTourKey(localStorage.getItem(`roza_tour_${section}_v1`) === '1' ? null : (section as TourKey)); }}
+              onOpenSection={(section) => {
+                setActiveSection(section);
+                const key = sectionTourKey(section);
+                setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
+              }}
             />
           )}
 

@@ -1,8 +1,9 @@
 import React from 'react';
 import { Moon, ChevronLeft, Activity, AlertTriangle } from 'lucide-react';
 import { MenstrualCycleConfig, MenstrualPhase } from '../../types';
-import { getTodayCycleState } from '../../services/cycle/cycleService';
+import { estimateOvulationDay, getTodayCycleState } from '../../services/cycle/cycleService';
 import { formatJalaliDayMonth, toPersianDigits } from '../../services/jalali';
+import { RED, ORANGE, TEAL, PINK, PURPLE, TRACK, NAVY, point, arcPath, rangeToAngles } from '../cycle/CycleWheel';
 
 interface HormoneCycleCardProps {
   cycleConfig: MenstrualCycleConfig;
@@ -47,6 +48,98 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   high: 'دقت پیش‌بینی خوب',
 };
 
+interface MiniCycleWheelProps {
+  day: number;
+  cycleLength: number;
+  periodLength: number;
+  pmsStartDaysBefore: number;
+  onClick: () => void;
+}
+
+const TOP_GAP_DEG = 8;
+const OUTER_GAP_DEG = 16;
+
+/**
+ * نسخه‌ی کوچکِ همان چرخه‌ی پنل چرخه (CycleWheel) — همان دو حلقه و
+ * همان رنگ‌بندی، فقط در اندازه‌ی مینیاتوری و بدون تعامل. هدفش صرفاً
+ * پیش‌نمایش سریع در کارت خانه است؛ جزئیات (متن وسط، راهنما، ویرایش
+ * پریود، نقطه‌ی هر روز) عمداً حذف شده چون فقط در پنل کامل لازم است.
+ * خودِ چرخه یک لینک به همان پنل است.
+ */
+const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
+  day,
+  cycleLength,
+  periodLength,
+  pmsStartDaysBefore,
+  onClick,
+}) => {
+  const CENTER = 60;
+  const INNER_R = 40;
+  const INNER_W = 8;
+  const OUTER_R = 51;
+  const OUTER_W = 2.5;
+  const BADGE_R = 13;
+
+  const days = Math.max(21, Math.min(45, cycleLength || 28));
+  const period = Math.max(1, Math.min(periodLength || 5, days));
+  const pmsDays = Math.max(0, Math.min(days - period, pmsStartDaysBefore ?? 5));
+  const ovulationDay = Math.min(days, estimateOvulationDay(days, period));
+  const today = Math.max(1, Math.min(day, days));
+
+  const menstrualRange = { start: 1, end: period };
+  const ovulationRange = { start: Math.max(period + 1, ovulationDay - 1), end: Math.min(days, ovulationDay + 1) };
+  const pmsRange = pmsDays > 0 ? { start: Math.max(ovulationRange.end + 1, days - pmsDays + 1), end: days } : null;
+
+  const todayPoint = point(((today - 0.5) / days) * 360, INNER_R, CENTER);
+  const ovAngle = (ovulationDay / days) * 360;
+  const gap = OUTER_GAP_DEG / 2;
+  const topStart = TOP_GAP_DEG / 2 + gap;
+  const topEnd = 360 - TOP_GAP_DEG / 2 - gap;
+  const pinkFrom = topStart;
+  const pinkTo = Math.max(pinkFrom + 1, ovAngle - gap);
+  const purpleFrom = Math.min(topEnd - 1, ovAngle + gap);
+  const purpleTo = topEnd;
+
+  const menstrualAngles = rangeToAngles(menstrualRange.start, menstrualRange.end, days);
+  const ovulationAngles = rangeToAngles(ovulationRange.start, ovulationRange.end, days);
+
+  return (
+    <button onClick={onClick} aria-label="مشاهده وضعیت چرخه" className="relative shrink-0" style={{ width: 120, height: 120 }}>
+      <svg width={120} height={120} viewBox="0 0 120 120" className="overflow-visible">
+        {/* حلقه بیرونی: فولیکولار (صورتی) و لوتئال (بنفش) */}
+        <path d={arcPath(pinkFrom, pinkTo, OUTER_R, CENTER)} fill="none" stroke={PINK} strokeWidth={OUTER_W} strokeLinecap="round" />
+        <path d={arcPath(purpleFrom, purpleTo, OUTER_R, CENTER)} fill="none" stroke={PURPLE} strokeWidth={OUTER_W} strokeLinecap="round" />
+
+        {/* حلقه اصلی: پس‌زمینه */}
+        <path
+          d={arcPath(TOP_GAP_DEG / 2, 360 - TOP_GAP_DEG / 2, INNER_R, CENTER)}
+          fill="none"
+          stroke={TRACK}
+          strokeWidth={INNER_W}
+          strokeLinecap="round"
+        />
+
+        {/* پریود */}
+        <path d={arcPath(menstrualAngles.from, menstrualAngles.to, INNER_R, CENTER)} fill="none" stroke={RED} strokeWidth={INNER_W} strokeLinecap="round" />
+        {/* تخمک‌گذاری */}
+        <path d={arcPath(ovulationAngles.from, ovulationAngles.to, INNER_R, CENTER)} fill="none" stroke={TEAL} strokeWidth={INNER_W} strokeLinecap="round" />
+        {/* PMS */}
+        {pmsRange &&
+          (() => {
+            const pmsAngles = rangeToAngles(pmsRange.start, pmsRange.end, days);
+            return <path d={arcPath(pmsAngles.from, pmsAngles.to, INNER_R, CENTER)} fill="none" stroke={ORANGE} strokeWidth={INNER_W} strokeLinecap="round" />;
+          })()}
+
+        {/* نشان شناور روز جاری */}
+        <circle cx={todayPoint.x} cy={todayPoint.y} r={BADGE_R} fill="#fffdfa" stroke={RED} strokeWidth={2.5} />
+        <text x={todayPoint.x} y={todayPoint.y + 4.5} textAnchor="middle" fontSize="12" fontWeight="800" fill={NAVY}>
+          {toPersianDigits(today)}
+        </text>
+      </svg>
+    </button>
+  );
+};
+
 /**
  * کارت چرخه.
  *
@@ -85,32 +178,36 @@ export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig,
   const info = PHASE_INFO[state.phase];
 
   return (
-    <div className={`p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 ${compact ? 'max-h-[270px] overflow-hidden' : ''}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0">
-            <Moon className="w-5 h-5" />
+    <div className={`p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 ${compact ? 'max-h-[320px] overflow-hidden' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        {/* ستون نوشته‌ها: عنوان + فاز، هر دو هم‌عرضِ همین ستون */}
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0">
+              <Moon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-black text-sm text-slate-800 dark:text-white">چرخه ماهانه</h3>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                روز {toPersianDigits(state.cycleDay)} از حدود {toPersianDigits(state.cycleLength)}
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h3 className="font-black text-sm text-slate-800 dark:text-white">چرخه ماهانه</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              روز {toPersianDigits(state.cycleDay)} از حدود {toPersianDigits(state.cycleLength)}
-            </span>
+
+          <div className={`p-3 rounded-2xl border ${info.color} space-y-1`}>
+            <span className="text-sm font-black block">{info.titleFa}</span>
+            <p className="text-xs leading-relaxed opacity-90">{info.skinFa}</p>
           </div>
         </div>
 
-        <button
+        {/* ستون کنار: پیش‌نمایش کوچکِ چرخه — خودش لینک به پنل چرخه است */}
+        <MiniCycleWheel
+          day={state.cycleDay}
+          cycleLength={state.cycleLength}
+          periodLength={cycleConfig.periodLength}
+          pmsStartDaysBefore={cycleConfig.pmsStartDaysBefore}
           onClick={onOpenCycle}
-          className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-0.5 shrink-0"
-        >
-          جزئیات
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className={`p-3 rounded-2xl border ${info.color} space-y-1`}>
-        <span className="text-sm font-black block">{info.titleFa}</span>
-        <p className="text-sm leading-relaxed opacity-90">{info.skinFa}</p>
+        />
       </div>
 
       <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-1">
