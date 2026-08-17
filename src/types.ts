@@ -505,6 +505,10 @@ export interface NotificationSettings {
   cycleInsight: boolean;
   appointmentReminder: boolean;
   medicationReminder: boolean;
+  /** یادآوری روزانه برای ثبت علائم چرخه. */
+  symptomReminder: boolean;
+  symptomReminderHour: number;
+  symptomReminderMinute: number;
   /** متن اعلان‌ها خنطی باشد (روی صفحه قفل چیزی لو نرود). */
   discreetText: boolean;
 }

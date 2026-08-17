@@ -15,7 +15,7 @@ import { getUpcomingAppointments } from './providers/appointmentService';
 import { LocalDB } from './db';
 import { getDaysDifference, getTodayIsoDate } from './jalali';
 
-const IDS = { morning: 2101, night: 2102, cycle: 2103, appointmentBase: 2200, medication: 2300 };
+const IDS = { morning: 2101, night: 2102, cycle: 2103, symptom: 2104, appointmentBase: 2200, medication: 2300 };
 
 function discreetOr(discreet: boolean, discreetText: string, fullText: string): string {
   return discreet ? discreetText : fullText;
@@ -84,6 +84,20 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<b
           channelId: 'roza-care',
         });
       }
+    }
+
+    // یادآوری ثبت علائم روزانه — با ساعتی که کاربر خودش انتخاب کرده
+    if (settings.symptomReminder) {
+      notifications.push({
+        id: IDS.symptom,
+        title: 'رزا',
+        body: discreetOr(discreet, 'یک یادآوری در برنامه داری. باز کن.', 'وقتشه علائم امروزت را در بخش سیکل ثبت کنی.'),
+        schedule: {
+          on: { hour: settings.symptomReminderHour, minute: settings.symptomReminderMinute },
+          allowWhileIdle: true,
+        },
+        channelId: 'roza-care',
+      });
     }
 
     // یادآوری نوبت‌ها و چک‌لیست قبل از جلسه

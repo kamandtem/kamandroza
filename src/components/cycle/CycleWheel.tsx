@@ -33,9 +33,9 @@ const ORDINALS_FA = ['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ش
 const CENTER = 170;
 const INNER_R = 120; // شعاع حلقه اصلی (پریود/تخمک‌گذاری/PMS)
 const INNER_W = 16; // پهنای حلقه اصلی — نسبت به شعاع، مطابق طرح مرجع (نازک‌تر از نسخه قبل)
-const OUTER_R = 143; // شعاع حلقه بیرونی نازک (فولیکولار/لوتئال)
+const OUTER_R = 156; // شعاع حلقه بیرونی نازک (فولیکولار/لوتئال) — فاصله بیشتر از حلقه اصلی
 const OUTER_W = 3;
-const TOP_GAP_DEG = 7; // شکاف بالای حلقه اصلی — سر و ته چرخه به هم وصل نیست
+const TOP_GAP_DEG = 20; // شکاف بالای حلقه اصلی — سر و ته چرخه به‌وضوح به هم نچسبیده
 const OUTER_GAP_DEG = 12; // شکاف حلقه بیرونی در هر دو قطب، تا شبیه دو پرانتز شود
 const BADGE_R = 19; // شعاع نشان شناور روز — کوچک‌تر و متناسب با اندازه چرخه
 
@@ -54,11 +54,29 @@ export function arcPath(startAngle: number, endAngle: number, radius: number, ce
   return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${large} 1 ${b.x} ${b.y}`;
 }
 
-/** بازه [start,end] یک روز به زاویه [شروع,پایان] با یک درجه فاصله از همسایه‌ها. */
-export function rangeToAngles(start: number, end: number, days: number) {
-  const from = ((start - 1) / days) * 360 + 1;
-  const to = (end / days) * 360 - 1;
+/**
+ * بازه [start,end] یک روز به زاویه [شروع,پایان] با یک درجه فاصله از همسایه‌ها.
+ * gapDeg یعنی شکاف بالای دایره (بین آخرین و اولین روز) از فضای ۳۶۰ درجه کم می‌شود
+ * تا روزها هم واقعاً در همان شکاف قرار نگیرند، نه فقط پس‌زمینه‌ی خاکستری.
+ */
+export function rangeToAngles(start: number, end: number, days: number, gapDeg = 0) {
+  const usable = 360 - gapDeg;
+  const from = gapDeg / 2 + ((start - 1) / days) * usable + 1;
+  const to = gapDeg / 2 + (end / days) * usable - 1;
   return { from, to: Math.max(from + 1, to) };
+}
+
+/** زاویه‌ی مرکز یک روز مشخص، با در نظر گرفتن شکاف بالای دایره. */
+function dayCenterAngle(day: number, days: number, gapDeg: number) {
+  return gapDeg / 2 + ((day - 0.5) / days) * (360 - gapDeg);
+}
+
+/** موقعیت و زاویه‌ی چرخش یک فلش کوچک، مماس بر دایره در زاویه‌ی داده‌شده (جهت حرکت ساعت‌گرد). */
+function arrowAt(angle: number, radius: number, center = CENTER) {
+  const tip = point(angle, radius, center);
+  const behind = point(angle - 1, radius, center);
+  const rotationDeg = (Math.atan2(tip.y - behind.y, tip.x - behind.x) * 180) / Math.PI;
+  return { x: tip.x, y: tip.y, rotationDeg };
 }
 
 /** شکستن متن فارسی به حداکثر دو خط، تا از حاشیه‌ی دایره بیرون نزند. */
@@ -115,7 +133,7 @@ export const CycleWheel: React.FC<CycleWheelProps> = ({
   const ovulationRange = { start: Math.max(period + 1, ovulationDay - 1), end: Math.min(days, ovulationDay + 1) };
   const pmsRange = pmsDays > 0 ? { start: Math.max(ovulationRange.end + 1, days - pmsDays + 1), end: days } : null;
 
-  const selectedPoint = point(((selected - 0.5) / days) * 360, INNER_R);
+  const selectedPoint = point(dayCenterAngle(selected, days, TOP_GAP_DEG), INNER_R);
 
   const selectDay = (day: number) => {
     onSelectDay?.(day);
@@ -137,8 +155,8 @@ export const CycleWheel: React.FC<CycleWheelProps> = ({
   const headlineLines = wrapHeadline(headline);
   const headlineStartY = headlineLines.length > 1 ? CENTER - 6 : CENTER + 4;
 
-  /* زاویه‌ی قطب چرخه‌گذاری (برای شکاف پایینی حلقه بیرونی) */
-  const ovAngle = (ovulationDay / days) * 360;
+  /* زاویه‌ی قطب چرخه‌گذاری (برای شکاف پایینی حلقه بیرونی) — هم‌مقیاس با نگاشت روزهای حلقه اصلی */
+  const ovAngle = TOP_GAP_DEG / 2 + (ovulationDay / days) * (360 - TOP_GAP_DEG);
 
   return (
     <div className="space-y-3">
@@ -166,22 +184,30 @@ export const CycleWheel: React.FC<CycleWheelProps> = ({
 
           {/* بازه‌های رنگی حلقه اصلی */}
           {(() => {
-            const { from, to } = rangeToAngles(menstrualRange.start, menstrualRange.end, days);
+            const { from, to } = rangeToAngles(menstrualRange.start, menstrualRange.end, days, TOP_GAP_DEG);
             return <path d={arcPath(from, to, INNER_R)} fill="none" stroke={RED} strokeWidth={INNER_W} strokeLinecap="round" />;
           })()}
           {(() => {
-            const { from, to } = rangeToAngles(ovulationRange.start, ovulationRange.end, days);
+            const { from, to } = rangeToAngles(ovulationRange.start, ovulationRange.end, days, TOP_GAP_DEG);
             return <path d={arcPath(from, to, INNER_R)} fill="none" stroke={TEAL} strokeWidth={INNER_W} strokeLinecap="round" />;
           })()}
           {pmsRange && (() => {
-            const { from, to } = rangeToAngles(pmsRange.start, pmsRange.end, days);
-            return <path d={arcPath(from, to, INNER_R)} fill="none" stroke={ORANGE} strokeWidth={INNER_W} strokeLinecap="round" />;
+            const { from, to } = rangeToAngles(pmsRange.start, pmsRange.end, days, TOP_GAP_DEG);
+            const arrow = arrowAt(Math.max(from + 3, to - 5), INNER_R);
+            return (
+              <>
+                <path d={arcPath(from, to, INNER_R)} fill="none" stroke={ORANGE} strokeWidth={INNER_W} strokeLinecap="round" />
+                <g transform={`translate(${arrow.x} ${arrow.y}) rotate(${arrow.rotationDeg})`}>
+                  <path d="M -5 -6 L 6 0 L -5 6" fill="none" stroke="#fffdfa" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+              </>
+            );
           })()}
 
           {/* نقطه‌های قابل‌کلیک هر روز */}
           {Array.from({ length: days }, (_, index) => {
             const day = index + 1;
-            const dot = point(((day - 0.5) / days) * 360, INNER_R);
+            const dot = point(dayCenterAngle(day, days, TOP_GAP_DEG), INNER_R);
             const isToday = day === today;
             return (
               <circle
@@ -208,7 +234,7 @@ export const CycleWheel: React.FC<CycleWheelProps> = ({
                   {toPersianDigits(1)}
                 </text>
                 <text x={endLabel.x} y={endLabel.y} textAnchor="middle" fontSize="14" fontWeight="800" className="fill-[#f5a623]">
-                  {toPersianDigits(days)} ←
+                  {toPersianDigits(days)}
                 </text>
               </>
             );

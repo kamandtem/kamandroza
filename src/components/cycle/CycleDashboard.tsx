@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity } from 'lucide-react';
+import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity, ChevronDown } from 'lucide-react';
 import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, SymptomKey, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import {
@@ -90,6 +90,17 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const [manualDate, setManualDate] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);
+  const [symptomsOpen, setSymptomsOpen] = useState(true);
+  const [editCycleLength, setEditCycleLength] = useState(userState.cycleConfig.cycleLength || 28);
+  const [editPeriodLength, setEditPeriodLength] = useState(userState.cycleConfig.periodLength || 5);
+
+  /** باز کردن مودال ویرایش، همراه با تاریخ و طول چرخه‌ی فعلی — نه فرم خالی. */
+  const openEditPeriod = () => {
+    setManualDate(periodLogs[0]?.startIso || todayIso);
+    setEditCycleLength(userState.cycleConfig.cycleLength || 28);
+    setEditPeriodLength(userState.cycleConfig.periodLength || 5);
+    setShowManual(true);
+  };
 
   /* ------------------------- ثبت علائم امروز ------------------------- */
   const existingToday = symptoms.find((item) => item.date === todayIso);
@@ -131,23 +142,60 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
             onSelectPhase={setSelectedPhase}
-            onEditPeriod={() => setShowManual(true)}
+            onEditPeriod={openEditPeriod}
           />
         </div>
       )}
 
-      {/* مودال ویرایش پریود — فقط یک تقویم شمسی و یک دکمه‌ی ثبت */}
+      {/* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح */}
       {showManual && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
           onClick={() => setShowManual(false)}
         >
           <div
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-3 text-right shadow-2xl"
+            className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-4 text-right shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-sm font-black text-slate-800 dark:text-white">روز شروع پریود را انتخاب کن</h3>
-            <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline />
+            <h3 className="text-sm font-black text-slate-800 dark:text-white">ویرایش پریود</h3>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <span>طول چرخه شما</span>
+                  <span className="text-rose-600">{toPersianDigits(editCycleLength)} روز</span>
+                </div>
+                <input
+                  type="range"
+                  min="21"
+                  max="45"
+                  value={editCycleLength}
+                  onChange={(event) => setEditCycleLength(parseInt(event.target.value, 10))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <span>مدت زمان خونریزی</span>
+                  <span className="text-rose-600">{toPersianDigits(editPeriodLength)} روز</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  value={editPeriodLength}
+                  onChange={(event) => setEditPeriodLength(parseInt(event.target.value, 10))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-black text-slate-800 dark:text-white">روز اول پریود را انتخاب کن</h4>
+              <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline />
+            </div>
+
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => setShowManual(false)}
@@ -158,6 +206,11 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
               <button
                 onClick={() => {
                   if (manualDate) {
+                    onUpdateCycleConfig({
+                      ...userState.cycleConfig,
+                      cycleLength: editCycleLength,
+                      periodLength: editPeriodLength,
+                    });
                     logPeriodStart(manualDate);
                     setManualDate('');
                     setShowManual(false);
@@ -275,67 +328,84 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
       </div>}
       </div>
 
-      {/* ثبت علائم — نسخه ۱ از ۱۰ فیلد فقط ۳ اسلایدر داشت */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-4">
-        <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5">
-          <Activity className="w-4 h-4 text-rose-500" />
-          علائم امروز
-        </h3>
-
-        <div className="space-y-3">
-          {SYMPTOMS.filter((item) => item.scale).map((item) => (
-            <div key={item.key} className="space-y-1">
-              <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-                <span>{item.labelFa}</span>
-                <span className="text-rose-600">{toPersianDigits(draft[item.key] ?? 0)} از ۵</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="5"
-                value={draft[item.key] ?? 0}
-                onChange={(event) => setDraft({ ...draft, [item.key]: parseInt(event.target.value, 10) })}
-                className="w-full accent-rose-500"
-              />
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">امروز کدام‌ها را داشتی؟</span>
-          <div className="flex flex-wrap gap-1.5">
-            {SYMPTOMS.filter((item) => !item.scale).map((item) => {
-              const isOn = (draft[item.key] ?? 0) > 0;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setDraft({ ...draft, [item.key]: isOn ? 0 : 3 })}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                    isOn
-                      ? 'bg-rose-500 text-white border-rose-500'
-                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                  }`}
-                >
-                  {item.labelFa}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+      {/* ثبت علائم — به‌شکل آکاردئونی: هدر همیشه دیده می‌شود، فیلدها با یک لمس باز/بسته می‌شوند */}
+      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 overflow-hidden">
         <button
-          onClick={saveSymptoms}
-          className="w-full py-3 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-sm font-bold flex items-center justify-center gap-1.5"
+          type="button"
+          onClick={() => setSymptomsOpen((value) => !value)}
+          className="w-full p-4 flex items-center justify-between gap-2 text-right"
         >
-          {saved ? (
-            <>
-              <Check className="w-4 h-4" />
-              ذخیره شد
-            </>
-          ) : (
-            'ثبت علائم امروز'
-          )}
+          <span className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5">
+            <Activity className="w-4 h-4 text-rose-500" />
+            علائم امروز
+            {existingToday && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">ثبت شده</span>}
+          </span>
+          <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${symptomsOpen ? 'rotate-180' : ''}`} />
         </button>
+
+        {symptomsOpen && (
+          <div className="px-4 pb-4 space-y-4">
+            <p className="p-3 rounded-2xl bg-[#fdf3ee] dark:bg-slate-800 text-xs leading-6 text-[#8e5241] dark:text-rose-200 flex items-start gap-2">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>این ثبت‌ها فقط روی همین گوشی می‌مانند. بعد از چند چرخه، رزا از همین‌ها الگوی شخصی تو را می‌سازد — مثلاً اینکه جوش یا درد تو معمولاً از کدام روز چرخه شروع می‌شود (پایین همین صفحه) — و به هیچ سروری فرستاده نمی‌شوند.</span>
+            </p>
+
+            <div className="space-y-3">
+              {SYMPTOMS.filter((item) => item.scale).map((item) => (
+                <div key={item.key} className="space-y-1">
+                  <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                    <span>{item.labelFa}</span>
+                    <span className="text-rose-600">{toPersianDigits(draft[item.key] ?? 0)} از ۵</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    value={draft[item.key] ?? 0}
+                    onChange={(event) => setDraft({ ...draft, [item.key]: parseInt(event.target.value, 10) })}
+                    className="w-full accent-rose-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">امروز کدام‌ها را داشتی؟</span>
+              <div className="flex flex-wrap gap-1.5">
+                {SYMPTOMS.filter((item) => !item.scale).map((item) => {
+                  const isOn = (draft[item.key] ?? 0) > 0;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setDraft({ ...draft, [item.key]: isOn ? 0 : 3 })}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                        isOn
+                          ? 'bg-rose-500 text-white border-rose-500'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {item.labelFa}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={saveSymptoms}
+              className="w-full py-3 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-sm font-bold flex items-center justify-center gap-1.5"
+            >
+              {saved ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  ذخیره شد
+                </>
+              ) : (
+                'ثبت علائم امروز'
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* تاریخچه پریودها — نسخه ۱ اصلاً تاریخچه نداشت */}
@@ -391,7 +461,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
         <div className="space-y-1.5">
           <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-            <span>چند روز قبل، علامت‌ها شروع می‌شوند؟</span>
+            <span>چند روز قبل، علائم PMS شروع می‌شوند؟</span>
             <span className="text-rose-600">{toPersianDigits(userState.cycleConfig.pmsStartDaysBefore)} روز</span>
           </div>
           <input
@@ -407,6 +477,9 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
             }
             className="w-full accent-rose-500"
           />
+          <p className="text-xs text-slate-400 leading-relaxed">
+            یعنی از چند روز قبل از شروع پریودت، PMS (علائم پیش از قاعدگی مثل نوسان خلق، نفخ یا حساسیت پوستی) شروع می‌شود.
+          </p>
         </div>
 
         <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">

@@ -145,6 +145,9 @@ export const DEFAULT_USER_STATE: UserState = {
     cycleInsight: true,
     appointmentReminder: true,
     medicationReminder: true,
+    symptomReminder: false,
+    symptomReminderHour: 21,
+    symptomReminderMinute: 0,
     discreetText: true,
   },
   privacy: {

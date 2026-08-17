@@ -28,7 +28,6 @@ import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { FaceMasksView } from './components/masks/FaceMasksView';
 import { AppointmentsView } from './components/appointments/AppointmentsView';
 import { MakeupTipsView } from './components/makeup/MakeupTipsView';
-import { DayPlanFab } from './components/routine/DayPlanFab';
 import { PersonalRoutineView } from './components/routine/PersonalRoutineView';
 import { SplashScreen } from './components/common/SplashScreen';
 
@@ -252,7 +251,7 @@ export default function App() {
     if (!activeSection) return null;
 
     return (
-      <div className="fixed inset-0 z-40 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-28 pt-3">
+      <div className="fixed inset-0 z-40 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-28 pt-[calc(env(safe-area-inset-top)+12px)]">
         <div className="max-w-lg mx-auto px-4 mb-3 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
           <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{sectionTitle}</h2>
           <button
@@ -366,9 +365,10 @@ export default function App() {
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
         }}
+        onFabClick={() => setActiveSection('personalRoutine')}
+        fabLabel="افزودن برنامه شخصی امروز"
       />
       {tourKey && <FeatureTourOverlay tourKey={tourKey} onDone={() => setTourKey(null)} />}
-      <DayPlanFab onOpen={() => setActiveSection('personalRoutine')} />
     </div>
   );
 }

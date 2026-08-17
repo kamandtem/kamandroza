@@ -16,6 +16,7 @@ import {
   toPersianDigits,
 } from '../../services/jalali';
 import { EmptyState } from '../common/EmptyState';
+import { JalaliDatePicker } from '../common/JalaliDatePicker';
 
 interface ProgressTrackerProps {
   initialTab?: 'photos' | 'stats';
@@ -122,11 +123,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = '
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-black text-sm text-slate-800 dark:text-white">عکس‌های من</h3>
-            <div className="flex items-center gap-2"><input type="date" value={photoDate} onChange={(event) => setPhotoDate(event.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2 text-xs font-bold" /><label className="cursor-pointer px-4 py-2 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5">
-              <Camera className="w-4 h-4" />
-              عکس جدید
-              <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
-            </label></div>
+            <div className="flex items-center gap-2">
+              <div className="w-36">
+                <JalaliDatePicker value={photoDate} onChange={setPhotoDate} allowFuture={false} />
+              </div>
+              <label className="shrink-0 cursor-pointer px-4 py-3 rounded-2xl bg-[#8e5241] text-white text-xs font-bold flex items-center gap-1.5">
+                <Camera className="w-4 h-4" />
+                عکس جدید
+                <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+              </label>
+            </div>
           </div>
 
           {/* خطای ذخیره الان دیده می‌شود. نسخه ۱ بی‌صدا شکست می‌خورد. */}

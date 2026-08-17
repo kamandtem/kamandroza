@@ -72,7 +72,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
   };
 
   return (
-    <div className="space-y-2">
+    <div className={inline ? 'space-y-2' : 'relative space-y-2'}>
       {labelFa && <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">{labelFa}</label>}
 
       {!inline && (
@@ -88,8 +88,18 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
         </button>
       )}
 
+      {isOpen && !inline && (
+        <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
+      )}
+
       {isOpen && (
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3">
+        <div
+          className={
+            inline
+              ? 'p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3'
+              : 'absolute z-40 top-full mt-2 w-[19rem] max-w-[90vw] right-0 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-2xl space-y-3'
+          }
+        >
           <div className="flex items-center justify-between">
             <button
               type="button"

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Moon, ChevronLeft, Activity, AlertTriangle } from 'lucide-react';
+import { Moon, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { MenstrualCycleConfig, MenstrualPhase } from '../../types';
 import { estimateOvulationDay, getTodayCycleState } from '../../services/cycle/cycleService';
-import { formatJalaliDayMonth, toPersianDigits } from '../../services/jalali';
-import { RED, ORANGE, TEAL, PINK, PURPLE, TRACK, NAVY, point, arcPath, rangeToAngles } from '../cycle/CycleWheel';
+import { toPersianDigits } from '../../services/jalali';
+import { RED, ORANGE, TEAL, TRACK, NAVY, point, arcPath, rangeToAngles } from '../cycle/CycleWheel';
 
 interface HormoneCycleCardProps {
   cycleConfig: MenstrualCycleConfig;
@@ -41,13 +41,6 @@ const PHASE_INFO: Record<MenstrualPhase, { titleFa: string; skinFa: string; acti
   },
 };
 
-const CONFIDENCE_LABEL: Record<string, string> = {
-  none: 'برای پیش‌بینی، چند چرخه ثبت لازم است',
-  low: 'دقت پیش‌بینی فعلاً پایین است',
-  medium: 'دقت پیش‌بینی متوسط',
-  high: 'دقت پیش‌بینی خوب',
-};
-
 interface MiniCycleWheelProps {
   day: number;
   cycleLength: number;
@@ -57,14 +50,15 @@ interface MiniCycleWheelProps {
 }
 
 const TOP_GAP_DEG = 8;
-const OUTER_GAP_DEG = 16;
 
 /**
- * نسخه‌ی کوچکِ همان چرخه‌ی پنل چرخه (CycleWheel) — همان دو حلقه و
- * همان رنگ‌بندی، فقط در اندازه‌ی مینیاتوری و بدون تعامل. هدفش صرفاً
- * پیش‌نمایش سریع در کارت خانه است؛ جزئیات (متن وسط، راهنما، ویرایش
- * پریود، نقطه‌ی هر روز) عمداً حذف شده چون فقط در پنل کامل لازم است.
- * خودِ چرخه یک لینک به همان پنل است.
+ * نسخه‌ی کوچکِ همان چرخه‌ی پنل چرخه (CycleWheel) — همان حلقه‌ی اصلی و
+ * همان رنگ‌بندی، فقط در اندازه‌ی مینیاتوری و بدون تعامل. برخلاف پنل
+ * کامل، حلقه‌ی بیرونیِ فولیکولار/لوتئال اینجا نمایش داده نمی‌شود — کارت
+ * خانه فقط باید وضعیت کلی (پریود/تخمک‌گذاری/PMS) را نشان بدهد، نه جزئیات
+ * فازهای فرعی. جزئیات (متن وسط، راهنما، ویرایش پریود، نقطه‌ی هر روز) هم
+ * عمداً حذف شده چون فقط در پنل کامل لازم است. خودِ چرخه یک لینک به همان
+ * پنل است.
  */
 const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
   day,
@@ -76,8 +70,6 @@ const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
   const CENTER = 60;
   const INNER_R = 40;
   const INNER_W = 8;
-  const OUTER_R = 51;
-  const OUTER_W = 2.5;
   const BADGE_R = 13;
 
   const days = Math.max(21, Math.min(45, cycleLength || 28));
@@ -91,14 +83,6 @@ const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
   const pmsRange = pmsDays > 0 ? { start: Math.max(ovulationRange.end + 1, days - pmsDays + 1), end: days } : null;
 
   const todayPoint = point(((today - 0.5) / days) * 360, INNER_R, CENTER);
-  const ovAngle = (ovulationDay / days) * 360;
-  const gap = OUTER_GAP_DEG / 2;
-  const topStart = TOP_GAP_DEG / 2 + gap;
-  const topEnd = 360 - TOP_GAP_DEG / 2 - gap;
-  const pinkFrom = topStart;
-  const pinkTo = Math.max(pinkFrom + 1, ovAngle - gap);
-  const purpleFrom = Math.min(topEnd - 1, ovAngle + gap);
-  const purpleTo = topEnd;
 
   const menstrualAngles = rangeToAngles(menstrualRange.start, menstrualRange.end, days);
   const ovulationAngles = rangeToAngles(ovulationRange.start, ovulationRange.end, days);
@@ -106,10 +90,6 @@ const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
   return (
     <button onClick={onClick} aria-label="مشاهده وضعیت چرخه" className="relative shrink-0" style={{ width: 120, height: 120 }}>
       <svg width={120} height={120} viewBox="0 0 120 120" className="overflow-visible">
-        {/* حلقه بیرونی: فولیکولار (صورتی) و لوتئال (بنفش) */}
-        <path d={arcPath(pinkFrom, pinkTo, OUTER_R, CENTER)} fill="none" stroke={PINK} strokeWidth={OUTER_W} strokeLinecap="round" />
-        <path d={arcPath(purpleFrom, purpleTo, OUTER_R, CENTER)} fill="none" stroke={PURPLE} strokeWidth={OUTER_W} strokeLinecap="round" />
-
         {/* حلقه اصلی: پس‌زمینه */}
         <path
           d={arcPath(TOP_GAP_DEG / 2, 360 - TOP_GAP_DEG / 2, INNER_R, CENTER)}
@@ -214,17 +194,6 @@ export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig,
         <span className="text-xs font-black text-slate-800 dark:text-white block">امروز چه کار کنیم</span>
         <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{info.actionFa}</p>
       </div>
-
-      {/* پیش‌بینی به شکل بازه، نه روز دقیق. با سطح اطمینان شفاف. */}
-      {state.nextPeriodFromIso && state.nextPeriodToIso && (
-        <div className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-          <Activity className="w-4 h-4 text-rose-500 shrink-0 mt-1" />
-          <span>
-            پریود بعدی حدود {formatJalaliDayMonth(state.nextPeriodFromIso)} تا{' '}
-            {formatJalaliDayMonth(state.nextPeriodToIso)}. {CONFIDENCE_LABEL[state.confidence]}.
-          </span>
-        </div>
-      )}
 
       {state.inPmsWindow && (
         <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2">

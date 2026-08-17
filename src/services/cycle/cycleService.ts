@@ -57,16 +57,45 @@ const PHASE_NAMES: Record<MenstrualPhase, string> = {
 
 /* ---------------------------- ثبت پریود ---------------------------- */
 
-/** ثبت شروع پریود. اگر دوره بازی وجود داشته باشد، اول بسته می‌شود. */
+/**
+ * ثبت یا تصحیح شروع پریود.
+ *
+ * دو حالت کاملاً متفاوت از یک فرم می‌آید و باید جدا شوند:
+ *  ۱) کاربر می‌خواهد تاریخ همان پریودی که قبلاً ثبت کرده را تصحیح کند
+ *     (مثلاً اشتباهی ۲۰ مرداد زده بود، می‌خواهد بگذارد ۲۳ مرداد).
+ *  ۲) یک پریود واقعاً تازه شروع شده و باید به‌عنوان رکورد جدید ثبت شود.
+ *
+ * ملاک تشخیص: اگر تاریخ جدید به آخرین پریود ثبت‌شده نزدیک‌تر از یک چرخه
+ * فیزیولوژیک معقول (کمتر از ۱۵ روز) باشد، تصحیح همان رکورد است — رکورد
+ * قبلی جای خودش می‌ماند و فقط startIso آن عوض می‌شود، نه اینکه یک پریود
+ * جعلی و کوتاه در تاریخچه ساخته شود. در غیر این صورت رکورد تازه‌ای ساخته
+ * می‌شود و اگر پریود قبلی هنوز باز بود، بسته می‌شود.
+ */
 export function logPeriodStart(startIso: string = getTodayIsoDate()): PeriodLog {
   const logs = LocalDB.getPeriodLogs();
+  const sorted = [...logs].sort((a, b) => (a.startIso < b.startIso ? 1 : -1));
+  const latest = sorted[0];
 
-  const duplicate = logs.find((log) => Math.abs(getDaysDifference(log.startIso, startIso)) <= 2);
-  if (duplicate) return duplicate;
+  if (!latest) {
+    const log: PeriodLog = { id: createId('period'), startIso, updatedAt: new Date().toISOString() };
+    LocalDB.savePeriodLog(log);
+    return log;
+  }
 
-  const open = logs.find((log) => !log.endIso);
-  if (open && getDaysDifference(open.startIso, startIso) > 2) {
-    LocalDB.savePeriodLog({ ...open, endIso: addDays(startIso, -1) });
+  const gapFromLatest = getDaysDifference(latest.startIso, startIso);
+  const looksLikeCorrection = Math.abs(gapFromLatest) < 15;
+
+  if (looksLikeCorrection) {
+    const updated: PeriodLog = { ...latest, startIso, updatedAt: new Date().toISOString() };
+    if (updated.endIso && getDaysDifference(updated.startIso, updated.endIso) < 0) {
+      delete updated.endIso;
+    }
+    LocalDB.savePeriodLog(updated);
+    return updated;
+  }
+
+  if (!latest.endIso && gapFromLatest > 0) {
+    LocalDB.savePeriodLog({ ...latest, endIso: addDays(startIso, -1) });
   }
 
   const log: PeriodLog = { id: createId('period'), startIso, updatedAt: new Date().toISOString() };

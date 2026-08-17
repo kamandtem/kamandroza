@@ -42,7 +42,7 @@ const FEATURES: Record<FeatureFlag, boolean> = {
   onlineBooking: false,
   shop: false,
   cloudSync: false,
-  appLock: true,
+  appLock: false,
 };
 
 export function isFeatureEnabled(flag: FeatureFlag): boolean {
