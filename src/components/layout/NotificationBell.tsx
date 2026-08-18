@@ -5,14 +5,15 @@ import { getTodayCycleState } from '../../services/cycle/cycleService';
 import { getUpcomingAppointments } from '../../services/providers/appointmentService';
 import { getCachedWeather } from '../../services/weatherService';
 import { getTodayIsoDate, getDaysDifference, toPersianDigits } from '../../services/jalali';
+import type { DailyTrackerEntry } from '../../types';
 import type { NavTab } from './BottomNavigation';
 import type { SectionKey } from '../../App';
 
-interface Props { onNavigateTab: (tab: NavTab) => void; onOpenSection: (section: SectionKey) => void; }
+interface Props { todayLog: DailyTrackerEntry; onNavigateTab: (tab: NavTab) => void; onOpenSection: (section: SectionKey) => void; }
 interface Notice { id: string; text: string; icon: React.ElementType; action: () => void; }
 
 /** زنگوله واقعی: فقط یادآوری‌های قابل اقدام را نشان می‌دهد، نه تاریخ و دما. */
-export const NotificationBell: React.FC<Props> = ({ onNavigateTab, onOpenSection }) => {
+export const NotificationBell: React.FC<Props> = ({ todayLog, onNavigateTab, onOpenSection }) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const user = LocalDB.getUserState();
@@ -46,8 +47,21 @@ export const NotificationBell: React.FC<Props> = ({ onNavigateTab, onOpenSection
   }
 
   const weather = getCachedWeather();
-  if (weather?.hasData && !weather.isStale && weather.uvIndex >= 6) {
-    notices.push({ id: 'uv', text: `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست؛ ضدآفتاب را تجدید کن`, icon: Sun, action: () => onOpenSection('personalRoutine') });
+  /*
+   * وقتی کاربر از همین کارت (یا از کارت «ثبت سریع امروز» در پنل خانه)
+   * ضدآفتاب زدنش را ثبت کند، todayLog.usedSunscreen به true تغییر
+   * می‌کند و همین شرط باعث می‌شود این یادآوری خودش از زنگوله حذف شود —
+   * چون واقعاً انجام شده، نه چون یک پرچم جدا و جدا از داده‌ی واقعی
+   * «دیده‌شده» علامت خورده.
+   */
+  if (weather?.hasData && !weather.isStale && weather.uvIndex >= 6 && !todayLog.usedSunscreen) {
+    notices.push({
+      id: 'uv',
+      text: `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست؛ ضدآفتاب را تجدید کن`,
+      icon: Sun,
+      // به پنل خانه می‌برد تا کارت «ثبت سریع امروز» دیده شود و همان‌جا ثبت کند
+      action: () => onNavigateTab('home'),
+    });
   }
 
   const products = LocalDB.getProducts();

@@ -86,7 +86,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
   };
 
   return (
-    <div className="pb-[220px] px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+220px)] px-4 max-w-lg mx-auto space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-base font-black text-slate-800 dark:text-white">قفسه محصولات من</h2>
@@ -202,7 +202,7 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
 
       {/* فرم افزودن */}
       {showForm && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-[calc(var(--safe-bottom)+1rem)]">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-base text-slate-800 dark:text-white">محصول جدید</h3>

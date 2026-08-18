@@ -24,7 +24,7 @@ import {
 } from '../types';
 import { findIngredientById } from './content/ingredients';
 import { getBlockedIngredientIds } from './safety';
-import { getTodayCycleState } from './cycle/cycleService';
+import { getTodayCycleState, PHASE_INGREDIENTS } from './cycle/cycleService';
 import { getRoutineRestrictionForDate } from './providers/appointmentService';
 import { getAgeFromBirthDate, getTodayIsoDate } from './jalali';
 
@@ -109,23 +109,17 @@ export function buildDailyGuidance(args: {
     const hedge = cycle.confidence === 'low' || cycle.confidence === 'none' ? ' (برآورد تقریبی است)' : '';
     if (cycle.phase === 'menstrual') {
       cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز قاعدگی. سد دفاعی پوست حساس‌تر است؛ تمرکز روی آبرسانی و آرام‌سازی.${hedge}`;
-      recommended.add('ing_centella');
-      recommended.add('ing_panthenol');
-      avoid.add('ing_glycolic_acid');
-      avoid.add('ing_retinol');
     } else if (cycle.phase === 'follicular') {
       cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز فولیکولار. تحمل پوست برای ترکیبات فعال بیشتر است.${hedge}`;
-      recommended.add('ing_vitamin_c');
     } else if (cycle.phase === 'ovulation') {
       cycleInsight = `روز ${cycle.cycleDay} چرخه، تخمک‌گذاری تقریبی. ترشح چربی رو به افزایش است.${hedge}`;
-      recommended.add('ing_niacinamide');
-      recommended.add('ing_zinc_pca');
     } else {
       cycleInsight = `روز ${cycle.cycleDay} چرخه، فاز لوتئال. منافذ مستعد انسداد هستند؛ پیشگیری اولویت دارد.${hedge}`;
-      recommended.add('ing_niacinamide');
-      recommended.add('ing_azelaic_acid');
-      if (!avoid.has('ing_salicylic_acid')) recommended.add('ing_salicylic_acid');
     }
+    // همان جدول ترکیبات فاز که کارت چرخه هم از آن می‌خواند (PHASE_INGREDIENTS) — یک منبع واحد.
+    const phaseIngredients = PHASE_INGREDIENTS[cycle.phase];
+    phaseIngredients.recommendedIds.forEach((id) => recommended.add(id));
+    phaseIngredients.avoidIds.forEach((id) => avoid.add(id));
 
     if (cycle.inPmsWindow && cycle.daysUntilNextPeriod !== null) {
       pmsWarning = `حدود ${cycle.daysUntilNextPeriod} روز تا شروع احتمالی پریود. اگر الگوی جوش هورمونی داری، الان بهترین زمان شروع روتین پیشگیرانه است. این یک برآورد است، نه تشخیص پزشکی.`;

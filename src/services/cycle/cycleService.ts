@@ -14,6 +14,22 @@ import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, PeriodLog, SymptomK
 import { addDays, getDaysDifference, getTodayIsoDate } from '../jalali';
 import { LocalDB, createId } from '../db';
 
+/**
+ * منبع واحد توصیه ترکیبات هر فاز چرخه.
+ *
+ * قبلاً کارت «چرخه» (CycleDashboard) یک متن فارسی ثابت و جدا برای هر فاز
+ * داشت و کارت «ترکیبات امروز» در خانه (recommendationEngine) مستقل از آن
+ * شناسه ترکیب انتخاب می‌کرد؛ دو منبع جدا یعنی همیشه امکان ناهم‌خوانی. حالا
+ * هر دو از همین یک جدول شناسه می‌خوانند و فقط نامشان را از پایگاه ترکیبات
+ * می‌گیرند، پس هرگز از هم جدا نمی‌افتند.
+ */
+export const PHASE_INGREDIENTS: Record<MenstrualPhase, { recommendedIds: string[]; avoidIds: string[] }> = {
+  menstrual: { recommendedIds: ['ing_centella', 'ing_panthenol', 'ing_ceramides'], avoidIds: ['ing_glycolic_acid', 'ing_retinol'] },
+  follicular: { recommendedIds: ['ing_vitamin_c'], avoidIds: [] },
+  ovulation: { recommendedIds: ['ing_niacinamide', 'ing_zinc_pca'], avoidIds: [] },
+  luteal: { recommendedIds: ['ing_niacinamide', 'ing_azelaic_acid', 'ing_salicylic_acid'], avoidIds: [] },
+};
+
 export type PredictionConfidence = 'none' | 'low' | 'medium' | 'high';
 
 export interface CycleStats {

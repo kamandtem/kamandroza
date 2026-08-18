@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Sun, Moon, Clock, Play, Pause, RotateCcw, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, Clock, Play, Pause, RotateCcw, CheckCircle2, Info, AlertTriangle, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { Product, Routine, RoutineType, UserState, WeatherData } from '../../types';
@@ -44,6 +44,30 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
   );
   const [night, setNight] = useState<Routine>(() => loadRoutine(todayIso, 'night', guidance.nightRoutine));
 
+  /*
+   * پیام سن (مثلاً «در سن نوجوانی، پوست به روتین ساده...») را می‌شود
+   * بست. چون متن با تغییر بازه سنی کاربر عوض می‌شود، خودِ متن به‌عنوان
+   * کلید ذخیره می‌شود — اگر بعداً به بازه سنی دیگری برسد و پیام عوض
+   * شود، دوباره نشان داده می‌شود، نه اینکه برای همیشه پنهان بماند.
+   */
+  const [dismissedAgeInsight, setDismissedAgeInsight] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('roza_dismissed_age_insight');
+    } catch {
+      return null;
+    }
+  });
+  const dismissAgeInsight = () => {
+    if (!guidance.ageInsightFa) return;
+    try {
+      localStorage.setItem('roza_dismissed_age_insight', guidance.ageInsightFa);
+    } catch {
+      /* اگر localStorage در دسترس نبود، فقط برای همین جلسه بسته می‌ماند */
+    }
+    setDismissedAgeInsight(guidance.ageInsightFa);
+  };
+  const showAgeInsight = !!guidance.ageInsightFa && guidance.ageInsightFa !== dismissedAgeInsight;
+
   // اگر قالب عوض شد (مثلاً نوبت جدید ثبت شد)، روتین دوباره ساخته می‌شود
   // ولی تیک‌های کاربر حفط می‌مانند.
   useEffect(() => {
@@ -84,7 +108,7 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
   }, [isRunning, secondsLeft, timerStepId]);
 
   return (
-    <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
       {/* سویچ صبح و شب */}
       <div className="p-1.5 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 flex items-center gap-1">
         <button
@@ -132,6 +156,20 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
 
         <p className="text-xs text-slate-500 dark:text-slate-400">تیک‌ها ذخیره می‌شوند و با بستن برنامه پاک نمی‌شوند.</p>
       </div>
+
+      {/* پیام مربوط به بازه سنی — قابل بستن */}
+      {showAgeInsight && (
+        <div className="p-4 rounded-3xl bg-purple-50 dark:bg-purple-950/25 border border-purple-200 dark:border-purple-900/50 flex items-start gap-2">
+          <p className="flex-1 text-sm text-purple-900 dark:text-purple-200 leading-relaxed">{guidance.ageInsightFa}</p>
+          <button
+            onClick={dismissAgeInsight}
+            aria-label="بستن پیام"
+            className="icon-only p-1.5 rounded-lg text-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/40 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* دلیل ملایم بودن روتین */}
       {guidance.gentleMode && guidance.procedureInsightFa && (

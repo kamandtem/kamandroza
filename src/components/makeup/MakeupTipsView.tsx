@@ -52,7 +52,7 @@ export const MakeupTipsView: React.FC = () => {
   const [selected, setSelected] = useState<(typeof tips)[number] | null>(null);
 
   return (
-    <div className="pb-[220px] pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+220px)] pt-3 px-4 max-w-lg mx-auto space-y-4">
       <div className="p-5 rounded-[2rem] bg-gradient-to-br from-[#fff3e8] to-[#f3efff] border border-[#f0dfd2] space-y-2">
         <div className="flex items-center gap-2 text-[#263b56]">
           <Brush className="w-5 h-5" />

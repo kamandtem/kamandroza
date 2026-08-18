@@ -15,6 +15,8 @@ import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
 import { formatJalaliDate, formatJalaliDayMonth, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
 import { ToggleSwitch } from '../common/ToggleSwitch';
+import { PHASE_INGREDIENTS } from '../../services/cycle/cycleService';
+import { ingredientNamesFa } from '../../services/recommendationEngine';
 
 interface CycleDashboardProps {
   userState: UserState;
@@ -38,32 +40,48 @@ const SYMPTOMS: { key: SymptomKey; labelFa: string; scale: boolean }[] = [
   { key: 'badSleep', labelFa: 'خواب بد', scale: false },
 ];
 
-const PHASE_GUIDE: Record<MenstrualPhase, { titleFa: string; skinFa: string; doFa: string[]; avoidFa: string[] }> = {
+/**
+ * توضیح کلی هر فاز + چند نکته‌ی رویه‌ای (نه ترکیب) که به شناسه ترکیب ربطی
+ * ندارد. خودِ فهرست ترکیبات پیشنهادی/پرهیزی از PHASE_INGREDIENTS ساخته
+ * می‌شود — همان جدولی که کارت «ترکیبات امروز» در خانه هم از آن می‌خواند —
+ * تا این دو کارت هرگز با هم ناهم‌خوان نشوند.
+ */
+const PHASE_GUIDE: Record<MenstrualPhase, { titleFa: string; skinFa: string; extraDoFa: string[]; extraAvoidFa: string[] }> = {
   menstrual: {
     titleFa: 'قاعدگی',
     skinFa: 'سد دفاعی حساس‌تر و رطوبت کمتر. احتمال التهاب بیشتر.',
-    doFa: ['شوینده ملایم', 'سرامید و پانتنول', 'سیکا برای تسکین'],
-    avoidFa: ['لایه‌بردار قوی', 'پیلینگ و لیزر', 'رتینول با دوز بالا'],
+    extraDoFa: ['شوینده ملایم'],
+    extraAvoidFa: ['پیلینگ و لیزر'],
   },
   follicular: {
     titleFa: 'فولیکولار',
     skinFa: 'معمولاً مقاوم‌ترین بخش ماه.',
-    doFa: ['ویتامین C', 'لایه‌برداری ملایم', 'بهترین زمان لیزر و فیشیال'],
-    avoidFa: [],
+    extraDoFa: ['لایه‌برداری ملایم', 'بهترین زمان لیزر و فیشیال'],
+    extraAvoidFa: [],
   },
   ovulation: {
     titleFa: 'تخمک‌گذاری',
     skinFa: 'ترشح چربی رو به افزایش است.',
-    doFa: ['نیاسینامید', 'مرطوب‌کننده سبک'],
-    avoidFa: ['کرم‌های سنگین و چرب'],
+    extraDoFa: ['مرطوب‌کننده سبک'],
+    extraAvoidFa: ['کرم‌های سنگین و چرب'],
   },
   luteal: {
     titleFa: 'لوتئال',
     skinFa: 'منافذ مستعد انسداد و جوش هورمونی.',
-    doFa: ['نیاسینامید', 'آزلائیک اسید', 'سالیسیلیک اسید ملایم'],
-    avoidFa: ['کرم کومدون‌زا', 'دستکاری جوش', 'نوبت لیزر و اپیلاسیون'],
+    extraDoFa: [],
+    extraAvoidFa: ['کرم کومدون‌زا', 'دستکاری جوش', 'نوبت لیزر و اپیلاسیون'],
   },
 };
+
+/** فهرست نهایی do/avoid یک فاز: نام ترکیبات (از همان منبع کارت خانه) + نکات رویه‌ای فاز. */
+function buildPhaseLists(phase: MenstrualPhase) {
+  const ingredients = PHASE_INGREDIENTS[phase];
+  const guide = PHASE_GUIDE[phase];
+  return {
+    doFa: [...ingredientNamesFa(ingredients.recommendedIds), ...guide.extraDoFa],
+    avoidFa: [...ingredientNamesFa(ingredients.avoidIds), ...guide.extraAvoidFa],
+  };
+}
 
 /**
  * بخش چرخه.
@@ -95,7 +113,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
     };
 
     return (
-      <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+      <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
         <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2 text-center">
           <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
             <HeartPulse className="w-6 h-6" />
@@ -216,9 +234,10 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const maxBucket = Math.max(1, ...(acnePattern?.buckets || []).map((bucket) => bucket.average));
 
   const phaseGuide = PHASE_GUIDE[selectedPhase];
+  const phaseLists = buildPhaseLists(selectedPhase);
 
   return (
-    <div className="pb-28 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
       {/* چرخ فازها */}
       {state.available && state.cycleDay !== null ? (
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3 text-center">
@@ -333,11 +352,11 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
         <h3 className="text-sm font-black text-slate-800 dark:text-white">فاز {phaseGuide.titleFa}</h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{phaseGuide.skinFa}</p>
 
-        {phaseGuide.doFa.length > 0 && (
+        {phaseLists.doFa.length > 0 && (
           <div className="space-y-1.5">
             <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">مناسب این فاز</span>
             <div className="flex flex-wrap gap-1.5">
-              {phaseGuide.doFa.map((item) => (
+              {phaseLists.doFa.map((item) => (
                 <span
                   key={item}
                   className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold"
@@ -349,11 +368,11 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           </div>
         )}
 
-        {phaseGuide.avoidFa.length > 0 && (
+        {phaseLists.avoidFa.length > 0 && (
           <div className="space-y-1.5">
             <span className="text-xs font-black text-rose-700 dark:text-rose-400">بهتر است پرهیز کنی</span>
             <div className="flex flex-wrap gap-1.5">
-              {phaseGuide.avoidFa.map((item) => (
+              {phaseLists.avoidFa.map((item) => (
                 <span
                   key={item}
                   className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 text-xs font-bold"

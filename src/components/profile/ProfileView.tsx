@@ -21,6 +21,7 @@ import { ToggleSwitch } from '../common/ToggleSwitch';
 import { PrettySelect } from '../common/PrettySelect';
 import { BirthDatePicker } from '../common/BirthDatePicker';
 import { CityAutocomplete } from '../common/CityAutocomplete';
+import { NumberStepper } from '../common/NumberStepper';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -135,7 +136,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
   };
 
   return (
-    <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+10rem)] px-4 max-w-lg mx-auto space-y-4">
       {/* کارت هویت */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 flex items-center gap-4">
         <div className="relative shrink-0">
@@ -292,14 +293,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
           ]}
         />
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">هدف آب در روز</label>
-            <input type="number" min="1" max="20" value={draft.lifestyle.waterTargetGlasses || 8} onChange={(event) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, waterTargetGlasses: parseInt(event.target.value, 10) || 8 } })} className="w-full py-3 px-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold" />
-          </div>
-          <div>
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">هدف خواب</label>
-            <input type="number" min="4" max="14" step="0.5" value={draft.lifestyle.sleepTargetHours || 8} onChange={(event) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, sleepTargetHours: parseFloat(event.target.value) || 8 } })} className="w-full py-3 px-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold" />
-          </div>
+          <NumberStepper
+            labelFa="هدف آب در روز"
+            value={draft.lifestyle.waterTargetGlasses || 8}
+            onChange={(value) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, waterTargetGlasses: value } })}
+            min={1}
+            max={20}
+            step={1}
+            unitFa="لیوان"
+          />
+          <NumberStepper
+            labelFa="هدف خواب"
+            value={draft.lifestyle.sleepTargetHours || 8}
+            onChange={(value) => setDraft({ ...draft, lifestyle: { ...draft.lifestyle, sleepTargetHours: value } })}
+            min={4}
+            max={14}
+            step={0.5}
+            decimals={1}
+            unitFa="ساعت"
+          />
         </div>
         <PrettySelect
           label="استرس معمول"

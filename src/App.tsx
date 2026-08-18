@@ -305,7 +305,7 @@ export default function App() {
       // z-20: زیر هدر ثابت (z-30) می‌ماند تا هدر اصلی روی همه‌ی پنل‌ها — از جمله
       // پنل‌هایی که از منو باز می‌شوند — همیشه دیده شود. قبلاً z-40 بود و هدر را
       // کامل می‌پوشاند، پس اگر پنلی از منو انتخاب می‌شد اصلاً هدری روی آن دیده نمی‌شد.
-      <div ref={sectionScrollRef} className="fixed inset-0 z-20 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-28 pt-[calc(env(safe-area-inset-top)+92px)]">
+      <div ref={sectionScrollRef} className="fixed inset-0 z-20 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-[calc(var(--safe-bottom)+7rem)] pt-[calc(var(--safe-top)+92px)]">
         <div className="max-w-lg mx-auto px-4 mb-3 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
           <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{sectionTitle}</h2>
         </div>
@@ -325,7 +325,7 @@ export default function App() {
           <ProductShelf products={products} onUpdateProducts={handleUpdateProducts} userState={userState} />
         )}
         {activeSection === 'photo' && <ProgressTracker initialTab="photos" />}
-        {activeSection === 'masks' && <FaceMasksView onClose={() => setActiveSection(null)} />}
+        {activeSection === 'masks' && <FaceMasksView />}
         {activeSection === 'salon' && <AppointmentsView kind="salon" userState={userState} />}
         {activeSection === 'clinic' && <AppointmentsView kind="clinic" userState={userState} />}
         {activeSection === 'makeup' && <MakeupTipsView />}
@@ -339,10 +339,11 @@ export default function App() {
   // بنابراین پشت پنجره تأیید فقط سفیدی/پس‌زمینه خالی صفحه دیده می‌شد نه خود برنامه.
   // حالا این پنجره روی همان درخت اصلی اپ (به‌عنوان لایه‌ی روی آن) رندر می‌شود.
   return (
-    <div className="min-h-screen pt-[92px] bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
+    <div className="min-h-screen pt-[calc(var(--safe-top)+92px)] bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
       <Header
         userState={userState}
         weather={weather}
+        todayLog={todayLog}
         onOpenDrawer={() => setIsDrawerOpen(true)}
         onToggleTheme={handleToggleTheme}
         onNavigateTab={(tab) => { setActiveTab(tab); setActiveSection(null); }}

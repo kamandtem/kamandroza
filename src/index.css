@@ -64,11 +64,31 @@
      */
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
+
+    /*
+     * فاصله‌ی امن سیستم — یک منبع واحد برای همه‌ی جاهایی که باید از
+     * زیر نوار ناوبری اندروید (سه‌دکمه‌ای یا اشاره‌ای) فاصله بگیرند.
+     *
+     * مشکل: نوار پایین برنامه (BottomNavigation) و بقیه‌ی جاهایی که
+     * زیرشان padding ثابت (مثل pb-28) داشتند، فقط برای حالت ناوبری
+     * اشاره‌ای (Gesture) که فاصله‌ی سیستمی کمی دارد کافی بود. در حالت
+     * سه‌دکمه‌ای (3-Button Navigation)، اندروید یک نوار غیرشفاف و بلندتر
+     * در پایین صفحه رزرو می‌کند؛ چون هیچ‌جا این فاصله را از سیستم
+     * نمی‌پرسید، محتوا زیر آن نوار می‌رفت.
+     *
+     * env(safe-area-inset-bottom) همان فاصله‌ی واقعی را — چه ۰ (اشاره‌ای)
+     * چه چند ده پیکسل (سه‌دکمه‌ای) — از خود سیستم می‌گیرد. با تعریف یک
+     * متغیر مرکزی، هر جای اپ که به این فاصله نیاز دارد فقط
+     * calc(var(--safe-bottom) + مقدار خودش) را اضافه می‌کند، نه یک عدد
+     * ثابت حدسی.
+     */
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
   }
 
   body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
     font-family: var(--font-sans);
     direction: rtl;
     background-color: #faf8f5;

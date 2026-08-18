@@ -193,7 +193,9 @@ export const CycleWheel: React.FC<CycleWheelProps> = ({
           })()}
           {pmsRange && (() => {
             const { from, to } = rangeToAngles(pmsRange.start, pmsRange.end, days, TOP_GAP_DEG);
-            const arrow = arrowAt(Math.max(from + 3, to - 5), INNER_R);
+            // فلش دقیقاً روی نوک کمان (انتهای بازه PMS، قبل از شکاف بالای دایره) می‌نشیند —
+            // نه چند درجه قبل‌تر — تا مثل نمونه طرح، دقیقاً سر چرخه باشد.
+            const arrow = arrowAt(Math.max(from + 1, to), INNER_R);
             return (
               <>
                 <path d={arcPath(from, to, INNER_R)} fill="none" stroke={ORANGE} strokeWidth={INNER_W} strokeLinecap="round" />

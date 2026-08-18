@@ -195,7 +195,7 @@ export const FACE_MASKS_DATABASE: FaceMask[] = [
   }
 ];
 
-export const FaceMasksView: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
+export const FaceMasksView: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'natural' | 'dermatological'>('all');
   const [search, setSearch] = useState('');
   const [selectedMask, setSelectedMask] = useState<FaceMask | null>(null);
@@ -211,23 +211,13 @@ export const FaceMasksView: React.FC<{ onClose?: () => void }> = ({ onClose }) =
   });
 
   return (
-    <div className="pb-28 pt-2 px-4 max-w-lg mx-auto space-y-4 font-['Vazirmatn',sans-serif] text-slate-800 dark:text-white">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-2 px-4 max-w-lg mx-auto space-y-4 font-['Vazirmatn',sans-serif] text-slate-800 dark:text-white">
       {/* Title Header */}
       <div className="p-4 rounded-3xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/10 border border-rose-200 dark:border-slate-800 text-right space-y-1">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-extrabold flex items-center gap-2 text-slate-800 dark:text-white">
-            <Sparkles className="w-5 h-5 text-rose-500" />
-            ۱۰ ماسک مشهور و کاربردی پوست
-          </h2>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold"
-            >
-              بستن
-            </button>
-          )}
-        </div>
+        <h2 className="text-base font-extrabold flex items-center gap-2 text-slate-800 dark:text-white">
+          <Sparkles className="w-5 h-5 text-rose-500" />
+          ۱۰ ماسک مشهور و کاربردی پوست
+        </h2>
         <p className="text-xs text-slate-600 dark:text-slate-300">
           آموزش گام‌به‌گام تهیه و استفاده از بهترین ماسک‌های طبیعی خانگی و درمانی برای انواع پوست.
         </p>

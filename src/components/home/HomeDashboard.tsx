@@ -78,7 +78,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const toggleSunscreen = () => onUpdateDailyLog({ ...todayLog, usedSunscreen: !todayLog.usedSunscreen });
 
   return (
-    <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
       {weather.hasData || onRequestWeatherLocation ?       <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} /> : null}
 
       {/* در حالت بارداری، کارت چرخه به‌جای پیش‌بینی پریود فقط وضعیت بارداری را نشان می‌دهد */}

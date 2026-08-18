@@ -46,7 +46,7 @@ export const KnowledgeCenter: React.FC = () => {
   });
 
   return (
-    <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
       <div className="rounded-[1.7rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
         <button onClick={() => setIntroOpen((value) => !value)} className="w-full p-4 flex items-center justify-between text-right">
           <span className="flex items-center gap-2 text-sm font-black text-[#263b56] dark:text-white">
@@ -198,17 +198,22 @@ export const KnowledgeCenter: React.FC = () => {
 };
 
 const ConditionCard: React.FC<{ condition: SkinConditionInfo }> = ({ condition }) => (
-  <details className="rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 overflow-hidden">
-    <summary className="p-4 flex items-center gap-3 font-black text-sm text-slate-800 dark:text-white cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+  <details className="group rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 overflow-hidden">
+    <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+      {/* عکس بزرگ و تمام‌عرض — قبلاً فقط تامبنیل ۴۸ در ۴۸ بود و عکس عارضه عملاً دیده نمی‌شد.
+          حالا مثل کارت مقالات، عکس تمام‌عرض بالای کارت است. */}
       {condition.imageUrl && (
         <img
           src={condition.imageUrl}
-          alt=""
-          className="w-12 h-12 rounded-2xl object-cover shrink-0 bg-rose-50 dark:bg-slate-800"
+          alt={condition.nameFa}
+          className="w-full h-40 object-cover"
           loading="lazy"
         />
       )}
-      <span className="flex-1">{condition.nameFa}</span>
+      <div className="p-4 flex items-center gap-3">
+        <span className="flex-1 font-black text-sm text-slate-800 dark:text-white">{condition.nameFa}</span>
+        <ChevronDown className="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" />
+      </div>
     </summary>
 
     <div className="px-4 pb-4 pt-1 space-y-3">

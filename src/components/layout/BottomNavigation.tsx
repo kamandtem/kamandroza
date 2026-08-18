@@ -25,7 +25,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ activeTab, o
     { id: 'progress' as NavTab, label: 'پیشرفت', icon: TrendingUp },
   ];
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-2 pointer-events-none">
+    <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[calc(var(--safe-bottom)+1rem)] pt-2 pointer-events-none">
       <div className="max-w-lg mx-auto pointer-events-auto flex items-center gap-3">
         {onFabClick && (
           <button

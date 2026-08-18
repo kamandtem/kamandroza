@@ -240,7 +240,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
   };
 
   return (
-    <div className="pb-[220px] px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+220px)] px-4 max-w-lg mx-auto space-y-4">
       {/* معرفی بخش */}
       <div className="rounded-3xl bg-gradient-to-l from-rose-500/10 to-amber-500/10 border border-rose-200 dark:border-slate-800 overflow-hidden">
         <button onClick={() => setIntroOpen((value) => !value)} className="w-full p-4 flex items-center justify-between gap-3 text-right">
@@ -481,7 +481,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
 
       {/* --------------------------- مودال افزودن مرکز --------------------------- */}
       {showProviderForm && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-[calc(var(--safe-bottom)+1rem)]">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-base text-slate-800 dark:text-white">
@@ -549,7 +549,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
 
       {/* --------------------------- مودال نوبت جدید --------------------------- */}
       {showAppointmentForm && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-[calc(var(--safe-bottom)+1rem)]">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-4 max-h-[82vh] overflow-y-auto pb-8">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-base text-slate-800 dark:text-white">نوبت جدید</h3>

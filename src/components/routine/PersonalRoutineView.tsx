@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Check, CheckCircle2, Clock3, Plus, Trash2 } from 'lucide-react';
 import { LocalDB, createId } from '../../services/db';
-import { getTodayIsoDate, toPersianDigits } from '../../services/jalali';
+import { formatJalaliDate, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
 import { Routine, RoutineStep } from '../../types';
 import { loadRoutine, toggleStep } from '../../services/routineService';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
@@ -28,7 +28,7 @@ export const PersonalRoutineView: React.FC = () => {
       category: 'treatment',
       completed: false,
       timeSeconds: Math.max(60, Number(minutes || 10) * 60),
-      descriptionFa: repeat === 'daily' ? 'هر روز' : repeat === 'date' ? `برای تاریخ ${date}` : 'امروز',
+      descriptionFa: repeat === 'daily' ? 'هر روز' : repeat === 'date' ? `برای تاریخ ${formatJalaliDate(date)}` : 'امروز',
       isCustom: true,
       reasonFa: 'برنامه شخصی تو',
     };
@@ -46,7 +46,7 @@ export const PersonalRoutineView: React.FC = () => {
   };
 
   return (
-    <div className="pb-40 pt-4 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+10rem)] pt-4 px-4 max-w-lg mx-auto space-y-4">
       <div className="p-5 rounded-[2rem] bg-gradient-to-br from-[#fff2ea] to-[#eef3fa] border border-[#f0e1d6]">
         <h2 className="text-xl font-black text-[#263b56]">روتین پوستی من</h2>
         <p className="mt-2 text-sm leading-7 text-slate-600">کارهای شخصی مراقبت از پوستت را اضافه کن. برای هرکدام می‌توانی زمان و تکرار بگذاری.</p>

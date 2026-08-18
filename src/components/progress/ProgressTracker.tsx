@@ -92,7 +92,7 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({ initialTab = '
   const afterPhoto = photos.find((photo) => photo.id === compareAfter);
 
   return (
-    <div className="pb-28 pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
       <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center gap-1">
         {(
           [
