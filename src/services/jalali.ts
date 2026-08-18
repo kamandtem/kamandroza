@@ -216,3 +216,29 @@ export function getJalaliToday(): { jy: number; jm: number; jd: number } {
   const today = new Date();
   return gregorianToJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
 }
+
+/* -------------------------- تاریخ تولد و سن -------------------------- */
+
+/** قدیمی‌ترین سالی که در انتخاب‌گر تاریخ تولد نمایش داده می‌شود. */
+export const BIRTH_YEAR_MIN = 1350;
+
+/** جدیدترین سال قابل انتخاب برای تاریخ تولد؛ همیشه سال جلالی امروز است. */
+export function getBirthYearMax(): number {
+  return getJalaliToday().jy;
+}
+
+/**
+ * سن دقیق را از تاریخ تولد (ذخیره‌شده به شکل میلادی YYYY-MM-DD) حساب می‌کند.
+ * محاسبه بر مبنای سال شمسی انجام می‌شود چون تاریخ تولد هم از تقویم شمسی
+ * وارد شده؛ نتیجه با محاسبه میلادی یکسان است، فقط با ارقام آشنا برای کاربر.
+ */
+export function getAgeFromBirthDate(birthIso: string | undefined | null, todayIso: string = getTodayIsoDate()): number {
+  if (!isValidIsoDate(birthIso)) return 0;
+  const [by, bm, bd] = (birthIso as string).split('-').map((part) => parseInt(part, 10));
+  const [ty, tm, td] = todayIso.split('-').map((part) => parseInt(part, 10));
+  const birth = gregorianToJalali(by, bm, bd);
+  const now = gregorianToJalali(ty, tm, td);
+  let age = now.jy - birth.jy;
+  if (now.jm < birth.jm || (now.jm === birth.jm && now.jd < birth.jd)) age -= 1;
+  return Math.max(0, age);
+}

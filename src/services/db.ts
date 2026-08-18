@@ -20,6 +20,7 @@ import {
   ProviderService,
   Routine,
   RoutineType,
+  SkinProfile,
   SyncMeta,
   TelemetryEvent,
   UserState,
@@ -27,6 +28,7 @@ import {
 } from '../types';
 import { DATA_SCHEMA_VERSION } from '../config/appConfig';
 import { readJson, writeJson } from './storage/persistence';
+import { getJalaliToday, jalaliToGregorian, toIsoDate } from './jalali';
 
 export { INGREDIENTS_DATABASE, findIngredientById, findIngredientByName } from './content/ingredients';
 export { SKIN_CONDITIONS_DATABASE } from './content/conditions';
@@ -105,7 +107,7 @@ export const DEFAULT_USER_STATE: UserState = {
   deviceId: '',
   schemaVersion: DATA_SCHEMA_VERSION,
   profile: {
-    age: 0,
+    birthDateIso: '',
     city: '',
     skinType: 'normal',
     skinTone: 'medium',
@@ -161,6 +163,28 @@ export const DEFAULT_USER_STATE: UserState = {
 
 /* ------------------------------- مایگریشن ------------------------------- */
 
+/**
+ * نسخه‌های قبلی فقط «سن» عددی می‌گرفتند، نه تاریخ تولد. برای این‌که کاربرهای
+ * قدیمی از قابلیت‌های وابسته به سن محروم نمانند، یک تاریخ تولد تقریبی
+ * (همان روز/ماه امسال، منهای سن) می‌سازیم؛ کاربر می‌تواند بعداً در پروفایل
+ * دقیقش کند.
+ */
+function approximateBirthDateFromLegacyAge(age: number): string {
+  const today = getJalaliToday();
+  const jy = today.jy - age;
+  const { gy, gm, gd } = jalaliToGregorian(jy, today.jm, today.jd);
+  return toIsoDate(new Date(gy, gm - 1, gd));
+}
+
+function withBirthDateFallback(profile: SkinProfile): SkinProfile {
+  if (profile.birthDateIso) return profile;
+  const legacyAge = Number((profile as unknown as { age?: number }).age);
+  if (Number.isFinite(legacyAge) && legacyAge > 0) {
+    return { ...profile, birthDateIso: approximateBirthDateFromLegacyAge(legacyAge) };
+  }
+  return profile;
+}
+
 /** داده نسخه ۱ را به ساختار جدید می‌برد. یک‌بار در بوت اجرا می‌شود. */
 export function runMigrations(): void {
   const legacyState = readJson<Record<string, unknown> | null>('roza_user_state_v1', null);
@@ -171,7 +195,7 @@ export function runMigrations(): void {
       ...DEFAULT_USER_STATE,
       ...(legacyState as Partial<UserState>),
       schemaVersion: DATA_SCHEMA_VERSION,
-      profile: { ...DEFAULT_USER_STATE.profile, ...((legacyState.profile as object) || {}) },
+      profile: withBirthDateFallback({ ...DEFAULT_USER_STATE.profile, ...((legacyState.profile as object) || {}) }),
       lifestyle: { ...DEFAULT_USER_STATE.lifestyle, ...((legacyState.lifestyle as object) || {}) },
       cycleConfig: {
         ...DEFAULT_CYCLE_CONFIG,
@@ -213,7 +237,7 @@ export const LocalDB = {
     const state: UserState = {
       ...DEFAULT_USER_STATE,
       ...(stored || {}),
-      profile: { ...DEFAULT_USER_STATE.profile, ...(stored?.profile || {}) },
+      profile: withBirthDateFallback({ ...DEFAULT_USER_STATE.profile, ...(stored?.profile || {}) }),
       lifestyle: { ...DEFAULT_USER_STATE.lifestyle, ...(stored?.lifestyle || {}) },
       cycleConfig: { ...DEFAULT_CYCLE_CONFIG, ...(stored?.cycleConfig || {}) },
       notifications: { ...DEFAULT_USER_STATE.notifications, ...(stored?.notifications || {}) },

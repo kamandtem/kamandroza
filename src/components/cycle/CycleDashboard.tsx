@@ -154,7 +154,17 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
   const [selectedPhase, setSelectedPhase] = useState<MenstrualPhase>(state.phase || 'follicular');
   const [selectedDay, setSelectedDay] = useState(state.cycleDay || 1);
-  useEffect(() => { if (state.cycleDay !== null) setSelectedDay(state.cycleDay); }, [state.cycleDay]);
+  // باگ قبلی: با ویرایش تاریخ شروع پریود (مثلاً تصحیح از ۲۰ مرداد به ۱۰
+  // مرداد)، «روز» انتخاب‌شده روی چرخ به‌درستی به‌روز می‌شد ولی «فاز»
+  // انتخاب‌شده (که راهنما/توصیه‌های زیر چرخ از رویش خوانده می‌شوند)
+  // فقط یک‌بار در mount مقداردهی شده بود و دیگر با state.phase هم‌گام
+  // نمی‌شد. نتیجه: بعد از ویرایش، روز روی چرخ درست نشان داده می‌شد ولی
+  // توصیه‌ها هنوز مال فاز قدیمی (مثلاً «قاعدگی») بودند نه فاز واقعی روز
+  // جدید (مثلاً «تخمک‌گذاری»). هر دو باید با تغییر state هم‌گام شوند.
+  useEffect(() => {
+    if (state.cycleDay !== null) setSelectedDay(state.cycleDay);
+    if (state.phase !== null) setSelectedPhase(state.phase);
+  }, [state.cycleDay, state.phase]);
   const [manualDate, setManualDate] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);

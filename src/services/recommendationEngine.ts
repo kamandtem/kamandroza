@@ -26,7 +26,7 @@ import { findIngredientById } from './content/ingredients';
 import { getBlockedIngredientIds } from './safety';
 import { getTodayCycleState } from './cycle/cycleService';
 import { getRoutineRestrictionForDate } from './providers/appointmentService';
-import { getTodayIsoDate } from './jalali';
+import { getAgeFromBirthDate, getTodayIsoDate } from './jalali';
 
 export interface DailyGuidance {
   /** متن چرخه. null = چرخه خاموش یا داده ناکافی. در این حالت چیزی نشان نده. */
@@ -42,6 +42,8 @@ export interface DailyGuidance {
   nightRoutine: RoutineStep[];
   gentleMode: boolean;
   lifestyleInsightFa: string | null;
+  /** توصیه متناسب با سن؛ اگر تاریخ تولد ثبت نشده باشد null است. */
+  ageInsightFa: string | null;
 }
 
 function pickProductName(products: Product[], category: ProductCategory, blockedIds: string[]): string | undefined {
@@ -156,6 +158,39 @@ export function buildDailyGuidance(args: {
   if (profile.primaryConcerns.includes('redness') || profile.primaryConcerns.includes('rosacea')) {
     recommended.add('ing_azelaic_acid');
     avoid.add('ing_glycolic_acid');
+  }
+
+  /* --- ۶) سن --- */
+  // سن فقط داده تزئینی نیست: بازه سنی روی ترکیبات پیشنهادی و لحن توصیه اثر می‌گذارد.
+  let ageInsightFa: string | null = null;
+  const age = getAgeFromBirthDate(profile.birthDateIso);
+  const canUseRetinol = !profile.isPregnant && !profile.isBreastfeeding && !profile.onOralRetinoid;
+  if (profile.birthDateIso && age > 0) {
+    if (age < 18) {
+      ageInsightFa =
+        'در سن نوجوانی، پوست به روتین ساده و ملایم نیاز دارد؛ فعلاً از رتینول و لایه‌بردارهای قوی فاصله بگیر و روی شست‌وشوی ملایم و ضدآفتاب روزانه تمرکز کن.';
+      avoid.add('ing_retinol');
+      avoid.add('ing_glycolic_acid');
+    } else if (age < 25) {
+      ageInsightFa =
+        'در این سن، بهترین سرمایه‌گذاری پیشگیری است: ضدآفتاب روزانه و آنتی‌اکسیدان‌ها جلوی سالخوردگی زودرس پوست را می‌گیرند.';
+      recommended.add('ing_vitamin_c');
+    } else if (age < 35) {
+      ageInsightFa =
+        'اوایل دهه سوم زمان خوبی برای شروع رتینول سبک در شب و ویتامین C در صبح است تا اولین خطوط ریز دیرتر بیفتند.';
+      recommended.add('ing_vitamin_c');
+      if (canUseRetinol) recommended.add('ing_retinol');
+    } else if (age < 45) {
+      ageInsightFa =
+        'در این سن تولید کلاژن پوست کم‌کم کاهش می‌یابد؛ رتینول و مرطوب‌کننده‌های حاوی سرامید نقش پررنگ‌تری در روتین شب پیدا می‌کنند.';
+      recommended.add('ing_ceramides');
+      if (canUseRetinol) recommended.add('ing_retinol');
+    } else {
+      ageInsightFa =
+        'با نزدیک شدن به یائسگی، افت استروژن پوست را خشک‌تر و نازک‌تر می‌کند؛ آبرسانی عمیق و ترمیم سد دفاعی اولویت اول روتین می‌شود.';
+      recommended.add('ing_ceramides');
+      recommended.add('ing_hyaluronic_acid');
+    }
   }
 
   // ایمنی و پرهیز الویت دارند: هر چیزی که ممنوع است، از توصیه حذف می‌شود
@@ -292,6 +327,7 @@ export function buildDailyGuidance(args: {
     nightRoutine: night,
     gentleMode,
     lifestyleInsightFa,
+    ageInsightFa,
   };
 }
 

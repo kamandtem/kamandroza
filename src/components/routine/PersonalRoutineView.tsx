@@ -81,19 +81,47 @@ export const PersonalRoutineView: React.FC = () => {
           </label>
         </div>
 
-        {/* تکرار — یک ردیف مستقل، تا وقتی «تاریخ دلخواه» انتخاب می‌شود تقویم فضای کافی برای نمایش درست داشته باشد */}
-        <div className="flex gap-2">
-          <select
-            value={repeat}
-            onChange={(event) => setRepeat(event.target.value as typeof repeat)}
-            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-3 text-sm font-bold"
+        {/*
+          تکرار — قبلاً یک select خام بود. حالا مثل تکه‌های انتخاب ترکیب
+          در فرم «قفسه محصولات» (رنگ توپر رزی + تیک وقتی انتخاب می‌شود)
+          حالت جذاب و لمسی دارد. چون این تکه‌ها جای select قبلی را
+          گرفته‌اند و خودشان چند دکمه‌اند، عرضشان از قبل جمع‌وجورتر شد؛
+          دکمه «ثبت» کنارشان هم دیگر آیکن تنها نیست و برچسب دارد.
+        */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 grid grid-cols-3 gap-1.5">
+            {(
+              [
+                { value: 'today' as const, label: 'امروز' },
+                { value: 'daily' as const, label: 'هر روز' },
+                { value: 'date' as const, label: 'تاریخ دلخواه' },
+              ]
+            ).map((option) => {
+              const isOn = repeat === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRepeat(option.value)}
+                  className={`min-h-[44px] px-1.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1 text-center transition-colors ${
+                    isOn
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {isOn && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={add}
+            disabled={!title.trim()}
+            className="shrink-0 h-11 px-4 rounded-xl bg-[#263b56] text-white disabled:opacity-40 text-sm font-bold flex items-center gap-1.5"
           >
-            <option value="today">امروز</option>
-            <option value="daily">هر روز</option>
-            <option value="date">تاریخ دلخواه</option>
-          </select>
-          <button onClick={add} disabled={!title.trim()} className="icon-only w-12 rounded-xl bg-[#263b56] text-white disabled:opacity-40">
-            <Plus className="w-5 h-5 mx-auto" />
+            <Plus className="w-4 h-4" />
+            ثبت
           </button>
         </div>
 

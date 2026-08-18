@@ -35,7 +35,6 @@ export type SectionKey =
   | 'profile'
   | 'cycle'
   | 'lab'
-  | 'conditions'
   | 'products'
   | 'photo'
   | 'masks'
@@ -49,7 +48,6 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   profile: 'پروفایل و تنطیمات',
   cycle: 'چرخه ماهانه من',
   lab: 'ترکیبات و تداخل‌سنج',
-  conditions: 'دانشنامه عوارض پوستی',
   products: 'قفسه محصولات من',
   photo: 'عکس‌ها و پیشرفت پوست',
   masks: 'ماسک‌های پوستی',
@@ -307,15 +305,9 @@ export default function App() {
       // z-20: زیر هدر ثابت (z-30) می‌ماند تا هدر اصلی روی همه‌ی پنل‌ها — از جمله
       // پنل‌هایی که از منو باز می‌شوند — همیشه دیده شود. قبلاً z-40 بود و هدر را
       // کامل می‌پوشاند، پس اگر پنلی از منو انتخاب می‌شد اصلاً هدری روی آن دیده نمی‌شد.
-      <div ref={sectionScrollRef} className="fixed inset-0 z-20 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-28 pt-[92px]">
+      <div ref={sectionScrollRef} className="fixed inset-0 z-20 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-28 pt-[calc(env(safe-area-inset-top)+92px)]">
         <div className="max-w-lg mx-auto px-4 mb-3 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
           <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{sectionTitle}</h2>
-          <button
-            onClick={() => setActiveSection(null)}
-            className="px-4 py-2 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold shrink-0"
-          >
-            بازگشت
-          </button>
         </div>
 
         {activeSection === 'profile' && (
@@ -329,9 +321,6 @@ export default function App() {
           />
         )}
         {activeSection === 'lab' && <SkinLab initialTab="ingredients" userState={userState} products={products} />}
-        {activeSection === 'conditions' && (
-          <SkinLab initialTab="conditions" userState={userState} products={products} />
-        )}
         {activeSection === 'products' && (
           <ProductShelf products={products} onUpdateProducts={handleUpdateProducts} userState={userState} />
         )}

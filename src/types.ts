@@ -50,7 +50,8 @@ export type HairType = 'straight' | 'wavy' | 'curly' | 'coily';
 export interface SkinProfile {
   name?: string;
   avatarUrl?: string;
-  age: number;
+  /** تاریخ تولد به شکل میلادی YYYY-MM-DD (ذخیره داخلی). خالی یعنی وارد نشده. */
+  birthDateIso?: string;
   city: string;
   skinType: SkinType;
   skinTone: SkinTone;

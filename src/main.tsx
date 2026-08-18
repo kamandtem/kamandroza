@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { App as CapacitorApp } from '@capacitor/app';
 import App from './App.tsx';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { flushStore, hydrateStore } from './services/storage/persistence';
@@ -36,6 +37,23 @@ async function setupStatusBar() {
  */
 async function bootstrap() {
   void setupStatusBar();
+
+  /*
+   * چرا «گاهی» ناپدید می‌شود: اندروید (به‌خصوص ۱۵ به بالا با edge-to-edge
+   * اجباری) بعضی وقت‌ها هنگام برگشت از پس‌زمینه (resume)، تغییر جهت صفحه،
+   * یا باز/بسته‌شدن کیبورد، تنظیم overlaysWebView را از نو صفر می‌کند —
+   * یعنی WebView دوباره زیر نوار وضعیت کشیده می‌شود و انگار هاله‌ای رویش
+   * افتاده. صدا زدن setupStatusBar فقط یک‌بار در بوت این حالت‌ها را
+   * نمی‌گیرد؛ با listener روی resume، هر بار که اپ به فورگراند برمی‌گردد
+   * دوباره تنظیم می‌شود.
+   */
+  if (Capacitor.isNativePlatform()) {
+    CapacitorApp.addListener('resume', () => { void setupStatusBar(); });
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void setupStatusBar();
+    });
+  }
+
   await hydrateStore();
   runMigrations();
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BookOpen, Camera, ChevronLeft, FlaskConical, Home, Moon, Package, Scissors, Settings, ShoppingBag, Sparkles, Stethoscope, Sun } from 'lucide-react';
+import { BookOpen, Camera, ChevronLeft, Droplet, FlaskConical, Home, Moon, Package, Scissors, Settings, ShoppingBag, Sparkles, Stethoscope, Sun } from 'lucide-react';
 import { UserState } from '../../types';
 import { isFeatureEnabled } from '../../config/appConfig';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
@@ -26,6 +26,7 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
     { label: 'روتین امروز', desc: 'مراحل صبح و شب', icon: Sparkles, click: () => goTab('routine') },
     ...(cycleVisible ? [{ label: 'چرخه ماهانه من', desc: 'ثبت پریود و علائم', icon: Moon, click: () => goSection('cycle') }] : []),
     { label: 'قفسه محصولات', desc: 'محصولات و تاریخ انقضا', icon: Package, click: () => goSection('products') },
+    { label: 'ماسک‌های پوستی', desc: 'ماسک‌های طبیعی و پوستی متناسب با پوستت', icon: Droplet, click: () => goSection('masks') },
     { label: 'آرایشگاه و نوبت‌ها', desc: 'خدمات زیبایی و یادآوری', icon: Scissors, click: () => goSection('salon') },
     { label: 'پزشک و پرونده پوست', desc: 'ویزیت، دارو و یادداشت', icon: Stethoscope, click: () => goSection('clinic') },
     { label: 'ترکیبات و تداخل‌سنج', desc: `${toPersianDigits(INGREDIENTS_DATABASE.length)} ترکیب ثبت‌شده`, icon: FlaskConical, click: () => goSection('lab') },

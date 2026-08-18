@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { SkinConcern, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
-import { toPersianDigits } from '../../services/jalali';
+import { toPersianDigits, getAgeFromBirthDate } from '../../services/jalali';
 import { wipeAllData } from '../../services/storage/persistence';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { PrettySelect } from '../common/PrettySelect';
+import { BirthDatePicker } from '../common/BirthDatePicker';
+import { CityAutocomplete } from '../common/CityAutocomplete';
 
 interface ProfileViewProps {
   userState: UserState;
@@ -52,6 +54,46 @@ const CONCERN_LABELS: Record<SkinConcern, string> = {
 const PRESET_AVATARS = ['🌸', '✨', '🌿', '💧', '🌺', '☀️'];
 
 /**
+ * این دو کامپوننت باید بیرون از ProfileView تعریف شوند، نه داخل بدنه‌ی تابع.
+ *
+ * باگ نسخه قبل: Section و Toggle داخل ProfileView تعریف می‌شدند، یعنی با هر
+ * رندر (مثلاً با هر کاراکتری که کاربر تایپ می‌کرد) یک تابع/کامپوننت کاملاً
+ * جدید ساخته می‌شد. ری‌اکت این را «نوع متفاوت» تشخیص می‌داد و کل زیردرخت
+ * (همه‌ی Sectionها و ورودی‌های تویشان) را از DOM حذف و دوباره می‌ساخت.
+ * نتیجه‌اش دقیقاً دو باگ گزارش‌شده بود: با هر حرف، فوکوس اینپوت (و درنتیجه
+ * کیبورد گوشی) از دست می‌رفت، و چون بخش بزرگی از صفحه از نو ساخته می‌شد،
+ * اسکرول به بالای صفحه می‌پرید.
+ */
+const Section: React.FC<{ titleFa: string; icon: React.ElementType; children: React.ReactNode }> = ({
+  titleFa,
+  icon: Icon,
+  children,
+}) => (
+  <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
+    <h3 className="font-black text-sm text-slate-800 dark:text-white flex items-center gap-2">
+      <Icon className="w-4 h-4 text-rose-500" />
+      {titleFa}
+    </h3>
+    {children}
+  </div>
+);
+
+const Toggle: React.FC<{ labelFa: string; value: boolean; onChange: (value: boolean) => void; hintFa?: string }> = ({
+  labelFa,
+  value,
+  onChange,
+  hintFa,
+}) => (
+  <div className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
+    <span className="min-w-0">
+      <span className="block text-sm font-bold text-slate-800 dark:text-slate-200">{labelFa}</span>
+      {hintFa && <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">{hintFa}</span>}
+    </span>
+    <ToggleSwitch checked={value} onChange={onChange} labelFa={labelFa} />
+  </div>
+);
+
+/**
  * پروفایل و تنطیمات.
  *
  * افزوده شد: فیلدهای ایمنی (بارداری، شیردهی، رتینوئید خوراکی)،
@@ -61,8 +103,6 @@ const PRESET_AVATARS = ['🌸', '✨', '🌿', '💧', '🌺', '☀️'];
 export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateState }) => {
   const [draft, setDraft] = useState<UserState>(userState);
   const [savedMessage, setSavedMessage] = useState(false);
-
-
 
   const save = () => {
     onUpdateState(draft);
@@ -94,35 +134,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
     });
   };
 
-  const Section: React.FC<{ titleFa: string; icon: React.ElementType; children: React.ReactNode }> = ({
-    titleFa,
-    icon: Icon,
-    children,
-  }) => (
-    <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
-      <h3 className="font-black text-sm text-slate-800 dark:text-white flex items-center gap-2">
-        <Icon className="w-4 h-4 text-rose-500" />
-        {titleFa}
-      </h3>
-      {children}
-    </div>
-  );
-
-  const Toggle: React.FC<{ labelFa: string; value: boolean; onChange: (value: boolean) => void; hintFa?: string }> = ({
-    labelFa,
-    value,
-    onChange,
-    hintFa,
-  }) => (
-    <div className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
-      <span className="min-w-0">
-        <span className="block text-sm font-bold text-slate-800 dark:text-slate-200">{labelFa}</span>
-        {hintFa && <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">{hintFa}</span>}
-      </span>
-      <ToggleSwitch checked={value} onChange={onChange} labelFa={labelFa} />
-    </div>
-  );
-
   return (
     <div className="pb-[calc(10rem+env(safe-area-inset-bottom))] px-4 max-w-lg mx-auto space-y-4">
       {/* کارت هویت */}
@@ -153,6 +164,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
           <p className="text-sm text-slate-500 dark:text-slate-400">
             پوست {SKIN_TYPE_LABELS[draft.profile.skinType]}
             {draft.profile.city ? ` · ${draft.profile.city}` : ''}
+            {draft.profile.birthDateIso ? ` · ${toPersianDigits(getAgeFromBirthDate(draft.profile.birthDateIso))} ساله` : ''}
           </p>
           {userState.currentStreakDays > 0 && (
             <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -179,40 +191,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
       </div>
 
       <Section titleFa="مشخصات" icon={UserIcon}>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">نام</label>
-            <input
-              value={draft.profile.name || ''}
-              onChange={(event) => setDraft({ ...draft, profile: { ...draft.profile, name: event.target.value } })}
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">سن</label>
-            <input
-              value={draft.profile.age || ''}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  profile: { ...draft.profile, age: parseInt(event.target.value.replace(/\D/g, ''), 10) || 0 },
-                })
-              }
-              inputMode="numeric"
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">شهر</label>
-            <input
-              value={draft.profile.city}
-              onChange={(event) => setDraft({ ...draft, profile: { ...draft.profile, city: event.target.value } })}
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            />
-          </div>
+        <div>
+          <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">نام</label>
+          <input
+            value={draft.profile.name || ''}
+            onChange={(event) => setDraft({ ...draft, profile: { ...draft.profile, name: event.target.value } })}
+            className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+          />
         </div>
+
+        <BirthDatePicker
+          value={draft.profile.birthDateIso || ''}
+          onChange={(isoDate) => setDraft({ ...draft, profile: { ...draft.profile, birthDateIso: isoDate } })}
+          labelFa="تاریخ تولد"
+        />
+
+        <CityAutocomplete
+          value={draft.profile.city}
+          onChange={(city) => setDraft({ ...draft, profile: { ...draft.profile, city } })}
+          labelFa="شهر"
+        />
       </Section>
 
       {/* فیلدهای ایمنی — در نسخه ۱ هیچ‌جا قابل تغییر نبودند */}

@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
+import { toPersianDigits } from '../../services/jalali';
 
 interface IntroSlidesProps { onDone: () => void; }
 
 /**
  * سه اسلاید معرفی.
  *
- * مشکل نسخه قبل: تصاویر از نسخه‌ی رنگ‌آمیزی‌شده با پالت برند استفاده
- * می‌کردند (skincare-amico/rafiki/bro) که رنگ کاراکترها را یکدست و
- * کدر می‌کرد. همان تصویرسازی‌ها به‌صورت اصلی و رنگی (intro-a/b/c)
- * در پوشه assets موجود بودند؛ همان‌ها استفاده می‌شوند.
+ * تصویرها از پوشه assets/onboarding می‌آیند (نسخه‌ی اصلی و رنگی، نه
+ * رنگ‌آمیزی‌شده با پالت برند که کاراکترها را کدر می‌کرد).
+ *
+ * جانمایی نوار بالا و دکمه پایین:
+ * قبلاً «min-h-screen» به‌کار رفته بود که روی اندروید (به‌خصوص وقتی
+ * ناوبری با ژست است) ارتفاع واقعی صفحه را درست محاسبه نمی‌کند و دکمه‌ی
+ * پایین را عملاً به لبه‌ی صفحه می‌چسباند و «رد کردن» را هم پایین‌تر از
+ * حد انتظار می‌کشید. با «100dvh» + پدینگ صریح (safe-area + حداقل چند
+ * پیکسل ثابت) به‌جای اتکای کامل به safe-area، هم نوار بالا در گوشه
+ * می‌نشیند (نه چسبیده به نوار وضعیت، نه خیلی پایین) و هم دکمه‌ی پایین
+ * از لبه صفحه فاصله واضح دارد.
  */
 const slides = [
   { title: 'مراقبت را ساده شروع کن', text: 'رزا با چند سؤال کوتاه، روتینی متناسب با پوست و سبک زندگی تو می‌سازد.', image: '/assets/onboarding/intro-b.svg' },
@@ -22,18 +30,23 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
   const slide = slides[index];
   const isLast = index === slides.length - 1;
   const finish = () => { localStorage.setItem('roza_intro_seen_v4', '1'); onDone(); };
-  return (
-    <main className="min-h-screen bg-[#fffdf7] flex flex-col px-5 pt-[calc(env(safe-area-inset-top)+16px)] pb-[calc(env(safe-area-inset-bottom)+24px)]">
-      {/* عنوان و «رد کردن» بالای صفحه، نه وسط آن */}
-      <div className="w-full max-w-md mx-auto flex items-center justify-between shrink-0">
-        <span className="text-base font-black text-[#263b56]">رزا</span>
-        <button onClick={finish} className="text-xs font-bold text-slate-500">رد کردن</button>
-      </div>
 
-      {/* محتوای اسلاید در میانه‌ی فضای باقی‌مانده، وسط‌چین */}
-      <section className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-5 text-center">
-        {/* وکتور مستقیماً روی پس‌زمینه‌ی صفحه؛ دیگر داخل کارت نیست */}
-        <div className="h-[260px] w-full flex items-center justify-center overflow-hidden">
+  return (
+    <main className="relative flex min-h-[100dvh] flex-col bg-[#fffdf7] overflow-hidden">
+      {/* نوار بالا: دقیقاً گوشه‌ی صفحه، زیر نوار وضعیت گوشی — نه چسبیده به سقف، نه وسط صفحه */}
+      <header
+        className="w-full max-w-md mx-auto flex items-center justify-between shrink-0 px-5"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 14px)', paddingBottom: '10px' }}
+      >
+        <span className="text-sm font-black text-[#263b56]">
+          معرفی رزا <span className="text-slate-400 font-bold">({toPersianDigits(index + 1)} از {toPersianDigits(slides.length)})</span>
+        </span>
+        <button onClick={finish} className="text-xs font-bold text-slate-500 py-1.5 px-1">رد کردن</button>
+      </header>
+
+      {/* محتوای اسلاید در میانه‌ی فضای باقی‌مانده، وسط‌چین. overflow-y-auto تا در صفحه‌های کوتاه چیزی به کنترل‌های پایین فشار نیاورد */}
+      <section className="flex-1 min-h-0 w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-5 text-center px-5 overflow-y-auto">
+        <div className="h-[260px] w-full flex items-center justify-center overflow-hidden shrink-0">
           <img src={slide.image} alt="تصویرسازی معرفی رزا" className="h-full w-full object-contain" />
         </div>
         <div className="space-y-2 px-1">
@@ -42,10 +55,18 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
         </div>
       </section>
 
-      {/* نقطه‌ها و دکمه‌ها پایین‌تر از قبل، برای ظاهر حرفه‌ای‌تر */}
-      <div className="w-full max-w-md mx-auto space-y-5 shrink-0 pt-6">
+      {/* نقطه‌ها و دکمه‌ها: با فاصله‌ی واضح از لبه‌ی پایین صفحه، نه چسبیده به آن */}
+      <div
+        className="w-full max-w-md mx-auto space-y-5 shrink-0 px-5 pt-6"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
+      >
         <div className="flex justify-center gap-2">{slides.map((item, itemIndex) => <span key={item.title} className={`h-2 rounded-full transition-all ${itemIndex === index ? 'w-8 bg-[#c47b62]' : 'w-2 bg-[#ddcfc0]'}`} />)}</div>
-        <div className="flex items-center gap-3">{index > 0 && <button onClick={() => setIndex((value) => value - 1)} className="rounded-2xl bg-[#f1ece6] px-5 py-3 text-sm font-bold text-[#40506a]">قبلی</button>}<button onClick={() => (isLast ? finish() : setIndex((value) => value + 1))} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white shadow-md">{isLast ? <><Check className="h-4 w-4" /> شروع</> : <>ادامه <ArrowLeft className="h-4 w-4" /></>}</button></div>
+        <div className="flex items-center gap-3">
+          {index > 0 && <button onClick={() => setIndex((value) => value - 1)} className="rounded-2xl bg-[#f1ece6] px-5 py-3.5 text-sm font-bold text-[#40506a]">قبلی</button>}
+          <button onClick={() => (isLast ? finish() : setIndex((value) => value + 1))} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#263b56] py-3.5 text-sm font-bold text-white shadow-md">
+            {isLast ? <><Check className="h-4 w-4" /> شروع</> : <>مرحله بعد <ArrowLeft className="h-4 w-4" /></>}
+          </button>
+        </div>
       </div>
     </main>
   );

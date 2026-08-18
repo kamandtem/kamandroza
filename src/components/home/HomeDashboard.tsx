@@ -195,6 +195,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
       )}
 
+      {guidance.ageInsightFa && (
+        <div className="p-4 rounded-3xl bg-purple-50 dark:bg-purple-950/25 border border-purple-200 dark:border-purple-900/50">
+          <p className="text-sm text-purple-900 dark:text-purple-200 leading-relaxed">{guidance.ageInsightFa}</p>
+        </div>
+      )}
+
       {/* ترکیبات امروز */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
         <h4 className="text-sm font-black text-slate-800 dark:text-white">ترکیبات امروز</h4>

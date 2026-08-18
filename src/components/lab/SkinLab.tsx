@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { FlaskConical, Search, AlertTriangle, CheckCircle2, X, ShieldAlert } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, FlaskConical, Search, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { Ingredient, Product, UserState } from '../../types';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
-import { SKIN_CONDITIONS_DATABASE } from '../../services/content/conditions';
 import { checkPairConflict, evaluateIngredientSafety } from '../../services/safety';
 import { LocalDB } from '../../services/db';
 import { toPersianDigits } from '../../services/jalali';
 
 interface SkinLabProps {
-  initialTab?: 'ingredients' | 'conflicts' | 'conditions';
+  initialTab?: 'ingredients' | 'conflicts';
   userState: UserState;
   products: Product[];
 }
@@ -40,7 +40,7 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
   const [selected, setSelected] = useState<Ingredient | null>(null);
   const [firstId, setFirstId] = useState('ing_retinol');
   const [secondId, setSecondId] = useState('ing_salicylic_acid');
-  const [conditionSearch, setConditionSearch] = useState('');
+  const [pickerSlot, setPickerSlot] = useState<'first' | 'second' | null>(null);
 
   const medications = useMemo(() => LocalDB.getMedications(), []);
 
@@ -48,16 +48,6 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
     const needle = search.trim().toLowerCase();
     if (!needle) return true;
     return ingredient.name.toLowerCase().includes(needle) || ingredient.nameFa.includes(search.trim());
-  });
-
-  const filteredConditions = SKIN_CONDITIONS_DATABASE.filter((condition) => {
-    const needle = conditionSearch.trim();
-    if (!needle) return true;
-    return (
-      condition.nameFa.includes(needle) ||
-      condition.summaryFa.includes(needle) ||
-      condition.symptomsFa.some((symptom) => symptom.includes(needle))
-    );
   });
 
   const first = INGREDIENTS_DATABASE.find((item) => item.id === firstId);
@@ -71,7 +61,6 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
           [
             { key: 'ingredients' as const, labelFa: `ترکیبات (${toPersianDigits(INGREDIENTS_DATABASE.length)})` },
             { key: 'conflicts' as const, labelFa: 'تداخل‌سنج' },
-            { key: 'conditions' as const, labelFa: `عوارض (${toPersianDigits(SKIN_CONDITIONS_DATABASE.length)})` },
           ]
         ).map((tab) => (
           <button
@@ -144,27 +133,45 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
               می‌توانم این دو را با هم بزنم؟
             </h3>
 
+            {/*
+              قبلاً اینجا یک select خام مرورگر بود که فقط اسم ترکیب را
+              متنی نشان می‌داد. حالا مثل انتخاب‌گر «ترکیبات فعال» در فرم
+              قفسه محصولات، دکمه عکس‌دار باز می‌شود و یک شیت پایین صفحه
+              با چیدمان همان دکمه‌های رنگی (توپر رزی + تیک وقتی انتخاب
+              شده) باز می‌شود.
+            */}
             {[
-              { value: firstId, set: setFirstId, labelFa: 'ترکیب اول' },
-              { value: secondId, set: setSecondId, labelFa: 'ترکیب دوم' },
-            ].map((slot) => (
-              <div key={slot.labelFa}>
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  {slot.labelFa}
-                </label>
-                <select
-                  value={slot.value}
-                  onChange={(event) => slot.set(event.target.value)}
-                  className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-                >
-                  {INGREDIENTS_DATABASE.map((ingredient) => (
-                    <option key={ingredient.id} value={ingredient.id}>
-                      {ingredient.nameFa}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+              { slot: 'first' as const, value: firstId, labelFa: 'ترکیب اول' },
+              { slot: 'second' as const, value: secondId, labelFa: 'ترکیب دوم' },
+            ].map((item) => {
+              const ingredient = INGREDIENTS_DATABASE.find((entry) => entry.id === item.value);
+              return (
+                <div key={item.slot}>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                    {item.labelFa}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPickerSlot(item.slot)}
+                    className="w-full min-h-[58px] px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-3 text-right"
+                  >
+                    {ingredient?.imageUrl ? (
+                      <img src={ingredient.imageUrl} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                    ) : (
+                      <span className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center shrink-0">
+                        <FlaskConical className="w-5 h-5 text-rose-500" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-sm font-black text-slate-800 dark:text-white truncate">
+                        {ingredient?.nameFa || 'انتخاب ترکیب'}
+                      </strong>
+                    </span>
+                    <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           {pairResult && (
@@ -192,68 +199,64 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
         </div>
       )}
 
-      {/* ------------------------- عوارض ------------------------- */}
-      {activeTab === 'conditions' && (
-        <div className="space-y-3">
-          <div className="relative">
-            <input
-              value={conditionSearch}
-              onChange={(event) => setConditionSearch(event.target.value)}
-              placeholder="جستجو در عوارض پوستی"
-              className="w-full py-3 pr-11 pl-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 text-sm font-bold"
-            />
-            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+      {/*
+        جزئیات ترکیب — با createPortal مستقیم به document.body رندر می‌شود.
+        باگ قبلی: این مودال قبلاً داخل همان div بخش (fixed inset-0 z-20)
+        رندر می‌شد. z-index یک عنصر فقط داخل «کانتکست استکینگ» والدش معنا
+        دارد؛ چون آن div خودش fixed + z-20 است و یک کانتکست جدید می‌سازد،
+        z-50 روی مودال فقط بین المان‌های همان div مقایسه می‌شد، نه با کل
+        صفحه — پس کل مودال (با وجود z-50) زیر هدر اصلی که z-30 و در یک
+        کانتکست دیگر است می‌افتاد. با پورتال به body، مودال از آن کانتکست
+        خارج می‌شود و z-50اش واقعاً بالای هدر قرار می‌گیرد.
+      */}
+      {pickerSlot && createPortal(
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[82vh] overflow-y-auto pb-8">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-base text-slate-800 dark:text-white">
+                {pickerSlot === 'first' ? 'ترکیب اول' : 'ترکیب دوم'}
+              </h3>
+              <button
+                onClick={() => setPickerSlot(null)}
+                aria-label="بستن"
+                className="icon-only p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {INGREDIENTS_DATABASE.map((ingredient) => {
+                const isOn = (pickerSlot === 'first' ? firstId : secondId) === ingredient.id;
+                return (
+                  <button
+                    type="button"
+                    key={ingredient.id}
+                    onClick={() => {
+                      if (pickerSlot === 'first') setFirstId(ingredient.id);
+                      else setSecondId(ingredient.id);
+                      setPickerSlot(null);
+                    }}
+                    className={`w-full min-h-[52px] px-3 rounded-xl text-sm font-bold border flex items-center gap-3 text-right ${
+                      isOn
+                        ? 'bg-rose-500 text-white border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {ingredient.imageUrl && (
+                      <img src={ingredient.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                    )}
+                    {ingredient.nameFa}
+                    <span className="mr-auto">{isOn ? '✓' : ''}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-
-          {filteredConditions.map((condition) => (
-            <details
-              key={condition.id}
-              className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800"
-            >
-              <summary className="font-black text-sm text-slate-800 dark:text-white cursor-pointer">
-                {condition.nameFa}
-              </summary>
-
-              <div className="pt-3 space-y-3">
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{condition.descriptionFa}</p>
-
-                {condition.symptomsFa.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">علائم</span>
-                    <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1 pr-4 list-disc leading-relaxed">
-                      {condition.symptomsFa.map((symptom, index) => (
-                        <li key={index}>{symptom}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {condition.recommendedHabitsFa.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">عادت‌های مفید</span>
-                    <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1 pr-4 list-disc leading-relaxed">
-                      {condition.recommendedHabitsFa.map((habit, index) => (
-                        <li key={index}>{habit}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <p className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-200 leading-relaxed flex items-start gap-2">
-                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>
-                    {condition.needsDoctorFa ||
-                      'اگر علامت‌ها شدید یا ماندگار هستند، به متخصص پوست مراجعه کن. رزا تشخیص نمی‌دهد.'}
-                  </span>
-                </p>
-              </div>
-            </details>
-          ))}
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {/* جزئیات ترکیب */}
-      {selected && (
+      {selected && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-2">
@@ -323,7 +326,8 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
               {selected.usageTime === 'morning' ? 'صبح' : selected.usageTime === 'night' ? 'شب' : 'صبح و شب'}
             </p>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

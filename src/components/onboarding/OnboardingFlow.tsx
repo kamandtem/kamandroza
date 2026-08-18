@@ -6,6 +6,8 @@ import { MenstrualCycleConfig, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import { logPeriodStart } from '../../services/cycle/cycleService';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
+import { BirthDatePicker } from '../common/BirthDatePicker';
+import { CityAutocomplete } from '../common/CityAutocomplete';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { toPersianDigits } from '../../services/jalali';
 
@@ -38,7 +40,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'denied'>('idle');
-  const [age, setAge] = useState('');
+  const [birthDateIso, setBirthDateIso] = useState('');
   const [skinType, setSkinType] = useState<SkinType>('normal');
   const [sensitivity, setSensitivity] = useState(5);
 
@@ -90,7 +92,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         ...current.profile,
         name: name.trim() || undefined,
         city: city.trim(),
-        age: parseInt(age, 10) || 0,
+        birthDateIso: birthDateIso || undefined,
         skinType,
         sensitivityScore: sensitivity,
         isPregnant,
@@ -191,27 +193,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-bold text-[#5c4a3e] dark:text-slate-300 block mb-1">سن</label>
-                  <input
-                    value={age}
-                    onChange={(event) => setAge(event.target.value.replace(/\D/g, '').slice(0, 2))}
-                    inputMode="numeric"
-                    placeholder="۲۸"
-                    className="w-full py-3 px-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 text-sm font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-bold text-[#5c4a3e] dark:text-slate-300 block mb-1">شهر</label>
-                  <input
-                    value={city}
-                    onChange={(event) => setCity(event.target.value)}
-                    placeholder="تهران"
-                    className="w-full py-3 px-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 text-sm font-bold"
-                  />
-                </div>
-              </div>
+              <BirthDatePicker value={birthDateIso} onChange={setBirthDateIso} labelFa="تاریخ تولد" />
+              <p className="text-xs text-[#8a766c] dark:text-slate-500">
+                تاریخ تولد برای متناسب کردن توصیه‌های پوستی با سنت استفاده می‌شود.
+              </p>
+
+              <CityAutocomplete value={city} onChange={setCity} labelFa="شهر" />
               <p className="text-xs text-[#8a766c] dark:text-slate-500">
                 شهر فقط برای آب‌وهوا و پیشنهاد محافظت از آفتاب است.
               </p>
