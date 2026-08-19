@@ -70,7 +70,7 @@ const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
   const CENTER = 60;
   const INNER_R = 40;
   const INNER_W = 8;
-  const BADGE_R = 13;
+  const BADGE_R = 10;
 
   const days = Math.max(21, Math.min(45, cycleLength || 28));
   const period = Math.max(1, Math.min(periodLength || 5, days));
@@ -110,9 +110,9 @@ const MiniCycleWheel: React.FC<MiniCycleWheelProps> = ({
             return <path d={arcPath(pmsAngles.from, pmsAngles.to, INNER_R, CENTER)} fill="none" stroke={ORANGE} strokeWidth={INNER_W} strokeLinecap="round" />;
           })()}
 
-        {/* نشان شناور روز جاری */}
-        <circle cx={todayPoint.x} cy={todayPoint.y} r={BADGE_R} fill="#fffdfa" stroke={RED} strokeWidth={2.5} />
-        <text x={todayPoint.x} y={todayPoint.y + 4.5} textAnchor="middle" fontSize="12" fontWeight="800" fill={NAVY}>
+        {/* نشان شناور روز جاری — کوچک‌تر از قبل، تا روی چرخه‌ی مینیاتوری کارت خانه بزرگ ننماید */}
+        <circle cx={todayPoint.x} cy={todayPoint.y} r={BADGE_R} fill="#fffdfa" stroke={RED} strokeWidth={2} />
+        <text x={todayPoint.x} y={todayPoint.y + 3.5} textAnchor="middle" fontSize="10" fontWeight="800" fill={NAVY}>
           {toPersianDigits(today)}
         </text>
       </svg>

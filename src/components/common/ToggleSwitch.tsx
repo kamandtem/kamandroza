@@ -10,7 +10,8 @@ interface ToggleSwitchProps {
 
 /**
  * سوئیچ روشن/خاموش — رَد (track) کشیده و مستطیلی گوشه‌گرد (Pill)،
- * نسبت عرض به ارتفاع تقریباً ۲ به ۱ (۵۰×۲۸ پیکسل)، نه گرد و خپله.
+ * خیلی کشیده‌تر از حالت معمول (۸۰×۳۴ پیکسل، نسبت طول به ارتفاع تقریباً ۲.۴ به ۱)
+ * و دسته‌ی نسبتاً کوچک (۳۰ پیکسل) داخل آن — دقیقاً مثل نمونه‌ی مرجع.
  * دسته داخل ردّ می‌ماند و از لبه‌ها بیرون نمی‌زند.
  *
  * رنگ‌ها (rose-500 روشن / slate خاموش) و انیمیشن (duration، easing،
@@ -30,13 +31,13 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, d
       aria-label={ariaLabel || labelFa}
       disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
-      className={`relative shrink-0 inline-block w-[50px] h-[28px] rounded-full transition-colors duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] ${
+      className={`relative shrink-0 inline-block w-[80px] h-[34px] rounded-full transition-colors duration-300 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] ${
         checked ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-600'
       }`}
     >
       <span
-        className={`absolute top-1/2 -translate-y-1/2 h-[22px] w-[22px] rounded-full bg-white shadow-[0_3px_10px_rgba(0,0,0,.28)] ring-1 ring-black/[0.03] transition-[inset-inline-start] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-          checked ? 'start-[25px]' : 'start-[3px]'
+        className={`absolute top-1/2 -translate-y-1/2 h-[30px] w-[30px] rounded-full bg-white shadow-[0_3px_10px_rgba(0,0,0,.28)] ring-1 ring-black/[0.03] transition-[inset-inline-start] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+          checked ? 'start-[48px]' : 'start-[2px]'
         }`}
       />
     </button>

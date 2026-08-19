@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Package, Plus, Trash2, X, AlertTriangle, ShoppingBag, CalendarClock } from 'lucide-react';
+import { Package, Plus, Trash2, X, AlertTriangle, ShoppingBag, CalendarClock, Check } from 'lucide-react';
 import { Product, ProductCategory, UserState } from '../../types';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
 import { findShelfConflicts } from '../../services/safety';
@@ -253,20 +253,35 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
             />
 
             <div>
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <CalendarClock className="w-4 h-4 text-slate-400" />
                 چند ماه بعد از باز شدن تمام می‌شود؟
               </label>
-              <select
-                value={expirationMonths}
-                onChange={(event) => setExpirationMonths(event.target.value)}
-                className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-              >
-                {[3, 6, 12, 24].map((months) => (
-                  <option key={months} value={String(months)}>
-                    {toPersianDigits(months)} ماه
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-4 gap-2">
+                {[3, 6, 12, 24].map((months) => {
+                  const isOn = expirationMonths === String(months);
+                  return (
+                    <button
+                      key={months}
+                      type="button"
+                      onClick={() => setExpirationMonths(String(months))}
+                      className={`relative p-3 rounded-2xl border text-center transition-colors ${
+                        isOn
+                          ? 'bg-[#8e5241] text-white border-[#8e5241] shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isOn && (
+                        <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
+                          <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                        </span>
+                      )}
+                      <span className="block text-lg font-black leading-none">{toPersianDigits(months)}</span>
+                      <span className={`block mt-1 text-[11px] font-bold ${isOn ? 'text-white/80' : 'text-slate-400'}`}>ماه</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <textarea

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, FlaskConical, Search, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown, FlaskConical, Search, AlertTriangle, CheckCircle2, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Ingredient, Product, UserState } from '../../types';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
 import { checkPairConflict, evaluateIngredientSafety } from '../../services/safety';
@@ -256,79 +257,128 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
         document.body,
       )}
 
-      {selected && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-[calc(var(--safe-bottom)+1rem)]">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 space-y-3 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="font-black text-base text-slate-800 dark:text-white">{selected.nameFa}</h3>
-                <p className="text-xs text-slate-400">{selected.name}</p>
-              </div>
-              <button
-                onClick={() => setSelected(null)}
-                aria-label="بستن"
-                className="icon-only p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {(() => {
-              const verdict = evaluateIngredientSafety(selected, userState.profile, medications);
-              if (verdict.reasonsFa.length === 0) return null;
-              return (
-                <div className={`p-3.5 rounded-2xl border space-y-1 ${SAFETY_STYLE[verdict.level]}`}>
-                  <span className="text-sm font-black block">{SAFETY_LABEL[verdict.level]}</span>
-                  {verdict.reasonsFa.map((reason, index) => (
-                    <p key={index} className="text-sm leading-relaxed">
-                      {reason}
-                    </p>
-                  ))}
+      {/*
+        جزئیات ترکیب — مثل کارت ماسک‌ها: هدر با آیکون و دکمه بستن، عکس/باکس
+        بزرگ بالای کارت، بخش‌های رنگی با ایموجی، چیپ‌های فواید و یک دکمه
+        پایین. با createPortal مستقیم به document.body رندر می‌شود (دلیل
+        فنی‌اش در توضیح مودال «تداخل‌سنج» بالا آمده).
+      */}
+      <AnimatePresence>
+        {selected && createPortal(
+          <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 pt-[calc(var(--safe-top)+1rem)] pb-[calc(var(--safe-bottom)+1rem)]">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-lg max-h-[72vh] overflow-y-auto p-6 rounded-3xl bg-white dark:bg-slate-900 text-right space-y-4 shadow-2xl border border-rose-100 dark:border-slate-800"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-rose-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FlaskConical className="w-5 h-5 text-rose-500 shrink-0" />
+                  <div className="min-w-0">
+                    <h3 className="text-base font-extrabold text-slate-800 dark:text-white truncate">{selected.nameFa}</h3>
+                    <p className="text-xs text-slate-400 truncate">{selected.name}</p>
+                  </div>
                 </div>
-              );
-            })()}
+                <button
+                  onClick={() => setSelected(null)}
+                  aria-label="بستن"
+                  className="icon-only p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{selected.descriptionFa}</p>
+              {selected.imageUrl ? (
+                <img
+                  src={selected.imageUrl}
+                  alt={selected.nameFa}
+                  className="w-full h-44 rounded-2xl object-cover shadow-xs border border-rose-100 dark:border-slate-800"
+                />
+              ) : (
+                <div className="w-full h-32 rounded-2xl bg-gradient-to-l from-rose-50 to-amber-50 dark:from-rose-950/30 dark:to-amber-950/20 border border-rose-100 dark:border-slate-800 flex items-center justify-center">
+                  <FlaskConical className="w-10 h-10 text-rose-300 dark:text-rose-800" />
+                </div>
+              )}
 
-            <div className="space-y-1">
-              <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">فواید</span>
-              <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1 pr-4 list-disc leading-relaxed">
-                {selected.benefitsFa.map((benefit, index) => (
-                  <li key={index}>{benefit}</li>
-                ))}
-              </ul>
-            </div>
+              <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed bg-rose-50/50 dark:bg-slate-800/60 p-3 rounded-2xl border border-rose-100 dark:border-slate-700">
+                {selected.descriptionFa}
+              </p>
 
-            {selected.avoidCombiningIds.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-xs font-black text-rose-700 dark:text-rose-400">با این‌ها همزمان نزن</span>
+              {(() => {
+                const verdict = evaluateIngredientSafety(selected, userState.profile, medications);
+                if (verdict.reasonsFa.length === 0) return null;
+                return (
+                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${SAFETY_STYLE[verdict.level]}`}>
+                    <span className="text-xs font-black flex items-center gap-1.5">
+                      {verdict.level === 'safe' ? <ShieldCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                      {SAFETY_LABEL[verdict.level]}
+                    </span>
+                    {verdict.reasonsFa.map((reason, index) => (
+                      <p key={index} className="text-xs leading-relaxed">{reason}</p>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* فواید */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  ✨ فواید:
+                </h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {selected.avoidCombiningIds.map((id) => (
+                  {selected.benefitsFa.map((benefit, index) => (
                     <span
-                      key={id}
-                      className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 text-xs font-bold"
+                      key={index}
+                      className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-900"
                     >
-                      {INGREDIENTS_DATABASE.find((item) => item.id === id)?.nameFa || id}
+                      ✓ {benefit}
                     </span>
                   ))}
                 </div>
               </div>
-            )}
 
-            {selected.sideEffectsFa && (
-              <p className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-                {selected.sideEffectsFa}
-              </p>
-            )}
+              {selected.avoidCombiningIds.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-black text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    ⚠️ با این‌ها همزمان نزن:
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.avoidCombiningIds.map((id) => (
+                      <span
+                        key={id}
+                        className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-900"
+                      >
+                        {INGREDIENTS_DATABASE.find((item) => item.id === id)?.nameFa || id}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              زمان مصرف:{' '}
-              {selected.usageTime === 'morning' ? 'صبح' : selected.usageTime === 'night' ? 'شب' : 'صبح و شب'}
-            </p>
-          </div>
-        </div>,
-        document.body,
-      )}
+              {selected.sideEffectsFa && (
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-300 text-xs font-medium">
+                  <strong>نکته احتیاط: </strong>
+                  {selected.sideEffectsFa}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                زمان مصرف: {selected.usageTime === 'morning' ? 'صبح' : selected.usageTime === 'night' ? 'شب' : 'صبح و شب'}
+              </div>
+
+              <button
+                onClick={() => setSelected(null)}
+                className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md"
+              >
+                متوجه شدم
+              </button>
+            </motion.div>
+          </div>,
+          document.body,
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -106,7 +106,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
 
   const [showProviderForm, setShowProviderForm] = useState(false);
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
-  const [introOpen, setIntroOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(kind === 'clinic');
 
   const categories = kind === 'salon' ? SALON_CATEGORIES : CLINIC_CATEGORIES;
 
@@ -247,15 +247,8 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
           <h2 className="text-base font-black text-slate-800 dark:text-white">{kind === 'salon' ? 'آرایشگاه و نوبت‌های من' : 'پزشک پوست و ویزیت‌ها'}</h2>
           <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${introOpen ? 'rotate-180' : ''}`} />
         </button>
-        {introOpen && <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-7">{kind === 'salon' ? 'نوبت‌هایت را ثبت کن تا رزا روتین روزهای قبل و بعد را خودکار تنظیم کند و روزهای مناسب‌تر را پیشنهاد دهد.' : 'ویزیت‌ها، داروها و دستورهای پزشک را در یک جا داشته باش؛ این بخش برای ثبت و یادآوری است، نه تشخیص پزشکی.'}</p>}
+        {introOpen && <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-400 leading-7">{kind === 'salon' ? 'نوبت‌هایت را ثبت کن تا رزا روتین روزهای قبل و بعد را خودکار تنظیم کند و روزهای مناسب‌تر را پیشنهاد دهد.' : MEDICAL_DISCLAIMER_FA}</p>}
       </div>
-
-      {kind === 'clinic' && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{MEDICAL_DISCLAIMER_FA}</p>
-        </div>
-      )}
 
       {/* یادآوری خودکار جلسه بعدی */}
       {dueServices.length > 0 && (

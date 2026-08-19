@@ -24,6 +24,66 @@ export interface SyncMeta {
 
 /** منبع یک رکورد: خود کاربر وارد کرده یا از دایرکتوری رزا آمده. */
 export type RecordSource = 'user' | 'directory';
+/* ===================== شدت توصیه ===================== */
+
+/**
+ * شدت یک توصیه. قبلاً هر قاعده‌ای که نامش avoid بود، در UI به
+ * «امروز پرهیز کن» تبدیل می‌شد و پیشنهاد، احتیاط و منع پزشکی یکی
+ * دیده می‌شدند. این پنج سطح همان تفاوت را واقعی می‌کند.
+ */
+export type AdviceSeverity = 'INFO' | 'SUGGESTION' | 'CAUTION' | 'IMPORTANT' | 'PROFESSIONAL_INSTRUCTION';
+
+/** کاری که از کاربر خواسته می‌شود. عمداً از شدت جداست. */
+export type AdviceAction = 'info' | 'use' | 'reduce' | 'pause' | 'stop';
+
+export type AdviceSource =
+  | 'pregnancy'
+  | 'medication'
+  | 'safety'
+  | 'procedure'
+  | 'cycle'
+  | 'symptom'
+  | 'skin_profile'
+  | 'age';
+
+/**
+ * یک توصیه درباره یک ترکیب، برای امروزِ همین کاربر.
+ * اگر ترکیب در محصولات کاربر نباشد، educationalOnly روشن می‌شود و
+ * UI حق ندارد بگوید «امروز از X استفاده نکن».
+ */
+export interface IngredientAdvice {
+  ruleId: string;
+  ingredientId: string;
+  ingredientNameFa: string;
+  severity: AdviceSeverity;
+  action: AdviceAction;
+  headlineFa: string;
+  /** توضیح سادهٔ «چرا امروز». */
+  reasonFa: string;
+  /** داده‌هایی که قاعده را فعال کردند. */
+  triggersFa: string[];
+  productNamesFa: string[];
+  inUserShelf: boolean;
+  educationalOnly: boolean;
+  source: AdviceSource;
+  untilIso?: string;
+  appointmentId?: string;
+}
+
+/** علائم واقعی پوست در روزهای اخیر (ثبت روزانه + علائم چرخه). */
+export interface SkinSignals {
+  hasData: boolean;
+  /** همه شدت‌ها ۰ تا ۵. */
+  redness: number;
+  dryness: number;
+  irritation: number;
+  acne: number;
+  oiliness: number;
+  daysCovered: number;
+  irritatedNow: boolean;
+  sourceFa: string;
+}
+
 
 /* ============================ پوست و پروفایل ============================ */
 
@@ -193,6 +253,25 @@ export interface Ingredient {
   irritationRisk: 'low' | 'moderate' | 'high';
   descriptionFa: string;
   imageUrl?: string;
+  /** دسته فارماکولوژیک. AHA و BHA و رتینوئید را یکی فرض نمی‌کنیم. */
+  activeClass?:
+    | 'retinoid'
+    | 'aha'
+    | 'bha'
+    | 'benzoyl_peroxide'
+    | 'antioxidant'
+    | 'niacinamide'
+    | 'azelaic'
+    | 'hydrator'
+    | 'soother'
+    | 'barrier'
+    | 'other';
+  /** قدرت تقریبی: رتینول OTC با ترتینوئین یکی نیست. */
+  potency?: 'gentle' | 'moderate' | 'strong';
+  /** فقط با تجویز پزشک. در این حالت رزا جلوی دستور پزشک را نمی‌گیرد. */
+  prescriptionOnly?: boolean;
+  /** ماندنی روی پوست یا شسته‌شدنی. ریسک تحریک کاملاً متفاوت است. */
+  typicalUse?: 'leave_on' | 'wash_off' | 'both';
   /** پرهیز همزمان با خدمات زیبایی (لیزر، پیلینگ، اپیلاسیون). */
   pauseBeforeProcedures?: boolean;
 }
@@ -341,6 +420,14 @@ export interface Provider extends SyncMeta {
   verifiedAt?: string;
 }
 
+/**
+ * دسته خدمات.
+ *
+ * مقدارهای جدید تفکیک‌شده (لیزر مو با لیزر پوست یکی نیست، میکروبلیدینگ
+ * با رنگ ابرو یکی نیست، پیلینگ سطحی با متوسط یکی نیست) اضافه شدند و
+ * مقدارهای قدیم (laser, peeling, brow, facial) باقی ماندند تا رکوردهای
+ * ذخیره‌شدهٔ کاربران خراب نشوند (قاعدهٔ عمومیِ محتاط‌تر می‌گیرند).
+ */
 export type ServiceCategory =
   | 'haircut'
   | 'hair_color'

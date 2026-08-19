@@ -55,10 +55,15 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
         </div>
       </section>
 
-      {/* نقطه‌ها و دکمه‌ها: با فاصله‌ی واضح از لبه‌ی پایین صفحه، نه چسبیده به آن */}
+      {/* نقطه‌ها و دکمه‌ها: با فاصله‌ی واضح از لبه‌ی پایین صفحه، نه چسبیده به آن.
+          روی گوشی‌های اندرویدی با ناوبری سه‌دکمه‌ای (خانه/برگشت/برنامه‌های اخیر)،
+          env(safe-area-inset-bottom) معمولاً صفر برمی‌گردد چون آن نوار به‌شکل
+          قابل‌اتکایی مثل خط خانه‌ی آیفون گزارش نمی‌شود؛ به همین دلیل یک فاصله‌ی
+          ثابت و بزرگ (نه فقط safe-area) اضافه شده تا دکمه همیشه بالاتر از آن
+          سه دکمه بماند. */}
       <div
         className="w-full max-w-md mx-auto space-y-5 shrink-0 px-5 pt-6"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
+        style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), 20px) + 64px)' }}
       >
         <div className="flex justify-center gap-2">{slides.map((item, itemIndex) => <span key={item.title} className={`h-2 rounded-full transition-all ${itemIndex === index ? 'w-8 bg-[#c47b62]' : 'w-2 bg-[#ddcfc0]'}`} />)}</div>
         <div className="flex items-center gap-3">

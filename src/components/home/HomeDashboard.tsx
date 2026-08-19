@@ -14,6 +14,8 @@ import {
 import { motion } from 'motion/react';
 import { DailyTrackerEntry, Product, UserState, WeatherData } from '../../types';
 import { buildDailyGuidance, ingredientNamesFa } from '../../services/recommendationEngine';
+import { SEVERITY_LABEL_FA, SEVERITY_STYLE } from '../../services/advice/severity';
+import { findGuideTopicForSource, findWhyTopicForIngredientAdvice } from '../../services/content/guideContent';
 import { getUpcomingAppointments } from '../../services/providers/appointmentService';
 import { LocalDB } from '../../services/db';
 import { formatJalaliDayMonth, formatRelativeDay, toPersianDigits } from '../../services/jalali';
@@ -35,7 +37,20 @@ interface HomeDashboardProps {
   onUpdateDailyLog: (log: DailyTrackerEntry) => void;
   onNavigateTab: (tab: NavTab) => void;
   onOpenSection: (section: SectionKey) => void;
+  onOpenGuideTopic?: (topicId: string) => void;
 }
+
+const WhyButton: React.FC<{ topicId?: string; onOpenGuideTopic?: (topicId: string) => void; className?: string }> = ({ topicId, onOpenGuideTopic, className = '' }) => {
+  if (!topicId || !onOpenGuideTopic) return null;
+  return (
+    <button
+      onClick={() => onOpenGuideTopic(topicId)}
+      className={`shrink-0 text-[11px] font-black underline underline-offset-2 ${className}`}
+    >
+      چرا؟
+    </button>
+  );
+};
 
 /**
  * داشبورد.
@@ -59,6 +74,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onUpdateDailyLog,
   onNavigateTab,
   onOpenSection,
+  onOpenGuideTopic,
 }) => {
   const guidance = buildDailyGuidance({
     profile: userState.profile,
@@ -110,7 +126,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2"
         >
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{warning}</p>
+          <div className="flex-1 flex items-start justify-between gap-2">
+            <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{warning}</p>
+            <WhyButton topicId="guide_l3_why_not_today" onOpenGuideTopic={onOpenGuideTopic} className="text-amber-800 dark:text-amber-200" />
+          </div>
         </div>
       ))}
 
@@ -118,9 +137,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {guidance.procedureInsightFa && (
         <div className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/50 flex items-start gap-2">
           <Scissors className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <h4 className="text-sm font-black text-sky-900 dark:text-sky-200">روتین امروز تنطیم شد</h4>
-            <p className="text-sm text-sky-900 dark:text-sky-200 leading-relaxed">{guidance.procedureInsightFa}</p>
+          <div className="flex-1 flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-black text-sky-900 dark:text-sky-200">روتین امروز تنطیم شد</h4>
+              <p className="text-sm text-sky-900 dark:text-sky-200 leading-relaxed">{guidance.procedureInsightFa}</p>
+            </div>
+            <WhyButton topicId={findGuideTopicForSource('procedure')?.id} onOpenGuideTopic={onOpenGuideTopic} className="text-sky-800 dark:text-sky-200" />
           </div>
         </div>
       )}
@@ -132,9 +154,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           className="p-3.5 rounded-2xl bg-gradient-to-l from-rose-500 to-amber-500 text-white flex items-start gap-2.5"
         >
           <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <h4 className="font-black text-sm">مراقبت پیشگیرانه</h4>
-            <p className="text-sm leading-relaxed text-rose-50">{guidance.pmsWarningFa}</p>
+          <div className="flex-1 flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <h4 className="font-black text-sm">مراقبت پیشگیرانه</h4>
+              <p className="text-sm leading-relaxed text-rose-50">{guidance.pmsWarningFa}</p>
+            </div>
+            <WhyButton topicId={findGuideTopicForSource('cycle')?.id} onOpenGuideTopic={onOpenGuideTopic} className="text-white" />
           </div>
         </motion.div>
       )}
@@ -220,7 +245,41 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          {guidance.avoidIngredientIds.length > 0 && (
+          {guidance.ingredientAdvice.length > 0 && (
+            <div className="space-y-2">
+              {(['PROFESSIONAL_INSTRUCTION', 'IMPORTANT', 'CAUTION', 'SUGGESTION', 'INFO'] as const)
+                .map((severity) => ({
+                  severity,
+                  items: guidance.ingredientAdvice.filter((advice) => advice.severity === severity),
+                }))
+                .filter((group) => group.items.length > 0)
+                .map((group) => (
+                  <div key={group.severity}>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">
+                      {SEVERITY_LABEL_FA[group.severity]}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.items.map((advice) => {
+                        const whyTopicId = findWhyTopicForIngredientAdvice({ ingredientId: advice.ingredientId, source: advice.source })?.id;
+                        return (
+                          <span
+                            key={advice.ruleId}
+                            title={advice.reasonFa}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
+                          >
+                            {advice.ingredientNameFa}
+                            {advice.educationalOnly ? ' (آموزشی)' : ''}
+                            <WhyButton topicId={whyTopicId} onOpenGuideTopic={onOpenGuideTopic} />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {guidance.ingredientAdvice.length === 0 && guidance.avoidIngredientIds.length > 0 && (
             <div>
               <span className="text-xs font-bold text-rose-700 dark:text-rose-400 block mb-1.5">امروز پرهیز کن</span>
               <div className="flex flex-wrap gap-1.5">

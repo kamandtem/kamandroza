@@ -13,6 +13,9 @@
  */
 
 import {
+  AdviceSeverity,
+  AdviceSource,
+  IngredientAdvice,
   LifestyleProfile,
   MenstrualCycleConfig,
   Medication,
@@ -22,10 +25,12 @@ import {
   SkinProfile,
   WeatherData,
 } from '../types';
-import { findIngredientById } from './content/ingredients';
-import { getBlockedIngredientIds } from './safety';
+import { findIngredientById, INGREDIENTS_DATABASE } from './content/ingredients';
+import { evaluateIngredientSafety, getBlockedIngredientIds } from './safety';
+import { escalate, SEVERITY_LABEL_FA } from './advice/severity';
+import { getSensitivityLevel, getSkinSignals, resolveShelfActives, ShelfActive } from './advice/userContext';
 import { getTodayCycleState, PHASE_INGREDIENTS } from './cycle/cycleService';
-import { getRoutineRestrictionForDate } from './providers/appointmentService';
+import { getRoutineRestrictionForDate, RoutineRestriction } from './providers/appointmentService';
 import { getAgeFromBirthDate, getTodayIsoDate } from './jalali';
 
 export interface DailyGuidance {
@@ -44,6 +49,115 @@ export interface DailyGuidance {
   lifestyleInsightFa: string | null;
   /** توصیه متناسب با سن؛ اگر تاریخ تولد ثبت نشده باشد null است. */
   ageInsightFa: string | null;
+  /**
+   * توصیه‌های سطح‌بندی‌شده (INFO تا PROFESSIONAL_INSTRUCTION).
+   * avoidIngredientIds برای سازگاری با کامپوننت‌های قدیمی نگه داشته شده،
+   * ولی این آرایه منبع واقعی برای هر UI جدید است — چون بین «شاید بهتره
+   * کمتر استفاده کنی» و «طبق نوبت درمانی باید متوقف شود» فرق می‌گذارد.
+   */
+  ingredientAdvice: IngredientAdvice[];
+}
+
+/**
+ * توصیه‌های ایمنی (بارداری/شیردهی/رتینوئید خوراکی/آلرژی/تداخل دارویی/نوع پوست).
+ * از همان evaluateIngredientSafety در safety.ts استفاده می‌کند تا قاعده دوبار
+ * نوشته نشود؛ اینجا فقط منبع و شدت متناسب با نوع دلیل واقعی تعیین می‌شود —
+ * همه‌چیز دیگر یکسان IMPORTANT نیست.
+ */
+function buildSafetyAdvice(
+  profile: SkinProfile,
+  medications: Medication[],
+  shelfActives: Map<string, ShelfActive>,
+  sensitivity: ReturnType<typeof getSensitivityLevel>,
+  skinSignals: ReturnType<typeof getSkinSignals>,
+): IngredientAdvice[] {
+  const activeMedications = medications.filter((medication) => medication.isActive);
+  const advice: IngredientAdvice[] = [];
+
+  INGREDIENTS_DATABASE.forEach((ingredient) => {
+    const verdict = evaluateIngredientSafety(ingredient, profile, activeMedications);
+    if (verdict.level === 'safe') return;
+
+    const shelf = shelfActives.get(ingredient.id);
+    const inUserShelf = Boolean(shelf);
+
+    let source: AdviceSource = 'skin_profile';
+    let severity: AdviceSeverity = verdict.level === 'blocked' ? 'IMPORTANT' : 'CAUTION';
+
+    const medConflict = activeMedications.find((medication) =>
+      (medication.conflictingIngredientIds || []).includes(ingredient.id),
+    );
+    if (medConflict) {
+      // تداخل با دارویی که پزشک تجویز کرده — این دیگر «پیشنهاد» نیست.
+      source = 'medication';
+      severity = 'PROFESSIONAL_INSTRUCTION';
+    } else if (profile.onOralRetinoid && (ingredient.id === 'ing_retinol' || ingredient.category === 'exfoliant')) {
+      // رتینوئید خوراکی هم دستور پزشک است، نه ترجیح اپ.
+      source = 'medication';
+      severity = 'PROFESSIONAL_INSTRUCTION';
+    } else if (profile.allergies.some((item) => item.trim() && ingredient.nameFa.includes(item.trim()))) {
+      // حساسیت ثبت‌شده خود کاربر: ایمنی واقعی، ولی دستور پزشک نیست.
+      source = 'safety';
+      severity = 'IMPORTANT';
+    } else if (
+      (profile.isPregnant && ingredient.pregnancySafety !== 'safe') ||
+      (profile.isBreastfeeding && ingredient.breastfeedingSafety !== 'safe')
+    ) {
+      source = 'pregnancy';
+    }
+
+    // پوست ملتهب همین چند روز یا حساسیت بالا: یک پله شدت را بالا می‌بریم،
+    // ولی هرگز از IMPORTANT بالاتر نمی‌رویم مگر منبع واقعاً پزشکی/دارویی باشد.
+    if (severity === 'CAUTION' && (sensitivity === 'high' || skinSignals.irritatedNow)) {
+      severity = escalate(severity, 1, 'IMPORTANT');
+    }
+
+    advice.push({
+      ruleId: `safety_${ingredient.id}`,
+      ingredientId: ingredient.id,
+      ingredientNameFa: ingredient.nameFa,
+      severity,
+      action: severity === 'CAUTION' || severity === 'INFO' ? 'reduce' : 'stop',
+      headlineFa: `${ingredient.nameFa} — ${SEVERITY_LABEL_FA[severity]}`,
+      reasonFa: verdict.reasonsFa.join(' '),
+      triggersFa: verdict.reasonsFa,
+      productNamesFa: shelf?.productNamesFa || [],
+      inUserShelf,
+      educationalOnly: !inUserShelf,
+      source,
+    });
+  });
+
+  return advice;
+}
+
+/**
+ * توصیه‌های مربوط به نوبت آرایشگاه/کلینیک. این‌ها واقعاً «دستور جلسه درمانی»
+ * هستند (نه حدس اپ)، پس همیشه PROFESSIONAL_INSTRUCTION با تاریخ انقضای مشخص.
+ */
+function buildProcedureAdvice(
+  restriction: RoutineRestriction,
+  shelfActives: Map<string, ShelfActive>,
+): IngredientAdvice[] {
+  return restriction.blockedIngredientIds.map((id) => {
+    const ingredient = findIngredientById(id);
+    const shelf = shelfActives.get(id);
+    return {
+      ruleId: `procedure_${id}_${restriction.appointmentId || 'na'}`,
+      ingredientId: id,
+      ingredientNameFa: ingredient?.nameFa || id,
+      severity: 'PROFESSIONAL_INSTRUCTION',
+      action: restriction.gentleMode ? 'pause' : 'stop',
+      headlineFa: `${ingredient?.nameFa || id} — طبق برنامه نوبت متوقف است`,
+      reasonFa: restriction.reasonFa,
+      triggersFa: restriction.reasonFa ? [restriction.reasonFa] : [],
+      productNamesFa: shelf?.productNamesFa || [],
+      inUserShelf: Boolean(shelf),
+      educationalOnly: !shelf,
+      source: 'procedure',
+      appointmentId: restriction.appointmentId,
+    };
+  });
 }
 
 function pickProductName(products: Product[], category: ProductCategory, blockedIds: string[]): string | undefined {
@@ -145,13 +259,11 @@ export function buildDailyGuidance(args: {
   if (profile.skinType === 'dry' || profile.skinType === 'dehydrated') recommended.add('ing_panthenol');
   if (profile.skinType === 'sensitive') {
     recommended.add('ing_centella');
-    avoid.add('ing_glycolic_acid');
   }
   if (profile.primaryConcerns.includes('acne')) recommended.add('ing_azelaic_acid');
   if (profile.primaryConcerns.includes('hyperpigmentation')) recommended.add('ing_azelaic_acid');
   if (profile.primaryConcerns.includes('redness') || profile.primaryConcerns.includes('rosacea')) {
     recommended.add('ing_azelaic_acid');
-    avoid.add('ing_glycolic_acid');
   }
 
   /* --- ۶) سن --- */
@@ -163,8 +275,7 @@ export function buildDailyGuidance(args: {
     if (age < 18) {
       ageInsightFa =
         'در سن نوجوانی، پوست به روتین ساده و ملایم نیاز دارد؛ فعلاً از رتینول و لایه‌بردارهای قوی فاصله بگیر و روی شست‌وشوی ملایم و ضدآفتاب روزانه تمرکز کن.';
-      avoid.add('ing_retinol');
-      avoid.add('ing_glycolic_acid');
+
     } else if (age < 25) {
       ageInsightFa =
         'در این سن، بهترین سرمایه‌گذاری پیشگیری است: ضدآفتاب روزانه و آنتی‌اکسیدان‌ها جلوی سالخوردگی زودرس پوست را می‌گیرند.';
@@ -192,6 +303,15 @@ export function buildDailyGuidance(args: {
 
   const blockedList = Array.from(avoid);
   const gentleMode = restriction.gentleMode || profile.onOralRetinoid;
+
+  /* --- توصیه‌های سطح‌بندی‌شده --- */
+  const shelfActives = resolveShelfActives(products);
+  const skinSignals = getSkinSignals(dateIso);
+  const sensitivity = getSensitivityLevel(profile);
+  const ingredientAdvice: IngredientAdvice[] = [
+    ...buildSafetyAdvice(profile, medications, shelfActives, sensitivity, skinSignals),
+    ...buildProcedureAdvice(restriction, shelfActives),
+  ];
 
   /* --- ساخت گام‌های روتین --- */
   const morning: RoutineStep[] = [
@@ -322,6 +442,7 @@ export function buildDailyGuidance(args: {
     gentleMode,
     lifestyleInsightFa,
     ageInsightFa,
+    ingredientAdvice,
   };
 }
 

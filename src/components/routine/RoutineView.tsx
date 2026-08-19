@@ -7,12 +7,25 @@ import { buildDailyGuidance } from '../../services/recommendationEngine';
 import { loadRoutine, toggleStep } from '../../services/routineService';
 import { LocalDB } from '../../services/db';
 import { getTodayIsoDate, toPersianDigits } from '../../services/jalali';
+import { SEVERITY_LABEL_FA, SEVERITY_STYLE } from '../../services/advice/severity';
+import { findGuideTopicForSource } from '../../services/content/guideContent';
+import type { AdviceSeverity } from '../../types';
 
 interface RoutineViewProps {
   userState: UserState;
   weather: WeatherData;
   products: Product[];
+  onOpenGuideTopic?: (topicId: string) => void;
 }
+
+const WhyButton: React.FC<{ topicId?: string; onOpenGuideTopic?: (topicId: string) => void }> = ({ topicId, onOpenGuideTopic }) => {
+  if (!topicId || !onOpenGuideTopic) return null;
+  return (
+    <button onClick={() => onOpenGuideTopic(topicId)} className="shrink-0 text-[11px] font-black underline underline-offset-2">
+      چرا؟
+    </button>
+  );
+};
 
 /**
  * روتین روزانه.
@@ -22,7 +35,7 @@ interface RoutineViewProps {
  * ولی هرگز استفاده نشده بود. یعنی مهم‌ترین کار روزانه کاربر هیچ
  * اثری نمی‌گذاشت: نه زنجیره، نه آمار، نه تقویم.
  */
-export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, products }) => {
+export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, products, onOpenGuideTopic }) => {
   const todayIso = getTodayIsoDate();
   const [activeType, setActiveType] = useState<RoutineType>(() => (new Date().getHours() >= 17 ? 'night' : 'morning'));
 
@@ -67,6 +80,18 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
     setDismissedAgeInsight(guidance.ageInsightFa);
   };
   const showAgeInsight = !!guidance.ageInsightFa && guidance.ageInsightFa !== dismissedAgeInsight;
+
+  /*
+   * safetyWarningsFa فقط متن است، بدون شدت. همان ترتیبی که در
+   * recommendationEngine.ts این جمله‌ها ساخته می‌شوند (بارداری، بعد
+   * شیردهی، بعد رتینوئید خوراکی) اینجا هم رعایت شده تا هرکدام شدت
+   * درست خودش را بگیرد — رتینوئید خوراکی واقعاً دستور پزشک است،
+   * بارداری/شیردهی یک هشدار مهم است اما دستور شخصیِ یک پزشک نیست.
+   */
+  const safetyWarningSeverities: AdviceSeverity[] = [];
+  if (userState.profile.isPregnant) safetyWarningSeverities.push('IMPORTANT');
+  if (userState.profile.isBreastfeeding) safetyWarningSeverities.push('IMPORTANT');
+  if (userState.profile.onOralRetinoid) safetyWarningSeverities.push('PROFESSIONAL_INSTRUCTION');
 
   // اگر قالب عوض شد (مثلاً نوبت جدید ثبت شد)، روتین دوباره ساخته می‌شود
   // ولی تیک‌های کاربر حفط می‌مانند.
@@ -171,23 +196,38 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
         </div>
       )}
 
-      {/* دلیل ملایم بودن روتین */}
+      {/* دلیل ملایم بودن روتین — این واقعاً دستور نوبت درمانی است، نه حدس اپ */}
       {guidance.gentleMode && guidance.procedureInsightFa && (
-        <div className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/50 flex items-start gap-2">
-          <Info className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-sky-900 dark:text-sky-200 leading-relaxed">{guidance.procedureInsightFa}</p>
+        <div className={`p-3.5 rounded-2xl border flex items-start gap-2 ${SEVERITY_STYLE.PROFESSIONAL_INSTRUCTION}`}>
+          <Info className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="flex-1 flex items-start justify-between gap-2">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black opacity-80">{SEVERITY_LABEL_FA.PROFESSIONAL_INSTRUCTION}</span>
+              <p className="text-sm leading-relaxed">{guidance.procedureInsightFa}</p>
+            </div>
+            <WhyButton topicId={findGuideTopicForSource('procedure')?.id} onOpenGuideTopic={onOpenGuideTopic} />
+          </div>
         </div>
       )}
 
-      {guidance.safetyWarningsFa.map((warning, index) => (
-        <div
-          key={index}
-          className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2"
-        >
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{warning}</p>
-        </div>
-      ))}
+      {guidance.safetyWarningsFa.map((warning, index) => {
+        const severity = safetyWarningSeverities[index] || 'IMPORTANT';
+        return (
+          <div
+            key={index}
+            className={`p-3.5 rounded-2xl border flex items-start gap-2 ${SEVERITY_STYLE[severity]}`}
+          >
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="flex-1 flex items-start justify-between gap-2">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black opacity-80">{SEVERITY_LABEL_FA[severity]}</span>
+                <p className="text-sm leading-relaxed">{warning}</p>
+              </div>
+              <WhyButton topicId="guide_l3_why_not_today" onOpenGuideTopic={onOpenGuideTopic} />
+            </div>
+          </div>
+        );
+      })}
 
       {/* گام‌ها */}
       <div className="space-y-3">

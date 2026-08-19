@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpen, ChevronDown, Clock, Search, ShieldAlert, Tag, X } from 'lucide-react';
 import { Article, SkinConditionInfo } from '../../types';
 import { ARTICLES_DATABASE } from '../../services/db';
@@ -174,9 +175,11 @@ export const KnowledgeCenter: React.FC = () => {
         </div>
       )}
 
-      {selected && (
+      {/* با createPortal مستقیم به document.body — وگرنه داخل کانتینر fixed z-20 بخش گیر
+          می‌افتد و با وجود z-50 باز هم زیر هدر/نوبار پایین (بیرون از آن کانتینر) دیده می‌شود. */}
+      {selected && createPortal(
         <div className="fixed inset-0 z-50 bg-[#20334d]/45 flex items-center justify-center p-4">
-          <article className="w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 shadow-2xl">
+          <article className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="text-xs font-bold text-rose-600">{selected.categoryFa}</span>
@@ -191,7 +194,8 @@ export const KnowledgeCenter: React.FC = () => {
             <p className="mt-4 whitespace-pre-line text-sm leading-8 text-slate-600 dark:text-slate-300">{selected.fullContentFa}</p>
             <button onClick={() => setSelected(null)} className="mt-5 mb-10 w-full rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white">بستن</button>
           </article>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

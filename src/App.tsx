@@ -30,6 +30,7 @@ import { AppointmentsView } from './components/appointments/AppointmentsView';
 import { MakeupTipsView } from './components/makeup/MakeupTipsView';
 import { PersonalRoutineView } from './components/routine/PersonalRoutineView';
 import { SplashScreen } from './components/common/SplashScreen';
+import { RozaGuideView } from './components/guide/RozaGuideView';
 
 export type SectionKey =
   | 'profile'
@@ -42,7 +43,8 @@ export type SectionKey =
   | 'clinic'
   | 'makeup'
   | 'personalRoutine'
-  | 'knowledge';
+  | 'knowledge'
+  | 'guide';
 
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: 'پروفایل و تنطیمات',
@@ -56,6 +58,21 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   makeup: 'ترفندهای آرایش',
   personalRoutine: 'روتین پوستی من',
   knowledge: 'مقالات کوتاه',
+  guide: 'راهنمای استفاده از رزا',
+};
+
+/**
+ * این سه بخش خودشان بالای محتوایشان یک عنوان کامل‌تر دارند (مثلاً
+ * AppointmentsView یا ProductShelf)، پس عنوان تکراری بالای پنل حذف شد
+ * تا در یک صفحه دو بار یک اسم نوشته نشود.
+ */
+const SECTIONS_WITH_OWN_TITLE = new Set<SectionKey>(['clinic', 'salon', 'products']);
+
+const TAB_TITLES: Record<NavTab, string> = {
+  home: 'خانه',
+  routine: 'روتین امروز',
+  cycle: 'چرخه ماهانه من',
+  progress: 'عکس‌ها و پیشرفت پوست',
 };
 
 /**
@@ -100,6 +117,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [guideInitialTopicId, setGuideInitialTopicId] = useState<string | null>(null);
+  const openGuideTopic = (topicId: string) => {
+    setGuideInitialTopicId(topicId);
+    setActiveSection('guide');
+  };
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lastBackAt = React.useRef(0);
   const [showSplash, setShowSplash] = useState(true);
@@ -306,9 +328,11 @@ export default function App() {
       // پنل‌هایی که از منو باز می‌شوند — همیشه دیده شود. قبلاً z-40 بود و هدر را
       // کامل می‌پوشاند، پس اگر پنلی از منو انتخاب می‌شد اصلاً هدری روی آن دیده نمی‌شد.
       <div ref={sectionScrollRef} className="fixed inset-0 z-20 bg-[#faf8f5] dark:bg-slate-950 overflow-y-auto pb-[calc(var(--safe-bottom)+7rem)] pt-[calc(var(--safe-top)+92px)]">
-        <div className="max-w-lg mx-auto px-4 mb-3 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
-          <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{sectionTitle}</h2>
-        </div>
+        {!SECTIONS_WITH_OWN_TITLE.has(activeSection) && (
+          <div className="max-w-lg mx-auto px-4 mb-3 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
+            <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{sectionTitle}</h2>
+          </div>
+        )}
 
         {activeSection === 'profile' && (
           <ProfileView userState={userState} onUpdateState={handleUpdateUserState} />
@@ -331,6 +355,12 @@ export default function App() {
         {activeSection === 'makeup' && <MakeupTipsView />}
         {activeSection === 'personalRoutine' && <PersonalRoutineView />}
         {activeSection === 'knowledge' && <KnowledgeCenter />}
+        {activeSection === 'guide' && (
+          <RozaGuideView
+            initialTopicId={guideInitialTopicId}
+            onConsumedInitialTopic={() => setGuideInitialTopicId(null)}
+          />
+        )}
       </div>
     );
   };
@@ -373,6 +403,10 @@ export default function App() {
 
       {!activeSection && (
         <main className="w-full">
+          <div className="max-w-lg mx-auto px-4 pt-3 mb-1 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
+            <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h2>
+          </div>
+
           {activeTab === 'home' && (
             <HomeDashboard
               userState={userState}
@@ -390,11 +424,12 @@ export default function App() {
                 const key = sectionTourKey(section);
                 setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
               }}
+              onOpenGuideTopic={openGuideTopic}
             />
           )}
 
           {activeTab === 'routine' && (
-            <RoutineView userState={userState} weather={weather} products={products} />
+            <RoutineView userState={userState} weather={weather} products={products} onOpenGuideTopic={openGuideTopic} />
           )}
 
           {activeTab === 'cycle' && (

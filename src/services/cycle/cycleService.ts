@@ -24,7 +24,9 @@ import { LocalDB, createId } from '../db';
  * می‌گیرند، پس هرگز از هم جدا نمی‌افتند.
  */
 export const PHASE_INGREDIENTS: Record<MenstrualPhase, { recommendedIds: string[]; avoidIds: string[] }> = {
-  menstrual: { recommendedIds: ['ing_centella', 'ing_panthenol', 'ing_ceramides'], avoidIds: ['ing_glycolic_acid', 'ing_retinol'] },
+  // ممیزی: فاز چرخه به‌تنهایی دلیل کافی برای منع یک active نیست.
+  // تصمیم باید با علائم واقعی و حساسیت پوست ترکیب شود.
+  menstrual: { recommendedIds: ['ing_centella', 'ing_panthenol', 'ing_ceramides'], avoidIds: [] },
   follicular: { recommendedIds: ['ing_vitamin_c'], avoidIds: [] },
   ovulation: { recommendedIds: ['ing_niacinamide', 'ing_zinc_pca'], avoidIds: [] },
   luteal: { recommendedIds: ['ing_niacinamide', 'ing_azelaic_acid', 'ing_salicylic_acid'], avoidIds: [] },

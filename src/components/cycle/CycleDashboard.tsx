@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Droplet, Check, TrendingUp, Trash2, Info, Sparkles, Activity, ChevronDown, X, HeartPulse } from 'lucide-react';
 import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, SkinProfile, SymptomKey, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
@@ -268,7 +269,10 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
       )}
 
       {/* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح */}
-      {showManual && (
+      {/* با createPortal مستقیم به document.body می‌رود؛ وگرنه وقتی این کامپوننت از منو
+          (به‌صورت Section، داخل کانتینر fixed z-20) باز شده، مودال با وجود z-50 داخل همان
+          stacking context گیر می‌افتد و زیر هدر/نوبار پایین (که بیرون از آن کانتینرند) دیده می‌شود. */}
+      {showManual && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
           onClick={() => setShowManual(false)}
@@ -344,7 +348,8 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* راهنمای فاز */}
