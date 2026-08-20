@@ -192,7 +192,7 @@ export const KnowledgeCenter: React.FC = () => {
             {selected.imageUrl && <img src={selected.imageUrl} alt="" className="mt-4 w-full h-44 rounded-2xl object-cover" />}
             <p className="mt-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 p-4 text-sm font-bold leading-8 text-slate-700 dark:text-slate-200">{selected.summaryFa}</p>
             <p className="mt-4 whitespace-pre-line text-sm leading-8 text-slate-600 dark:text-slate-300">{selected.fullContentFa}</p>
-            <button onClick={() => setSelected(null)} className="mt-5 mb-10 w-full rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white">بستن</button>
+            <button onClick={() => setSelected(null)} className="mt-5 w-full rounded-2xl bg-[#263b56] py-3 text-sm font-bold text-white">بستن</button>
           </article>
         </div>,
         document.body,

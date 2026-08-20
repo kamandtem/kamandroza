@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sparkles, Search, Clock, CheckCircle2, X, Info, Flame, Droplet, Shield } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { toPersianDigits } from '../../services/jalali';
 
 export interface FaceMask {
@@ -333,13 +333,15 @@ export const FaceMasksView: React.FC = () => {
       {/* با createPortal مستقیم به document.body — وگرنه داخل کانتینر fixed z-20 بخش گیر
           می‌افتد و با وجود z-50 باز هم زیر هدر/نوبار پایین (بیرون از آن کانتینر) دیده می‌شود.
           ارتفاع هم کمی کوچک‌تر شد تا حتی در گوشی‌های کوچک، همیشه داخل صفحه بماند و خودش اسکرول بخورد. */}
-      <AnimatePresence>
-        {selectedMask && createPortal(
+      {/* بدون AnimatePresence دور createPortal: این ترکیب باعث می‌شد مودال اصلاً
+          نمایش داده نشود (AnimatePresence نمی‌تواند پورتال را به‌عنوان فرزند
+          انیمیشنی ردیابی کند). با همان الگویی که در راهنما/مقالات درست کار
+          می‌کند جایگزین شد: portal مستقیم + motion.div با initial/animate. */}
+      {selectedMask && createPortal(
           <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 pt-[calc(var(--safe-top)+1rem)] pb-[calc(var(--safe-bottom)+1rem)]">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
               className="w-full max-w-lg max-h-[72vh] overflow-y-auto p-6 rounded-3xl bg-white dark:bg-slate-900 text-right space-y-4 shadow-2xl border border-rose-100 dark:border-slate-800 font-['Vazirmatn',sans-serif]"
             >
               <div className="flex items-center justify-between border-b border-rose-100 dark:border-slate-800 pb-3">
@@ -427,7 +429,6 @@ export const FaceMasksView: React.FC = () => {
           </div>,
           document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BookOpen, Camera, ChevronDown, ChevronLeft, Droplet, FlaskConical, GraduationCap, Moon, Package, Scissors, Settings, ShoppingBag, Sparkles, Stethoscope, Sun } from 'lucide-react';
+import { BookOpen, Camera, ChevronDown, Droplet, FlaskConical, GraduationCap, Moon, Package, Scissors, Settings, ShoppingBag, Sparkles, Stethoscope, Sun } from 'lucide-react';
 import { UserState } from '../../types';
 import { isFeatureEnabled } from '../../config/appConfig';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
@@ -21,10 +21,12 @@ const TelegramGlyph = ({ className = '' }: { className?: string }) => <svg viewB
  * «خانه» و «روتین امروز» از این منو حذف شدند — هر دو همیشه از نوبار پایین
  * یک کلیک فاصله دارند، پس تکرارشان اینجا فقط منو را شلوغ می‌کرد.
  *
- * چهار مورد آموزشی/محتوایی (ماسک‌ها، ترفندهای آرایش، ترکیبات و تداخل‌سنج،
- * مقالات کوتاه) زیر یک دسته آکاردئونی «آموزش» جمع شدند تا لیست اصلی کوتاه‌تر
- * بماند؛ «راهنمای استفاده از رزا» چون مسیر یادگیری خود اپ است (نه محتوای
- * عمومی)، بیرون از این دسته و اولین گزینه منو ماند.
+ * فهرست زیر سه دستهٔ سرتیتردار دارد (الگو از عکس مرجع): «راهنما» (فقط
+ * راهنمای استفاده از رزا)، «خدمات» (چرخه، قفسه محصولات، آرایشگاه، پزشک،
+ * عکس‌ها و پیشرفت) و «آموزش» (آکاردئونی؛ ماسک‌ها، ترفندهای آرایش، ترکیبات،
+ * مقالات). فلش تاشدنی فقط روی «آموزش» می‌ماند چون زیرمجموعه دارد؛ بقیهٔ
+ * ردیف‌ها فلش ندارند و به‌جایش با رنگ‌گرفتن هنگام لمس (active:) بازخورد
+ * می‌دهند.
  */
 export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleVisible, onNavigateTab, onOpenSection, onToggleTheme }) => {
   const drawerRef = useRef<HTMLElement>(null); const touchRef = useRef<{ x: number; y: number } | null>(null); const [dragX, setDragX] = useState(0); const [dragging, setDragging] = useState(false);
@@ -35,14 +37,21 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
   const handleMove = (e: React.TouchEvent) => { if (!touchRef.current) return; const t = e.touches[0]; const dx = t.clientX - touchRef.current.x; const dy = t.clientY - touchRef.current.y; if (Math.abs(dx) > Math.abs(dy) && dx > 8) { setDragging(true); setDragX(dx); } };
   const handleEnd = () => { if (dragX > (drawerRef.current?.offsetWidth || 320) * 0.28) onClose(); setDragX(0); setDragging(false); touchRef.current = null; };
 
-  const items = [
-    { label: 'راهنمای استفاده از رزا', desc: 'یاد بگیر رزا چرا این توصیه را می‌دهد', icon: GraduationCap, click: () => goSection('guide') },
+  const guideItem = { label: 'راهنمای استفاده از رزا', desc: 'یاد بگیر رزا چرا این توصیه را می‌دهد', icon: GraduationCap, click: () => goSection('guide') };
+
+  const serviceItems = [
     ...(cycleVisible ? [{ label: 'چرخه ماهانه من', desc: 'ثبت پریود و علائم', icon: Moon, click: () => goSection('cycle') }] : []),
     { label: 'قفسه محصولات', desc: 'محصولات و تاریخ انقضا', icon: Package, click: () => goSection('products') },
     { label: 'آرایشگاه و نوبت‌ها', desc: 'خدمات زیبایی و یادآوری', icon: Scissors, click: () => goSection('salon') },
     { label: 'پزشک و پرونده پوست', desc: 'ویزیت، دارو و یادداشت', icon: Stethoscope, click: () => goSection('clinic') },
     { label: 'عکس‌ها و پیشرفت', desc: 'تقویم و عکس‌های خصوصی', icon: Camera, click: () => goSection('photo') },
   ];
+
+  const itemBtnClass = 'group w-full min-h-[56px] rounded-2xl px-2.5 py-1.5 flex items-center gap-2.5 text-right transition-colors active:bg-[#eef3fa] dark:active:bg-slate-800/80';
+  const itemIconBase = 'rounded-xl bg-[#f1f5fb] dark:bg-slate-800 text-[#93a5bb] flex items-center justify-center shrink-0 transition-colors group-active:bg-[#dde8f7] dark:group-active:bg-slate-700 group-active:text-[#22344e] dark:group-active:text-white';
+  const itemIconClass = `w-9 h-9 ${itemIconBase}`;
+  const itemIconClassSm = `w-8 h-8 ${itemIconBase}`;
+  const sectionHeaderClass = 'px-2 pb-1.5 text-[11px] font-black text-[#a3b0c2] dark:text-slate-500 tracking-wide';
 
   const educationItems = [
     { label: 'ماسک‌های پوستی', desc: 'ماسک‌های طبیعی و پوستی متناسب با پوستت', icon: Droplet, click: () => goSection('masks') },
@@ -53,29 +62,48 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
 
   return <AnimatePresence>{isOpen && <><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-[#23334b]/35" /><motion.aside ref={drawerRef} onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} style={{ transform: `translateX(${dragX}px)`, transition: dragging ? 'none' : 'transform 240ms cubic-bezier(.16,1,.3,1)' }} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.26 }} className="fixed top-[calc(var(--safe-top)+12px)] bottom-[calc(var(--safe-bottom)+12px)] right-0 z-50 w-80 max-w-[85vw] rounded-[28px] bg-[#fffdfb] dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden border border-white dark:border-slate-800 touch-pan-y">
     <div className="overflow-y-auto flex-1">
-      <div className="sticky top-0 z-20 p-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-[#fffdfb] dark:bg-slate-900"><div className="flex items-center gap-2.5 text-right"><div className="w-12 h-12 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-2xl overflow-hidden shrink-0">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div><div className="flex-1 min-w-0"><p className="text-[11px] text-slate-500 dark:text-slate-400">خوش آمدی</p><h2 className="text-base font-black text-[#17263b] dark:text-white truncate">{userState.profile.name || 'کاربر رزا'}</h2><GuideBadge onClick={() => goSection('guide')} className="mt-1" /></div><div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div></div></div>
-      <div className="px-3 py-3 space-y-1">
-        {items.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className="w-full min-h-[56px] rounded-2xl px-2.5 py-1.5 flex items-center gap-2.5 text-right hover:bg-[#f4f7fb] dark:hover:bg-slate-800"><span className="w-9 h-9 rounded-xl bg-[#f1f5fb] dark:bg-slate-800 text-[#93a5bb] flex items-center justify-center shrink-0"><Icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span><ChevronLeft className="w-3.5 h-3.5 text-slate-300" /></button>)}
-
-        {/* دسته آموزش — آکاردئونی */}
-        <div className="rounded-2xl overflow-hidden">
-          <button onClick={() => setEduOpen((value) => !value)} className="w-full min-h-[56px] rounded-2xl px-2.5 py-1.5 flex items-center gap-2.5 text-right hover:bg-[#f4f7fb] dark:hover:bg-slate-800">
-            <span className="w-9 h-9 rounded-xl bg-[#f1f5fb] dark:bg-slate-800 text-[#93a5bb] flex items-center justify-center shrink-0"><BookOpen className="w-4 h-4" /></span>
-            <span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">آموزش</strong><small className="block text-[11px] text-slate-400 mt-0.5">ماسک، آرایش، ترکیبات و مقالات</small></span>
-            <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${eduOpen ? 'rotate-180' : ''}`} />
-          </button>
-          <AnimatePresence initial={false}>
-            {eduOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
-                <div className="pr-4 pt-1 pb-1 space-y-1">
-                  {educationItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className="w-full min-h-[52px] rounded-2xl px-2.5 py-1.5 flex items-center gap-2.5 text-right hover:bg-[#f4f7fb] dark:hover:bg-slate-800"><span className="w-8 h-8 rounded-xl bg-[#f1f5fb] dark:bg-slate-800 text-[#93a5bb] flex items-center justify-center shrink-0"><Icon className="w-3.5 h-3.5" /></span><span className="flex-1 min-w-0"><strong className="block text-[12.5px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span><ChevronLeft className="w-3.5 h-3.5 text-slate-300" /></button>)}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      <div className="sticky top-0 z-20 p-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-[#fffdfb] dark:bg-slate-900"><div className="flex items-start gap-2.5 text-right"><div className="w-16 h-16 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-3xl overflow-hidden shrink-0">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div><div className="flex-1 min-w-0 h-16 flex flex-col justify-between">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
+        <h2 className="text-[15px] font-black text-[#17263b] dark:text-white truncate leading-none">{userState.profile.name || 'کاربر رزا'}</h2>
+        <GuideBadge onClick={() => goSection('guide')} />
+      </div><div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div></div></div>
+      <div className="px-3 py-3 space-y-4">
+        <div>
+          <p className={sectionHeaderClass}>راهنما</p>
+          <div className="space-y-1">
+            <button onClick={guideItem.click} className={itemBtnClass}><span className={itemIconClass}><guideItem.icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{guideItem.label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{guideItem.desc}</small></span></button>
+          </div>
         </div>
 
-        {isFeatureEnabled('shop') && <button onClick={onClose} className="w-full min-h-[56px] rounded-2xl px-2.5 py-1.5 flex items-center gap-2.5 text-right"><span className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center"><ShoppingBag className="w-4 h-4" /></span><strong className="text-[13px] font-black">فروشگاه رزا</strong></button>}
+        <div>
+          <p className={sectionHeaderClass}>خدمات</p>
+          <div className="space-y-1">
+            {serviceItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClass}><Icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
+          </div>
+        </div>
+
+        <div>
+          <p className={sectionHeaderClass}>آموزش</p>
+          {/* دسته آموزش — آکاردئونی؛ چون زیرمجموعه دارد، فلش تاشدنی نگه داشته می‌شود */}
+          <div className="rounded-2xl overflow-hidden">
+            <button onClick={() => setEduOpen((value) => !value)} className={itemBtnClass}>
+              <span className={itemIconClass}><BookOpen className="w-4 h-4" /></span>
+              <span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">آموزش</strong><small className="block text-[11px] text-slate-400 mt-0.5">ماسک، آرایش، ترکیبات و مقالات</small></span>
+              <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${eduOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {eduOpen && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+                  <div className="pr-4 pt-1 pb-1 space-y-1">
+                    {educationItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClassSm}><Icon className="w-3.5 h-3.5" /></span><span className="flex-1 min-w-0"><strong className="block text-[12.5px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {isFeatureEnabled('shop') && <button onClick={onClose} className={itemBtnClass}><span className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0"><ShoppingBag className="w-4 h-4" /></span><strong className="text-[13px] font-black">فروشگاه رزا</strong></button>}
       </div>
     </div>
     <div className="border-t border-slate-100 dark:border-slate-800 px-4 pt-3 pb-3">

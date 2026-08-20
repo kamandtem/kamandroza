@@ -403,7 +403,7 @@ export default function App() {
 
       {!activeSection && (
         <main className="w-full">
-          <div className="max-w-lg mx-auto px-4 pt-3 mb-1 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-3">
+          <div className="max-w-lg mx-auto px-4 pt-1 flex items-center justify-between gap-3 border-b border-rose-100 dark:border-slate-800 pb-2 mb-2">
             <h2 className="text-base font-extrabold text-slate-800 dark:text-white">{TAB_TITLES[activeTab]}</h2>
           </div>
 

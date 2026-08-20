@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { readJson, writeJson } from '../storage/persistence';
 import { GuideLevel, GUIDE_TOTAL_TOPICS, guideTopicsForLevel } from '../content/guideContent';
+import { toPersianDigits } from '../jalali';
 
 /**
  * وضعیت پیشرفت کاربر در راهنما.
@@ -83,9 +84,9 @@ export interface GuideTier {
 }
 
 const TIERS: Record<GuideLevel, GuideTier> = {
-  1: { levelNumber: 1, emoji: '🌱', labelFa: 'آشنا' },
-  2: { levelNumber: 2, emoji: '✨', labelFa: 'آگاه' },
-  3: { levelNumber: 3, emoji: '🎓', labelFa: 'همراه حرفه‌ای رزا' },
+  1: { levelNumber: 1, emoji: '🌱', labelFa: `سطح ${toPersianDigits(1)}` },
+  2: { levelNumber: 2, emoji: '✨', labelFa: `سطح ${toPersianDigits(2)}` },
+  3: { levelNumber: 3, emoji: '🎓', labelFa: `سطح ${toPersianDigits(3)}` },
 };
 
 /** عنوان/بج فعلی کاربر — بر اساس بالاترین Level ای که وارد شده (تکمیل Level قبلش). */

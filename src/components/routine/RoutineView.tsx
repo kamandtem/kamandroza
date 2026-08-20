@@ -133,7 +133,7 @@ export const RoutineView: React.FC<RoutineViewProps> = ({ userState, weather, pr
   }, [isRunning, secondsLeft, timerStepId]);
 
   return (
-    <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
+    <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
       {/* سویچ صبح و شب */}
       <div className="p-1.5 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 flex items-center gap-1">
         <button

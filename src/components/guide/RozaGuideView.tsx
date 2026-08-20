@@ -257,13 +257,17 @@ const TopicModal: React.FC<{ topic: GuideTopic; onClose: () => void }> = ({ topi
         </div>
 
         <button
-          onClick={() => (read ? unmarkGuideTopicRead(topic.id) : markGuideTopicRead(topic.id))}
+          onClick={() => {
+            if (read) unmarkGuideTopicRead(topic.id);
+            else markGuideTopicRead(topic.id);
+            onClose();
+          }}
           className={`mt-5 w-full rounded-2xl py-3 text-sm font-bold flex items-center justify-center gap-2 ${
             read ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50' : 'bg-[#263b56] text-white'
           }`}
         >
           <Check className="w-4 h-4" />
-          {read ? 'خواندم' : '✓ خواندم'}
+          خواندم
         </button>
       </motion.article>
     </div>,
