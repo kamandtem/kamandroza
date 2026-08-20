@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   AlertTriangle,
   Moon as MoonIcon,
+  X,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DailyTrackerEntry, Product, UserState, WeatherData } from '../../types';
@@ -53,6 +54,42 @@ const WhyButton: React.FC<{ topicId?: string; onOpenGuideTopic?: (topicId: strin
 };
 
 /**
+ * دکمه بستن (×) برای پیام‌های اختیاری/توصیه‌ای پنل خانه.
+ *
+ * فقط برای پیام‌های راهنمایی/بینش استفاده می‌شود (لایف‌استایل، پرهیز نوبت،
+ * هشدار ایمنی، هشدار پیش از قاعدگی) — نه برای کارت «نوبت بعدی» که یک
+ * یادآور واقعی نوبت آرایشگاه/پزشک است و عمداً بی‌تغییر ماند.
+ */
+const DismissButton: React.FC<{ onClick: () => void; className?: string }> = ({ onClick, className = '' }) => (
+  <button
+    onClick={onClick}
+    aria-label="بستن این پیام"
+    className={`shrink-0 p-1 rounded-full active:scale-90 transition-transform ${className}`}
+  >
+    <X className="w-3.5 h-3.5" />
+  </button>
+);
+
+const DISMISS_KEYS = {
+  lifestyle: 'roza_dismissed_lifestyle_insight',
+  procedure: 'roza_dismissed_procedure_insight',
+  pms: 'roza_dismissed_pms_warning',
+  safety: 'roza_dismissed_safety_warnings',
+} as const;
+
+function readDismissedState() {
+  if (typeof window === 'undefined') return { lifestyle: '', procedure: '', pms: '', safety: [] as string[] };
+  let safety: string[] = [];
+  try { safety = JSON.parse(localStorage.getItem(DISMISS_KEYS.safety) || '[]'); } catch { safety = []; }
+  return {
+    lifestyle: localStorage.getItem(DISMISS_KEYS.lifestyle) || '',
+    procedure: localStorage.getItem(DISMISS_KEYS.procedure) || '',
+    pms: localStorage.getItem(DISMISS_KEYS.pms) || '',
+    safety,
+  };
+}
+
+/**
  * داشبورد.
  *
  * حذف شد نسبت به نسخه ۱:
@@ -84,6 +121,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     products,
     medications: LocalDB.getMedications(),
   });
+
+  const [dismissed, setDismissed] = React.useState(readDismissedState);
+  const dismissOne = (key: 'lifestyle' | 'procedure' | 'pms', value: string) => {
+    try { localStorage.setItem(DISMISS_KEYS[key], value); } catch { /* noop */ }
+    setDismissed((prev) => ({ ...prev, [key]: value }));
+  };
+  const dismissSafetyWarning = (value: string) => {
+    setDismissed((prev) => {
+      const next = Array.from(new Set([...prev.safety, value]));
+      try { localStorage.setItem(DISMISS_KEYS.safety, JSON.stringify(next)); } catch { /* noop */ }
+      return { ...prev, safety: next };
+    });
+  };
+  const visibleSafetyWarnings = guidance.safetyWarningsFa.filter((warning) => !dismissed.safety.includes(warning));
 
   const upcoming = getUpcomingAppointments(2);
   const providers = LocalDB.getProviders();
@@ -120,7 +171,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       )}
 
       {/* هشدارهای ایمنی — بالاترین اولویت */}
-      {guidance.safetyWarningsFa.map((warning, index) => (
+      {visibleSafetyWarnings.map((warning, index) => (
         <div
           key={index}
           className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2"
@@ -128,26 +179,32 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1 flex items-start justify-between gap-2">
             <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">{warning}</p>
-            <WhyButton topicId="guide_l3_why_not_today" onOpenGuideTopic={onOpenGuideTopic} className="text-amber-800 dark:text-amber-200" />
+            <div className="shrink-0 flex items-center gap-1 text-amber-800 dark:text-amber-200">
+              <WhyButton topicId="guide_l3_why_not_today" onOpenGuideTopic={onOpenGuideTopic} />
+              <DismissButton onClick={() => dismissSafetyWarning(warning)} />
+            </div>
           </div>
         </div>
       ))}
 
       {/* پرهیز مربوط به نوبت آرایشگاه یا کلینیک */}
-      {guidance.procedureInsightFa && (
+      {guidance.procedureInsightFa && guidance.procedureInsightFa !== dismissed.procedure && (
         <div className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/50 flex items-start gap-2">
           <Scissors className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
           <div className="flex-1 flex items-start justify-between gap-2">
             <div className="space-y-0.5">
-              <h4 className="text-sm font-black text-sky-900 dark:text-sky-200">روتین امروز تنطیم شد</h4>
+              <h4 className="text-sm font-black text-sky-900 dark:text-sky-200">روتین امروز تنظیم شد</h4>
               <p className="text-sm text-sky-900 dark:text-sky-200 leading-relaxed">{guidance.procedureInsightFa}</p>
             </div>
-            <WhyButton topicId={findGuideTopicForSource('procedure')?.id} onOpenGuideTopic={onOpenGuideTopic} className="text-sky-800 dark:text-sky-200" />
+            <div className="shrink-0 flex items-center gap-1 text-sky-800 dark:text-sky-200">
+              <WhyButton topicId={findGuideTopicForSource('procedure')?.id} onOpenGuideTopic={onOpenGuideTopic} />
+              <DismissButton onClick={() => dismissOne('procedure', guidance.procedureInsightFa!)} />
+            </div>
           </div>
         </div>
       )}
 
-      {guidance.pmsWarningFa && (
+      {guidance.pmsWarningFa && guidance.pmsWarningFa !== dismissed.pms && (
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -159,7 +216,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <h4 className="font-black text-sm">مراقبت پیشگیرانه</h4>
               <p className="text-sm leading-relaxed text-rose-50">{guidance.pmsWarningFa}</p>
             </div>
-            <WhyButton topicId={findGuideTopicForSource('cycle')?.id} onOpenGuideTopic={onOpenGuideTopic} className="text-white" />
+            <div className="shrink-0 flex items-center gap-1 text-white">
+              <WhyButton topicId={findGuideTopicForSource('cycle')?.id} onOpenGuideTopic={onOpenGuideTopic} />
+              <DismissButton onClick={() => dismissOne('pms', guidance.pmsWarningFa!)} />
+            </div>
           </div>
         </motion.div>
       )}
@@ -214,15 +274,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </button>
       </div>
 
-      {guidance.lifestyleInsightFa && (
-        <div className="p-4 rounded-3xl bg-teal-50 dark:bg-teal-950/25 border border-teal-200 dark:border-teal-900/50">
+      {guidance.lifestyleInsightFa && guidance.lifestyleInsightFa !== dismissed.lifestyle && (
+        <div className="p-4 rounded-3xl bg-teal-50 dark:bg-teal-950/25 border border-teal-200 dark:border-teal-900/50 flex items-start justify-between gap-2">
           <p className="text-sm text-teal-900 dark:text-teal-200 leading-relaxed">{guidance.lifestyleInsightFa}</p>
-        </div>
-      )}
-
-      {guidance.ageInsightFa && (
-        <div className="p-4 rounded-3xl bg-purple-50 dark:bg-purple-950/25 border border-purple-200 dark:border-purple-900/50">
-          <p className="text-sm text-purple-900 dark:text-purple-200 leading-relaxed">{guidance.ageInsightFa}</p>
+          <DismissButton onClick={() => dismissOne('lifestyle', guidance.lifestyleInsightFa!)} className="text-teal-800 dark:text-teal-200" />
         </div>
       )}
 
@@ -265,11 +320,17 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           <span
                             key={advice.ruleId}
                             title={advice.reasonFa}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
                           >
                             {advice.ingredientNameFa}
-                            {advice.educationalOnly ? ' (آموزشی)' : ''}
-                            <WhyButton topicId={whyTopicId} onOpenGuideTopic={onOpenGuideTopic} />
+                            {whyTopicId && onOpenGuideTopic && (
+                              <button
+                                onClick={() => onOpenGuideTopic(whyTopicId)}
+                                className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-white/60 dark:bg-slate-900/40"
+                              >
+                                ببین چرا
+                              </button>
+                            )}
                           </span>
                         );
                       })}

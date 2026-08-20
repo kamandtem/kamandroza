@@ -178,7 +178,7 @@ export const KnowledgeCenter: React.FC = () => {
       {/* با createPortal مستقیم به document.body — وگرنه داخل کانتینر fixed z-20 بخش گیر
           می‌افتد و با وجود z-50 باز هم زیر هدر/نوبار پایین (بیرون از آن کانتینر) دیده می‌شود. */}
       {selected && createPortal(
-        <div className="fixed inset-0 z-50 bg-[#20334d]/45 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-[#20334d]/45 backdrop-blur-xs flex items-center justify-center p-4">
           <article className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>

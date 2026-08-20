@@ -4,7 +4,7 @@
  * تفاوت بنیادین با نسخه ۱:
  *  - منبع حقیقت تاریخچه پریودهاست، نه یک تاریخ دستی.
  *  - پیش‌بینی تطبیقی است: میانه ۶ چرخه آخر.
- *  - هر پیش‌بینی سطح اطمینان دارد و برای چرخه نامنطم بازه می‌دهد نه روز دقیق.
+ *  - هر پیش‌بینی سطح اطمینان دارد و برای چرخه نامنظم بازه می‌دهد نه روز دقیق.
  *  - «الگوی شخصی» از علائم خود کاربر ساخته می‌شود، نه از متن عمومی مقالات.
  *
  * هیچ عددی در این فایل ساختگی نیست. اگر داده نباشد، خروجی null است.
@@ -251,7 +251,7 @@ export function computeCycleState(
   const pmsDays = Math.max(0, Math.min(12, config.pmsStartDaysBefore || 5));
   const inPmsWindow = phase === 'luteal' && daysUntilNextPeriod <= pmsDays && daysUntilNextPeriod >= 0;
 
-  // بازه پیش‌بینی: هرچه داده کمتر یا چرخه نامنطم‌تر، بازه بازتر
+  // بازه پیش‌بینی: هرچه داده کمتر یا چرخه نامنظم‌تر، بازه بازتر
   const margin =
     stats.confidence === 'high' ? 1 : stats.confidence === 'medium' ? 2 : stats.spreadDays ? Math.min(7, Math.ceil(stats.spreadDays / 2)) : 4;
   const predictedStart = addDays(anchor.startIso, cycleLength);

@@ -31,7 +31,16 @@ const TelegramGlyph = ({ className = '' }: { className?: string }) => <svg viewB
 export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleVisible, onNavigateTab, onOpenSection, onToggleTheme }) => {
   const drawerRef = useRef<HTMLElement>(null); const touchRef = useRef<{ x: number; y: number } | null>(null); const [dragX, setDragX] = useState(0); const [dragging, setDragging] = useState(false);
   const [eduOpen, setEduOpen] = useState(false);
+  const eduSectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => { document.body.style.overflow = isOpen ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [isOpen]);
+  // وقتی «آموزش» باز می‌شود، منو خودش به‌سمت آن اسکرول می‌کند تا کاربر بلافاصله
+  // زیرمجموعه‌ها را ببیند و فکر نکند این یک دکمه‌ی بی‌اثر است.
+  useEffect(() => {
+    if (!eduOpen) return;
+    const timer = setTimeout(() => { eduSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+    return () => clearTimeout(timer);
+  }, [eduOpen]);
+  useEffect(() => { if (!isOpen) setEduOpen(false); }, [isOpen]);
   const goTab = (tab: NavTab) => { onNavigateTab(tab); onClose(); }; const goSection = (key: SectionKey) => { onOpenSection(key); onClose(); };
   const handleStart = (e: React.TouchEvent) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
   const handleMove = (e: React.TouchEvent) => { if (!touchRef.current) return; const t = e.touches[0]; const dx = t.clientX - touchRef.current.x; const dy = t.clientY - touchRef.current.y; if (Math.abs(dx) > Math.abs(dy) && dx > 8) { setDragging(true); setDragX(dx); } };
@@ -54,48 +63,57 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
   const sectionHeaderClass = 'px-2 pb-1.5 text-[11px] font-black text-[#a3b0c2] dark:text-slate-500 tracking-wide';
 
   const educationItems = [
-    { label: 'ماسک‌های پوستی', desc: 'ماسک‌های طبیعی و پوستی متناسب با پوستت', icon: Droplet, click: () => goSection('masks') },
+    { label: 'ماسک‌های پوستی', desc: 'انواع ماسک‌های پوستی', icon: Droplet, click: () => goSection('masks') },
     { label: 'ترفندهای آرایش', desc: 'رژ لب، خط چشم، رژگونه و لاک', icon: Sparkles, click: () => goSection('makeup') },
     { label: 'ترکیبات و تداخل‌سنج', desc: `${toPersianDigits(INGREDIENTS_DATABASE.length)} ترکیب ثبت‌شده`, icon: FlaskConical, click: () => goSection('lab') },
     { label: 'مقالات کوتاه', desc: 'دانش کاربردی پوست و مو', icon: BookOpen, click: () => goSection('knowledge') },
   ];
 
-  return <AnimatePresence>{isOpen && <><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-[#23334b]/35" /><motion.aside ref={drawerRef} onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} style={{ transform: `translateX(${dragX}px)`, transition: dragging ? 'none' : 'transform 240ms cubic-bezier(.16,1,.3,1)' }} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.26 }} className="fixed top-[calc(var(--safe-top)+12px)] bottom-[calc(var(--safe-bottom)+12px)] right-0 z-50 w-80 max-w-[85vw] rounded-[28px] bg-[#fffdfb] dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden border border-white dark:border-slate-800 touch-pan-y">
+  return <AnimatePresence>{isOpen && <><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-[#23334b]/35" /><motion.aside ref={drawerRef} onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} style={dragging ? { transform: `translateX(${dragX}px)`, transition: 'none' } : undefined} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }} className="fixed top-[calc(var(--safe-top)+12px)] bottom-[calc(var(--safe-bottom)+12px)] right-0 z-50 w-80 max-w-[85vw] rounded-[28px] bg-[#fffdfb] dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden border border-white dark:border-slate-800 touch-pan-y">
     <div className="overflow-y-auto flex-1">
-      <div className="sticky top-0 z-20 p-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-[#fffdfb] dark:bg-slate-900"><div className="flex items-start gap-2.5 text-right"><div className="w-16 h-16 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-3xl overflow-hidden shrink-0">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div><div className="flex-1 min-w-0 h-16 flex flex-col justify-between">
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
-        <h2 className="text-[15px] font-black text-[#17263b] dark:text-white truncate leading-none">{userState.profile.name || 'کاربر رزا'}</h2>
-        <GuideBadge onClick={() => goSection('guide')} />
-      </div><div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div></div></div>
+      <div className="sticky top-0 z-20 p-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-[#fffdfb] dark:bg-slate-900"><div className="flex items-center gap-2.5 text-right">
+        <div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div>
+
+        <div role="button" tabIndex={0} onClick={() => goSection('profile')} onKeyDown={(event) => { if (event.key === 'Enter') goSection('profile'); }} className="flex-1 min-w-0 flex flex-col items-start gap-1 text-right cursor-pointer">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
+          <h2 className="text-[15px] font-black text-[#17263b] dark:text-white truncate leading-none w-full">{userState.profile.name || 'کاربر رزا'}</h2>
+          <div onClick={(event) => event.stopPropagation()}><GuideBadge onClick={() => goSection('guide')} /></div>
+        </div>
+
+        <button onClick={() => goSection('profile')} aria-label="پروفایل" className="relative shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-3xl overflow-hidden">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div>
+          <span className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-rose-500 text-white shadow-md ring-2 ring-[#fffdfb] dark:ring-slate-900"><Camera className="w-3 h-3" /></span>
+        </button>
+      </div></div>
       <div className="px-3 py-3 space-y-4">
         <div>
           <p className={sectionHeaderClass}>راهنما</p>
           <div className="space-y-1">
-            <button onClick={guideItem.click} className={itemBtnClass}><span className={itemIconClass}><guideItem.icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{guideItem.label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{guideItem.desc}</small></span></button>
+            <button onClick={guideItem.click} className={itemBtnClass}><span className={itemIconClass}><guideItem.icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{guideItem.label}</strong><small className="block text-[10px] text-slate-400 mt-0.5">{guideItem.desc}</small></span></button>
           </div>
         </div>
 
         <div>
           <p className={sectionHeaderClass}>خدمات</p>
           <div className="space-y-1">
-            {serviceItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClass}><Icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
+            {serviceItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClass}><Icon className="w-4 h-4" /></span><span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[10px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
           </div>
         </div>
 
-        <div>
+        <div ref={eduSectionRef}>
           <p className={sectionHeaderClass}>آموزش</p>
           {/* دسته آموزش — آکاردئونی؛ چون زیرمجموعه دارد، فلش تاشدنی نگه داشته می‌شود */}
           <div className="rounded-2xl overflow-hidden">
             <button onClick={() => setEduOpen((value) => !value)} className={itemBtnClass}>
               <span className={itemIconClass}><BookOpen className="w-4 h-4" /></span>
-              <span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">آموزش</strong><small className="block text-[11px] text-slate-400 mt-0.5">ماسک، آرایش، ترکیبات و مقالات</small></span>
+              <span className="flex-1 min-w-0"><strong className="block text-[13px] font-black text-[#26384f] dark:text-white">آموزش</strong><small className="block text-[10px] text-slate-400 mt-0.5">ماسک، آرایش، ترکیبات و مقالات</small></span>
               <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${eduOpen ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence initial={false}>
               {eduOpen && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
                   <div className="pr-4 pt-1 pb-1 space-y-1">
-                    {educationItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClassSm}><Icon className="w-3.5 h-3.5" /></span><span className="flex-1 min-w-0"><strong className="block text-[12.5px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[11px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
+                    {educationItems.map(({ label, desc, icon: Icon, click }) => <button key={label} onClick={click} className={itemBtnClass}><span className={itemIconClassSm}><Icon className="w-3.5 h-3.5" /></span><span className="flex-1 min-w-0"><strong className="block text-[12.5px] font-black text-[#26384f] dark:text-white">{label}</strong><small className="block text-[10px] text-slate-400 mt-0.5">{desc}</small></span></button>)}
                   </div>
                 </motion.div>
               )}

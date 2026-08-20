@@ -28,7 +28,7 @@ const PHASE_INFO: Record<MenstrualPhase, { titleFa: string; skinFa: string; acti
   ovulation: {
     titleFa: 'تخمک‌گذاری تقریبی',
     skinFa: 'ترشح چربی رو به افزایش است.',
-    actionFa: 'مرطوب‌کننده سبک و پاکسازی منطم.',
+    actionFa: 'مرطوب‌کننده سبک و پاکسازی منظم.',
     color:
       'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-900',
   },

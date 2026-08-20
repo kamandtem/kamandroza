@@ -377,14 +377,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
                     <div>
                       <label className="text-sm font-bold text-[#5c4a3e] dark:text-slate-300 block mb-2">
-                        چرخه‌ات منطم است؟
+                        چرخه‌ات منظم است؟
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         {(
                           [
-                            { value: 'regular', labelFa: 'منطم' },
+                            { value: 'regular', labelFa: 'منظم' },
                             { value: 'somewhat_irregular', labelFa: 'تقریباً' },
-                            { value: 'irregular', labelFa: 'نامنطم' },
+                            { value: 'irregular', labelFa: 'نامنظم' },
                           ] as const
                         ).map((item) => (
                           <button

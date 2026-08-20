@@ -554,13 +554,13 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
               {state.stats.shortestLength !== null && state.stats.longestLength !== null
                 ? ` (بین ${toPersianDigits(state.stats.shortestLength)} تا ${toPersianDigits(state.stats.longestLength)})`
                 : ''}
-              {state.stats.looksIrregular ? ' · چرخه‌ات نامنطم به نطر می‌رسد.' : ''}
+              {state.stats.looksIrregular ? ' · چرخه‌ات نامنظم به نطر می‌رسد.' : ''}
             </p>
           )}
 
           {state.stats.looksIrregular && (
             <p className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-              نامنطم بودن ممکن است دلایل مختلفی داشته باشد. می‌توانی گزارش همین ثبت‌ها را برای پزشک زنانت ببری. رزا تشخیص نمی‌دهد.
+              نامنظم بودن ممکن است دلایل مختلفی داشته باشد. می‌توانی گزارش همین ثبت‌ها را برای پزشک زنانت ببری. رزا تشخیص نمی‌دهد.
             </p>
           )}
 
@@ -619,12 +619,12 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
         <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-            چرخه‌ام نامنطم است یا مشکوک به PCOS هستم
+            چرخه‌ام نامنظم است یا مشکوک به PCOS هستم
           </span>
           <ToggleSwitch
             checked={userState.cycleConfig.pcosFlagged}
             onChange={(value) => onUpdateCycleConfig({ ...userState.cycleConfig, pcosFlagged: value })}
-            labelFa="چرخه‌ام نامنطم است یا مشکوک به PCOS هستم"
+            labelFa="چرخه‌ام نامنظم است یا مشکوک به PCOS هستم"
           />
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-500 leading-relaxed">
