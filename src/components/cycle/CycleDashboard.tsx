@@ -101,69 +101,13 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
   /* ------------------------- حالت بارداری ------------------------- */
   // وقتی «باردار هستم» در پروفایل روشن است، کل بخش چرخه غیرفعال می‌شود
-  // و به‌جایش همین کارت دیده می‌شود — چون پیش‌بینی پریود در بارداری
-  // بی‌معنی است. تنها راه خروج از این حالت، ثبت شروع دوباره پریود از
-  // همین‌جاست؛ همان لحظه هم isPregnant خاموش می‌شود و هم یک رکورد پریود
-  // تازه ثبت می‌شود تا تقویم چرخه بلافاصله برگردد.
-  const [restartDate, setRestartDate] = useState(getTodayIsoDate());
-  const [showRestart, setShowRestart] = useState(false);
-
-  if (userState.profile.isPregnant) {
-    const confirmRestart = () => {
-      logPeriodStart(restartDate);
-      onUpdateProfile({ ...userState.profile, isPregnant: false });
-      setShowRestart(false);
-    };
-
-    return (
-      <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
-        <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
-            <HeartPulse className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-black text-amber-900 dark:text-amber-100">وضعیت بارداری فعاله</h3>
-          <p className="text-sm text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
-            تا وقتی این گزینه در پروفایل روشن است، ردیابی چرخه، پیش‌بینی پریود و فاز ماهانه نمایش داده نمی‌شوند.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">
-          <h4 className="text-sm font-black text-slate-800 dark:text-white">پریودت دوباره شروع شده؟</h4>
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            اگه پریودت دوباره شروع شده، اینجا ثبتش کن تا تقویم پریود به اکانتت برگرده و دوباره حواسمون به چرخه‌ات باشه.
-          </p>
-
-          {!showRestart ? (
-            <button
-              onClick={() => setShowRestart(true)}
-              className="w-full py-3 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-sm font-bold flex items-center justify-center gap-1.5"
-            >
-              <Droplet className="w-4 h-4" />
-              پریودم شروع شده
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <JalaliDatePicker labelFa="روز اول پریود" value={restartDate} onChange={setRestartDate} allowFuture={false} inline />
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setShowRestart(false)}
-                  className="py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold"
-                >
-                  انصراف
-                </button>
-                <button
-                  onClick={confirmRestart}
-                  className="py-3 rounded-2xl bg-rose-500 text-white text-sm font-bold"
-                >
-                  ثبت و برگشت به ردیابی
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // و به‌جایش یک کارت جدا دیده می‌شود — چون از نظر علمی در بارداری چرخه
+  // قاعدگی وجود ندارد. مهم: این «if» زودهنگام دیگر return نمی‌کند، چون
+  // اگر isPregnant بین رندرها عوض شود (دقیقاً همان لحظه‌ای که این کارت
+  // کاربر را از بارداری خارج می‌کند)، تعداد Hookهای فراخوانی‌شده در این
+  // کامپوننت هم نباید عوض شود. به همین دلیل همه Hookها همیشه (چه باردار
+  // چه نه) اجرا می‌شوند و فقط JSX پایانی بر اساس isPregnant شاخه می‌رود.
+  const isPregnant = userState.profile.isPregnant;
 
   const periodLogs = useMemo(() => LocalDB.getPeriodLogs(), [refresh]);
   const symptoms = useMemo(() => LocalDB.getCycleSymptoms(), [refresh]);
@@ -217,6 +161,41 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
     setShowManual(true);
   };
 
+  /**
+   * ثبت نهایی فرم «ویرایش پریود» — نقطهٔ ورود مشترک، از هر جای اپ که
+   * باز شده باشد (چرخ فازها، کارت «هنوز پریودی ثبت نشده»، یا کارت
+   * بارداری).
+   *
+   * باگ قبلی: ثبت اولین پریود از کارت خالی، تنظیمات چرخه (cycleLength و
+   * ...) را ذخیره می‌کرد ولی enabled را دست‌نخورده می‌گذاشت؛ اگر کاربر
+   * تیک «ردیابی چرخه فعال باشد» را در تنطیمات نزده بود، enabled همچنان
+   * false می‌ماند و بعد از ثبت هم چیزی نشان داده نمی‌شد. حالا صرفِ ثبت
+   * واقعی یک پریود از همین فرم، یعنی ردیابی چرخه باید روشن باشد — چه از
+   * تنطیمات از قبل روشن شده باشد چه نشده باشد.
+   *
+   * اگر کاربر باردار بود، همین ثبت یعنی پریود واقعاً برگشته: پس در پس‌زمینه
+   * هم isPregnant خاموش می‌شود و هم ردیابی چرخه روشن — بدون هیچ گام یا
+   * پیام تأیید جداگانه‌ای به کاربر.
+   */
+  const confirmManualPeriod = () => {
+    if (!manualDate) return;
+    onUpdateCycleConfig({
+      ...userState.cycleConfig,
+      cycleLength: editCycleLength,
+      periodLength: editPeriodLength,
+      pmsStartDaysBefore: editPmsStartDaysBefore,
+      pcosFlagged: editPcosFlagged,
+      enabled: true,
+    });
+    logPeriodStart(manualDate);
+    if (isPregnant) {
+      onUpdateProfile({ ...userState.profile, isPregnant: false });
+    }
+    setManualDate('');
+    setShowManual(false);
+    bump();
+  };
+
   /* ------------------------- ثبت علائم امروز ------------------------- */
   const existingToday = symptoms.find((item) => item.date === todayIso);
   const [draft, setDraft] = useState<Partial<Record<SymptomKey, number>>>(existingToday?.scores || {});
@@ -261,6 +240,140 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           ? 'pms'
           : null;
 
+  /* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح.
+     به‌صورت مشترک هم از کارت بارداری و هم از کارت‌های عادی چرخه باز می‌شود، پس یک‌بار
+     اینجا ساخته می‌شود و در هر دو شاخهٔ رندر زیر استفاده می‌شود.
+     با createPortal مستقیم به document.body می‌رود؛ وگرنه وقتی این کامپوننت از منو
+     (به‌صورت Section، داخل کانتینر fixed z-20) باز شده، مودال با وجود z-50 داخل همان
+     stacking context گیر می‌افتد و زیر هدر/نوبار پایین (که بیرون از آن کانتینرند) دیده می‌شود. */
+  const editPeriodModal =
+    showManual &&
+    createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
+        onClick={() => setShowManual(false)}
+      >
+        <div
+          className="w-full max-w-sm max-h-[94vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-2 text-right shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <h3 className="text-sm font-black text-slate-800 dark:text-white">ویرایش پریود</h3>
+
+          <div className="space-y-1">
+            <div className="space-y-0">
+              <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                <span>طول چرخه شما</span>
+                <span className="text-rose-600">{toPersianDigits(editCycleLength)} روز</span>
+              </div>
+              <input
+                type="range"
+                min="21"
+                max="45"
+                value={editCycleLength}
+                onChange={(event) => setEditCycleLength(parseInt(event.target.value, 10))}
+                className="range-compact w-full accent-rose-500"
+              />
+            </div>
+
+            <div className="space-y-0">
+              <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                <span>مدت زمان خونریزی</span>
+                <span className="text-rose-600">{toPersianDigits(editPeriodLength)} روز</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="12"
+                value={editPeriodLength}
+                onChange={(event) => setEditPeriodLength(parseInt(event.target.value, 10))}
+                className="range-compact w-full accent-rose-500"
+              />
+            </div>
+
+            <div className="space-y-0">
+              <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                <span>چند روز قبل PMS شروع شود؟</span>
+                <span className="text-rose-600">{toPersianDigits(editPmsStartDaysBefore)} روز</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                value={editPmsStartDaysBefore}
+                onChange={(event) => setEditPmsStartDaysBefore(parseInt(event.target.value, 10))}
+                className="range-compact w-full accent-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                چرخه‌ام نامنظم است یا مشکوک به PCOS
+              </span>
+              <ToggleSwitch
+                checked={editPcosFlagged}
+                onChange={setEditPcosFlagged}
+                labelFa="چرخه‌ام نامنظم است یا مشکوک به PCOS هستم"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <h4 className="text-sm font-black text-slate-800 dark:text-white">روز اول پریود را انتخاب کن</h4>
+            <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline compact />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={() => setShowManual(false)}
+              className="py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold"
+            >
+              انصراف
+            </button>
+            <button
+              onClick={confirmManualPeriod}
+              disabled={!manualDate}
+              className="py-3 rounded-2xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold"
+            >
+              ثبت
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+
+  /* ------------------------- کارت بارداری ------------------------- */
+  // وقتی «باردار هستم» فعال است، به‌جای چرخ فازها و بقیهٔ بخش‌های چرخه،
+  // فقط همین یک کارت دیده می‌شود. دکمهٔ «ثبت پریودی» مستقیماً همان مودال
+  // مشترک بالا را باز می‌کند؛ خاموش‌شدن بارداری و روشن‌شدن ردیابی چرخه هر
+  // دو در پس‌زمینه، داخل confirmManualPeriod انجام می‌شوند و هیچ‌کدام
+  // جداگانه به کاربر نشان داده نمی‌شوند.
+  if (isPregnant) {
+    return (
+      <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
+        <div className="p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-3 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
+            <HeartPulse className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-black text-amber-900 dark:text-amber-100">وضعیت بارداری فعال است</h3>
+          <p className="text-sm text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
+            شما وضعیت بارداری را فعال کرده‌اید. اگر پریود شدید، با کلیک روی دکمهٔ زیر و ثبت پریودی، حالت بارداری
+            غیرفعال می‌شود و چرخه دوباره شروع به کار می‌کند.
+          </p>
+          <button
+            onClick={openEditPeriod}
+            className="w-full py-3 rounded-2xl bg-[#8e5241] hover:bg-[#784334] text-white text-sm font-bold flex items-center justify-center gap-1.5"
+          >
+            <Droplet className="w-4 h-4" />
+            ثبت پریودی
+          </button>
+        </div>
+
+        {editPeriodModal}
+      </div>
+    );
+  }
+
   return (
     <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
       {/* چرخ فازها */}
@@ -287,7 +400,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           icon={Droplet}
           titleFa="هنوز پریودی ثبت نشده"
           descriptionFa="روز اول آخرین پریودت را ثبت کن تا رزا بتواند فاز چرخه و روزهای مناسب لیزر یا فیشیال را نشان بدهد."
-          actionLabelFa="ثبت اولین پریود"
+          actionLabelFa="ثبت اولین پریودی"
           onAction={openEditPeriod}
         />
       )}
@@ -295,117 +408,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
       {/* هایلایت‌های فاز — زیر چرخه، فقط وقتی کاربر واقعاً در یکی از سه فاز باشد */}
       <CyclePhaseHighlights phase={highlightPhase} />
 
-      {/* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح */}
-      {/* با createPortal مستقیم به document.body می‌رود؛ وگرنه وقتی این کامپوننت از منو
-          (به‌صورت Section، داخل کانتینر fixed z-20) باز شده، مودال با وجود z-50 داخل همان
-          stacking context گیر می‌افتد و زیر هدر/نوبار پایین (که بیرون از آن کانتینرند) دیده می‌شود. */}
-      {showManual && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
-          onClick={() => setShowManual(false)}
-        >
-          <div
-            className="w-full max-w-sm max-h-[94vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-3 text-right shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="text-sm font-black text-slate-800 dark:text-white">ویرایش پریود</h3>
-
-            <div className="space-y-1.5">
-              <div className="space-y-0.5">
-                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-                  <span>طول چرخه شما</span>
-                  <span className="text-rose-600">{toPersianDigits(editCycleLength)} روز</span>
-                </div>
-                <input
-                  type="range"
-                  min="21"
-                  max="45"
-                  value={editCycleLength}
-                  onChange={(event) => setEditCycleLength(parseInt(event.target.value, 10))}
-                  className="w-full accent-rose-500"
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-                  <span>مدت زمان خونریزی</span>
-                  <span className="text-rose-600">{toPersianDigits(editPeriodLength)} روز</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="12"
-                  value={editPeriodLength}
-                  onChange={(event) => setEditPeriodLength(parseInt(event.target.value, 10))}
-                  className="w-full accent-rose-500"
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-                  <span>چند روز قبل PMS شروع شود؟</span>
-                  <span className="text-rose-600">{toPersianDigits(editPmsStartDaysBefore)} روز</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="12"
-                  value={editPmsStartDaysBefore}
-                  onChange={(event) => setEditPmsStartDaysBefore(parseInt(event.target.value, 10))}
-                  className="w-full accent-rose-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  چرخه‌ام نامنظم است یا مشکوک به PCOS
-                </span>
-                <ToggleSwitch
-                  checked={editPcosFlagged}
-                  onChange={setEditPcosFlagged}
-                  labelFa="چرخه‌ام نامنظم است یا مشکوک به PCOS هستم"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="text-sm font-black text-slate-800 dark:text-white">روز اول پریود را انتخاب کن</h4>
-              <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline compact />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                onClick={() => setShowManual(false)}
-                className="py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-bold"
-              >
-                انصراف
-              </button>
-              <button
-                onClick={() => {
-                  if (manualDate) {
-                    onUpdateCycleConfig({
-                      ...userState.cycleConfig,
-                      cycleLength: editCycleLength,
-                      periodLength: editPeriodLength,
-                      pmsStartDaysBefore: editPmsStartDaysBefore,
-                      pcosFlagged: editPcosFlagged,
-                    });
-                    logPeriodStart(manualDate);
-                    setManualDate('');
-                    setShowManual(false);
-                    bump();
-                  }
-                }}
-                disabled={!manualDate}
-                className="py-3 rounded-2xl bg-rose-500 disabled:opacity-40 text-white text-sm font-bold"
-              >
-                ثبت
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {editPeriodModal}
 
       {/* راهنمای فاز */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-3">

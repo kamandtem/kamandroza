@@ -89,17 +89,17 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
    */
   const calendarBody = (
     <>
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${compact ? 'mb-0.5' : ''}`}>
         <button
           type="button"
           onClick={goNext}
           aria-label="ماه بعد"
-          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1.5' : 'p-2'}`}
+          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1' : 'p-2'}`}
         >
-          <ChevronLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+          <ChevronLeft className={compact ? 'w-3.5 h-3.5' : 'w-5 h-5'} />
         </button>
 
-        <span className={`font-black text-slate-800 dark:text-white ${compact ? 'text-xs' : 'text-sm'}`}>
+        <span className={`font-black text-slate-800 dark:text-white ${compact ? 'text-[11px]' : 'text-sm'}`}>
           {PERSIAN_MONTH_NAMES[viewMonth - 1]} {toPersianDigits(viewYear)}
         </span>
 
@@ -107,15 +107,15 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
           type="button"
           onClick={goPrevious}
           aria-label="ماه قبل"
-          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1.5' : 'p-2'}`}
+          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1' : 'p-2'}`}
         >
-          <ChevronRight className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+          <ChevronRight className={compact ? 'w-3.5 h-3.5' : 'w-5 h-5'} />
         </button>
       </div>
 
       <div className={`grid grid-cols-7 text-center ${compact ? 'gap-0.5' : 'gap-1'}`}>
         {PERSIAN_WEEK_HEADERS.map((day) => (
-          <span key={day} className={`font-bold text-slate-400 ${compact ? 'text-[10px] py-0.5' : 'text-xs py-1'}`}>
+          <span key={day} className={`font-bold text-slate-400 ${compact ? 'text-[9px] py-0' : 'text-xs py-1'}`}>
             {day}
           </span>
         ))}
@@ -135,7 +135,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
                 onChange(cell.iso as string);
                 if (!inline) setIsOpen(false);
               }}
-              className={`icon-only aspect-square rounded-xl font-bold transition-all ${compact ? 'text-xs' : 'text-sm'} ${
+              className={`icon-only rounded-xl font-bold transition-all ${compact ? 'h-6 text-[11px] rounded-lg' : 'aspect-square text-sm'} ${
                 isSelected
                   ? 'bg-rose-500 text-white'
                   : isToday
@@ -185,7 +185,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
 
       {isOpen && inline && (
         <div
-          className={`rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg ${compact ? 'p-2 space-y-1.5' : 'p-3 space-y-3'}`}
+          className={`rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg ${compact ? 'p-2 space-y-1' : 'p-3 space-y-3'}`}
         >
           {calendarBody}
         </div>

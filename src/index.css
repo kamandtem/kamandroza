@@ -153,6 +153,9 @@
   input[type='range'] {
     min-height: 32px;
   }
+  input[type='range'].range-compact {
+    min-height: 22px;
+  }
 
   ::selection {
     background: rgba(244, 63, 94, 0.2);

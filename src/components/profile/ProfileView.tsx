@@ -223,7 +223,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
         <Toggle
           labelFa="باردار هستم"
           value={draft.profile.isPregnant}
-          onChange={(value) => setDraft({ ...draft, profile: { ...draft.profile, isPregnant: value } })}
+          onChange={(value) =>
+            setDraft({
+              ...draft,
+              profile: { ...draft.profile, isPregnant: value },
+              // از نظر علمی در بارداری چرخه قاعدگی وجود ندارد؛ به‌محض
+              // فعال شدن این گزینه، ردیابی چرخه هم خاموش می‌شود تا این
+              // دو هرگز هم‌زمان روشن نمانند. تنها راه روشن‌شدن دوباره،
+              // ثبت واقعی یک پریود از بخش چرخه است.
+              cycleConfig: value ? { ...draft.cycleConfig, enabled: false } : draft.cycleConfig,
+            })
+          }
           hintFa="ترکیبات نامناسب از روتین حذف می‌شوند"
         />
         <Toggle
@@ -332,18 +342,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
 
       {/* چرخه */}
       <Section titleFa="چرخه ماهانه" icon={Moon}>
-        <Toggle
-          labelFa="ردیابی چرخه فعال باشد"
-          value={draft.cycleConfig.enabled}
-          onChange={(value) => setDraft({ ...draft, cycleConfig: { ...draft.cycleConfig, enabled: value } })}
-          hintFa="کاملاً اختیاری. با خاموش بودن، هیچ محتوای چرخه‌ای دیده نمی‌شود"
-        />
-        {draft.cycleConfig.enabled && (
+        {draft.profile.isPregnant ? (
+          <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+            چون «باردار هستم» فعال است، ردیابی چرخه غیرفعال می‌ماند — از نظر علمی در بارداری چرخه قاعدگی وجود ندارد. اگر
+            پریودت شروع شد، از بخش «چرخه» روی «ثبت پریودی» بزن؛ همان‌جا هم بارداری خاموش می‌شود و هم ردیابی چرخه دوباره
+            روشن.
+          </p>
+        ) : (
           <Toggle
-            labelFa="بخش چرخه را از منو و صفحه اول مخفی کن"
-            value={draft.privacy.hideCycleSection}
-            onChange={(value) => setDraft({ ...draft, privacy: { ...draft.privacy, hideCycleSection: value } })}
-            hintFa="داده‌ها حفط می‌شوند، فقط دیده نمی‌شوند"
+            labelFa="ردیابی چرخه فعال باشد"
+            value={draft.cycleConfig.enabled}
+            onChange={(value) => setDraft({ ...draft, cycleConfig: { ...draft.cycleConfig, enabled: value } })}
+            hintFa="کاملاً اختیاری. با خاموش بودن، هیچ محتوای چرخه‌ای دیده نمی‌شود"
           />
         )}
       </Section>

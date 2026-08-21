@@ -1,25 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Brush, Clock, Sparkles, Tag, X } from 'lucide-react';
+import { Brush, Clock, Search, Sparkles, Tag, X } from 'lucide-react';
 import { toPersianDigits } from '../../services/jalali';
 
 /**
  * عکس‌ها — فعلاً جای‌گیر (placeholder) هستند، نه svg.
  *
- * چون امکان دانلود عکس واقعی از اینترنت نبود، به‌جایش ۱۰ تصویر رنگی
+ * چون امکان دانلود عکس واقعی از اینترنت نبود، به‌جایش ۲۰ تصویر رنگی
  * شماره‌دار و آفلاین ساخته شد (هرکدام یک PNG واقعی، رنگ متفاوت،
  * شماره‌ی همان ترفند وسطش). این فایل‌ها داخل پروژه‌اند، پس آفلاین هم
  * کار می‌کنند:
- *   public/assets/makeup_photos/tip-01-foundation.png
- *   public/assets/makeup_photos/tip-02-toner.png
- *   public/assets/makeup_photos/tip-03-lipstick.png
- *   public/assets/makeup_photos/tip-04-blush.png
- *   public/assets/makeup_photos/tip-05-eyeliner.png
- *   public/assets/makeup_photos/tip-06-mascara.png
- *   public/assets/makeup_photos/tip-07-brow.png
- *   public/assets/makeup_photos/tip-08-highlighter.png
- *   public/assets/makeup_photos/tip-09-brush.png
- *   public/assets/makeup_photos/tip-10-nails.png
+ *   public/assets/makeup_photos/tip-01-foundation.png … tip-10-nails.png (نسخه اول)
+ *   public/assets/makeup_photos/tip-11-contour.png … tip-20-lash-care.png (۱۰ مطلب جدید)
  *
  * برای جایگزینی با عکس واقعی: هر فایل PNG را با عکس خودت (با همان
  * اسم و همان مسیر) عوض کن — کد هیچ تغییری لازم ندارد. اگر اسم فایل
@@ -36,7 +28,19 @@ const tips = [
   { title: 'هایلایتر کم‌حجم', category: 'چهره', image: '/assets/makeup_photos/tip-08-highlighter.png', text: 'هایلایتر را روی بالای گونه و گوشه داخلی چشم بزن. مقدار کم و پخش‌شده، شیک‌تر از یک نقطه خیلی براق دیده می‌شود.' },
   { title: 'براش تمیز', category: 'ابزار', image: '/assets/makeup_photos/tip-09-brush.png', text: 'براش‌های صورت را مرتب بشوی و کامل خشک کن. براش کثیف هم نتیجه را لک‌دار می‌کند، هم می‌تواند پوست را تحریک کند.' },
   { title: 'لاک مینیمال', category: 'ناخن', image: '/assets/makeup_photos/tip-10-nails.png', text: 'سطح ناخن را خشک کن، سه حرکت باریک بزن و بین لایه‌ها زمان بده. برای ظاهر امروزی، رنگ‌های شیری، صورتی شفاف و زرد کره‌ای انتخاب‌های ساده و قابل استفاده‌اند.' },
+  { title: 'کانتور طبیعی', category: 'چهره', image: '/assets/makeup_photos/tip-11-contour.png', text: 'به‌جای خط‌های تیز، کانتور کِرمی را فقط زیر گونه، کنار خط رویش مو و دو طرف بینی بزن و بلافاصله با اسفنج نم‌دار محو کن. هدف حجم‌دهی طبیعی است، نه یک نقشه هندسی روی صورت.' },
+  { title: 'پرایمر چشم', category: 'چشم', image: '/assets/makeup_photos/tip-12-eye-primer.png', text: 'یک لایه نازک پرایمر چشم قبل از سایه بزن تا هم رنگ سایه واضح‌تر بماند و هم داخل خط پلک کمتر جمع شود. صبر کن کاملاً بنشیند، بعد سایه را با برس اضافه کن.' },
+  { title: 'اسپری فیکس‌کننده', category: 'دوام آرایش', image: '/assets/makeup_photos/tip-13-setting-spray.png', text: 'بعد از تمام کردن آرایش، اسپری فیکس‌کننده را از فاصله یک وجب و به‌شکل ضربدری روی صورت بزن. صبر کن خودش خشک شود؛ دستمال کشیدن بلافاصله بعد از اسپری، آرایش را به‌هم می‌ریزد.' },
+  { title: 'کانسیلر هلالی', category: 'چشم', image: '/assets/makeup_photos/tip-14-concealer.png', text: 'کانسیلر را به‌شکل مثلث وارونه زیر چشم بزن، نه فقط یک نقطه. با انگشت یا اسفنج به‌آرامی ضربه بزن تا محو شود؛ کشیدنش باعث می‌شود در چین‌های ریز جمع شود.' },
+  { title: 'برنزر گونه', category: 'گونه', image: '/assets/makeup_photos/tip-15-bronzer.png', text: 'برنزر را با برس بزرگ روی جاهایی بزن که نور آفتاب مستقیم به آن‌ها می‌خورد؛ پیشانی، بالای گونه‌ها و نوک بینی. کمی از زیر چانه هم فراموش نشود تا رنگ صورت با گردن یکدست بماند.' },
+  { title: 'خط لب نامرئی', category: 'لب', image: '/assets/makeup_photos/tip-16-lip-liner.png', text: 'خط لب هم‌رنگ رژ لب را فقط دور مرز طبیعی لب بزن، نه بیرون از آن. این کار عمر رژ لب را بیشتر می‌کند و از پخش شدن رنگ دور لب جلوگیری می‌کند.' },
+  { title: 'ژل ابرو', category: 'ابرو', image: '/assets/makeup_photos/tip-17-brow-gel.png', text: 'موهای ابرو را با برس مخصوص یا مسواک تمیز رو به بالا و بیرون شانه کن، بعد ژل شفاف یا هم‌رنگ ابرو بزن. این روش حالت پرپشت و مرتب می‌دهد بدون خط‌های مصنوعی روی صورت.' },
+  { title: 'پاکسازی دو مرحله‌ای آرایش', category: 'پاکسازی', image: '/assets/makeup_photos/tip-18-double-cleanse.png', text: 'شب‌ها اول با روغن یا بالم پاک‌کننده، آرایش و ضدآفتاب را حل کن، بعد با شوینده معمولی دوباره صورت را بشوی. یک بار شستن با شوینده آبی، آرایش مقاوم و ضدآفتاب را کامل پاک نمی‌کند.' },
+  { title: 'آرایش مقاوم به گرما', category: 'دوام آرایش', image: '/assets/makeup_photos/tip-19-heat-proof.png', text: 'در هوای گرم، بین لایه‌های آرایش (بعد از پرایمر، بعد از فون، قبل از پودر) کمی صبر کن تا هر لایه بنشیند. لایه‌های نازک و فاصله‌دار بهتر از یک لایه ضخیم یک‌باره دوام می‌آورند.' },
+  { title: 'مراقبت از مژه مصنوعی', category: 'ابزار', image: '/assets/makeup_photos/tip-20-lash-care.png', text: 'مژه مصنوعی را از گوشه بیرونی چشم و به‌آرامی جدا کن، نه با کشیدن ناگهانی. بعد از جدا کردن، چسب باقی‌مانده را با گوش‌پاک‌کن آغشته به پاک‌کننده روغنی تمیز کن تا دوباره قابل استفاده بماند.' },
 ];
+
+const categories = ['همه', ...Array.from(new Set(tips.map((tip) => tip.category)))];
 
 /**
  * ترفندهای آرایش — تایم‌لاین شماره‌دار، دقیقاً هم‌ساختار با تایم‌لاین
@@ -51,6 +55,17 @@ const tips = [
  */
 export const MakeupTipsView: React.FC = () => {
   const [selected, setSelected] = useState<(typeof tips)[number] | null>(null);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('همه');
+
+  const filteredTips = useMemo(() => {
+    const needle = query.trim();
+    return tips.filter((tip) => {
+      const matchesCategory = category === 'همه' || tip.category === category;
+      const matchesQuery = !needle || `${tip.title} ${tip.category} ${tip.text}`.includes(needle);
+      return matchesCategory && matchesQuery;
+    });
+  }, [query, category]);
 
   return (
     <div className="pb-[calc(var(--safe-bottom)+220px)] pt-3 px-4 max-w-lg mx-auto space-y-4">
@@ -62,10 +77,40 @@ export const MakeupTipsView: React.FC = () => {
         <p className="text-sm leading-7 text-slate-600">روش‌های کوتاه، طبیعی و قابل انجام. قرار نیست برای یک آرایش ساده، کیف پر از ابزار داشته باشی.</p>
       </div>
 
+      {/* فیلتر: جستجو + دسته‌بندی، هم‌ساختار با فیلتر بخش «مقالات» در پایگاه دانش. */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute right-4 top-3.5 w-4 h-4 text-slate-400" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="جستجوی ترفند آرایش"
+            className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-3 pr-11 pl-4 text-sm font-bold"
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {categories.map((item) => (
+            <button
+              key={item}
+              onClick={() => setCategory(item)}
+              className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold ${category === item ? 'bg-[#263b56] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredTips.length === 0 && (
+        <div className="p-6 rounded-[1.4rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-center text-sm text-slate-500">
+          ترفندی با این فیلتر پیدا نشد.
+        </div>
+      )}
+
       <div className="relative pr-10">
         <div className="absolute right-3 top-3 bottom-3 border-r-2 border-dashed border-rose-200 dark:border-rose-900" />
         <div className="space-y-4">
-          {tips.map((tip, index) => (
+          {filteredTips.map((tip, index) => (
             <div key={tip.title} className="relative">
               <span className="absolute right-[-42px] top-5 z-10 w-7 h-7 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center ring-4 ring-[#faf8f5] dark:ring-slate-950">
                 {toPersianDigits(index + 1)}

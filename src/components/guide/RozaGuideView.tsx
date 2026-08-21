@@ -208,8 +208,8 @@ const TopicRow: React.FC<{ topic: GuideTopic; onOpen: () => void }> = ({ topic, 
           : 'bg-[#faf8f5] dark:bg-slate-800/60 border-transparent'
       }`}
     >
-      <span className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-base shrink-0 border border-slate-100 dark:border-slate-800">
-        {topic.emoji}
+      <span className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-base shrink-0 border border-slate-100 dark:border-slate-800 overflow-hidden">
+        {topic.imageUrl ? <img src={topic.imageUrl} alt="" className="w-full h-full object-cover" /> : topic.emoji}
       </span>
       <span className="flex-1 min-w-0 text-[13px] font-bold text-[#33465f] dark:text-slate-200 truncate">{topic.titleFa}</span>
       {read ? (
@@ -238,7 +238,7 @@ const TopicModal: React.FC<{ topic: GuideTopic; onClose: () => void }> = ({ topi
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-xl shrink-0">{topic.emoji}</span>
+            <span className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center text-xl shrink-0 overflow-hidden">{topic.imageUrl ? <img src={topic.imageUrl} alt="" className="w-full h-full object-cover" /> : topic.emoji}</span>
             <h2 className="text-lg font-black text-[#263b56] dark:text-white leading-7 truncate">{topic.titleFa}</h2>
           </div>
           <button onClick={onClose} aria-label="بستن" className="icon-only p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">

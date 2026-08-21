@@ -18,6 +18,8 @@ export interface GuideTopic {
   level: GuideLevel;
   titleFa: string;
   emoji: string;
+  /** تصویر ترکیب — همان تصویری که در قفسه محصولات و تداخل‌سنج هم استفاده می‌شود (یک پوشه ریشه مشترک). وقتی وجود دارد، به‌جای ایموجی نمایش داده می‌شود. */
+  imageUrl?: string;
   /** برای کارت‌های سطح ۱: شناسه دقیق ترکیب در INGREDIENTS_DATABASE (در صورت وجود). */
   ingredientId?: string;
   /** برای کارت‌های سطح ۱ عمومی (مثلاً «رتینوئیدها»، «AHA»، «BHA»): دسته‌ی کلی ترکیب. */
@@ -48,6 +50,9 @@ function ingredientTopic(args: {
     level: 1,
     titleFa: args.titleFa,
     emoji: args.emoji,
+    // همه‌ی تصاویر ترکیبات از یک پوشه ریشه مشترک می‌آیند (public/assets/ingredients)؛
+    // همان پوشه‌ای که قفسه محصولات و تداخل‌سنج هم از آن می‌خوانند — یک‌جا عوض کن، همه‌جا عوض می‌شود.
+    imageUrl: `/assets/ingredients/${args.ingredientId}.jpg`,
     ingredientId: args.ingredientId,
     activeClassFallback: args.activeClassFallback,
     sectionsFa: [

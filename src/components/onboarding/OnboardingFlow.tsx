@@ -126,7 +126,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
       },
       cycleConfig: {
         ...current.cycleConfig,
-        enabled: cycleEnabled,
+        // از نظر علمی در بارداری چرخه قاعدگی وجود ندارد؛ حتی اگر کاربر
+        // در همین مرحله ردیابی را روشن کرده باشد، تا وقتی «باردار هستم»
+        // در مرحله قبل فعال است، ردیابی چرخه خاموش ذخیره می‌شود.
+        enabled: isPregnant ? false : cycleEnabled,
         // مقادیر واقعی، نه صفر. اگر کاربر نمی‌داند، میانگین رایج می‌گذاریم
         // و بعد از دو چرخه، موتور خودش عدد واقعی را یاد می‌گیرد.
         cycleLength: dontKnowLength ? 28 : cycleLength,
@@ -140,7 +143,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     LocalDB.saveUserState(state);
 
     // تاریخ آخرین پریود به تاریخچه می‌رود، نه یک فیلد تنها.
-    if (cycleEnabled && lastPeriod) logPeriodStart(lastPeriod);
+    if (!isPregnant && cycleEnabled && lastPeriod) logPeriodStart(lastPeriod);
 
     // onComplete اینجا صدا زده نمی‌شود — ابتدا کارت خلاصه پروفایل نشان داده می‌شود.
     setFinalState(state);
@@ -157,7 +160,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         { label: 'حساسیت پوست', value: `${toPersianDigits(finalState.profile.sensitivityScore)} از ۱۰` },
         {
           label: 'وضعیت چرخه',
-          value: finalState.cycleConfig.enabled ? 'فعال' : 'غیرفعال (هر زمان از پروفایل روشن می‌شود)',
+          value: finalState.profile.isPregnant
+            ? 'غیرفعال (به‌دلیل بارداری)'
+            : finalState.cycleConfig.enabled
+              ? 'فعال'
+              : 'غیرفعال (هر زمان از پروفایل روشن می‌شود)',
         },
       ]
     : [];
@@ -372,12 +379,20 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               {displayName ? `${displayName} جان، ا` : 'ا'}ین بخش کاملاً اختیاری است. اگر فعالش کنی، رزا می‌تواند الگوی پوستت را در طول چرخه پیدا کند و بگوید روزهای مناسب لیزر و فیشیال کدامند.
             </p>
 
-            <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 backdrop-blur-md border border-rose-200/60 dark:border-rose-900/40">
-              <span className="text-sm font-black text-[#3a2f27] dark:text-slate-200">ردیابی چرخه را فعال کن</span>
-              <ToggleSwitch checked={cycleEnabled} onChange={setCycleEnabled} labelFa="ردیابی چرخه را فعال کن" />
-            </div>
+            {isPregnant ? (
+              <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 backdrop-blur-md border border-amber-200/60 dark:border-amber-900/40 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                چون در مرحله قبل «باردار هستم» را زدی، این بخش فعلاً غیرفعال می‌ماند — در بارداری چرخه قاعدگی وجود
+                ندارد. هر وقت پریودت شروع شد، از بخش «چرخه» در اپ می‌توانی ثبتش کنی؛ همان‌جا هم بارداری خاموش می‌شود
+                و هم ردیابی چرخه روشن.
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 backdrop-blur-md border border-rose-200/60 dark:border-rose-900/40">
+                <span className="text-sm font-black text-[#3a2f27] dark:text-slate-200">ردیابی چرخه را فعال کن</span>
+                <ToggleSwitch checked={cycleEnabled} onChange={setCycleEnabled} labelFa="ردیابی چرخه را فعال کن" />
+              </div>
+            )}
 
-            {cycleEnabled && (
+            {!isPregnant && cycleEnabled && (
               <div className="space-y-4 p-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60">
                 <JalaliDatePicker
                   labelFa="روز اول آخرین پریود"
@@ -485,7 +500,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               </button>
               <button
                 onClick={finish}
-                disabled={cycleEnabled && !lastPeriod}
+                disabled={!isPregnant && cycleEnabled && !lastPeriod}
                 className="flex-1 py-3.5 rounded-2xl bg-[#8e5241] hover:bg-[#784334] disabled:opacity-40 text-white font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <Check className="w-4 h-4" />
@@ -493,7 +508,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               </button>
             </div>
 
-            {cycleEnabled && !lastPeriod && (
+            {!isPregnant && cycleEnabled && !lastPeriod && (
               <p className="text-xs text-rose-600 font-bold text-center">
                 برای محاسبه چرخه، تاریخ آخرین پریود لازم است. یا ردیابی را خاموش کن.
               </p>
