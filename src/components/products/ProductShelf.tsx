@@ -18,7 +18,7 @@ interface ProductShelfProps {
   userState: UserState;
 }
 
-const CATEGORY_LABELS: Record<ProductCategory, string> = {
+export const CATEGORY_LABELS: Record<ProductCategory, string> = {
   cleanser: 'شوینده و پاک‌کننده',
   moisturizer: 'مرطوب‌کننده',
   serum: 'سرم',

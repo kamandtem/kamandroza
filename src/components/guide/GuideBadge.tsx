@@ -17,7 +17,7 @@ export const GuideBadge: React.FC<GuideBadgeProps> = ({ onClick, className = '' 
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center self-start rounded-full px-2.5 py-[3px] bg-gradient-to-l from-[#f2ba61] to-[#f2d19b] text-[#4a3413] text-[11px] font-black shadow-sm active:scale-95 transition-transform ${className}`}
+      className={`inline-flex items-center self-start leading-none rounded-full px-2 py-1 bg-gradient-to-l from-[#f2ba61] to-[#f2d19b] text-[#4a3413] text-[10px] font-black shadow-sm active:scale-95 transition-transform ${className}`}
     >
       <span className="truncate max-w-[110px]">{tier.labelFa}</span>
     </button>

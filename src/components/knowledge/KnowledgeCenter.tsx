@@ -4,6 +4,7 @@ import { BookOpen, ChevronDown, Clock, Search, ShieldAlert, Tag, X } from 'lucid
 import { Article, SkinConditionInfo } from '../../types';
 import { ARTICLES_DATABASE } from '../../services/db';
 import { EXTRA_ARTICLES } from '../../services/content/extraArticles';
+import { TREND_ARTICLES } from '../../services/content/trendArticles';
 import { SKIN_CONDITIONS_DATABASE } from '../../services/content/conditions';
 import { toPersianDigits } from '../../services/jalali';
 
@@ -31,7 +32,7 @@ export const KnowledgeCenter: React.FC = () => {
     { id: 'cat_sun_protection', label: 'ضدآفتاب' },
     { id: 'cat_hair', label: 'مو' },
   ];
-  const articles = [...ARTICLES_DATABASE, ...EXTRA_ARTICLES].filter((article) => {
+  const articles = [...ARTICLES_DATABASE, ...EXTRA_ARTICLES, ...TREND_ARTICLES].filter((article) => {
     const text = `${article.titleFa} ${article.summaryFa} ${article.tagsFa.join(' ')}`;
     return (category === 'all' || article.categoryId === category) && (!query.trim() || text.includes(query.trim()));
   });

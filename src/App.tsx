@@ -4,7 +4,7 @@ import { DailyTrackerEntry, Product, UserState } from './types';
 import { LocalDB } from './services/db';
 import { getTodayIsoDate } from './services/jalali';
 import { EMPTY_WEATHER, WeatherSnapshot, fetchWeather, requestWeatherLocation } from './services/weatherService';
-import { scheduleRozaNotifications } from './services/notificationService';
+import { NotificationScheduleResult, scheduleRozaNotifications } from './services/notificationService';
 import { isLockConfigured } from './services/security/appLock';
 import { computeStreak } from './services/routineService';
 import { isFeatureEnabled } from './config/appConfig';
@@ -115,6 +115,7 @@ export default function App() {
   const [userState, setUserState] = useState<UserState>(() => LocalDB.getUserState());
   const [products, setProducts] = useState<Product[]>(() => LocalDB.getProducts());
   const [activeTab, setActiveTab] = useState<NavTab>('home');
+  const [homeFocusRequest, setHomeFocusRequest] = useState<{ target: 'sunscreen'; requestedAt: number } | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [guideInitialTopicId, setGuideInitialTopicId] = useState<string | null>(null);
@@ -140,6 +141,11 @@ export default function App() {
   );
   const [weather, setWeather] = useState<WeatherSnapshot>(EMPTY_WEATHER);
   const [weatherLocationStatus, setWeatherLocationStatus] = useState<'idle' | 'loading' | 'denied'>('idle');
+  // مشکل نسخه قبل: نتیجه scheduleRozaNotifications (که می‌تواند
+  // permission-denied باشد) با void دور ریخته می‌شد و کاربر هیچ‌وقت
+  // نمی‌فهمید چرا اعلانی نمی‌آید. الان در state نگه داشته و به
+  // ProfileView پاس داده می‌شود تا در صورت رد شدن مجوز، هشدار نشان دهد.
+  const [notificationStatus, setNotificationStatus] = useState<NotificationScheduleResult | null>(null);
   const requestWeatherGps = async () => { setWeatherLocationStatus('loading'); try { const coords = await requestWeatherLocation(); const value = await fetchWeather(userState.profile.city, userState.profile.skinType, coords); setWeather(value); setWeatherLocationStatus('idle'); } catch { setWeatherLocationStatus('denied'); } };
 
   /* ------------------- حفظ اسکرول پنل‌ها (مثلاً تنظیمات) ------------------- */
@@ -217,7 +223,7 @@ export default function App() {
 
   useEffect(() => {
     if (!userState.onboardingCompleted) return;
-    void scheduleRozaNotifications(userState);
+    void scheduleRozaNotifications(userState).then(setNotificationStatus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     userState.onboardingCompleted,
@@ -231,7 +237,7 @@ export default function App() {
     let remove: (() => void) | undefined;
     void CapacitorApp.addListener('resume', () => {
       if (!userStateRef.current.onboardingCompleted) return;
-      void scheduleRozaNotifications(userStateRef.current);
+      void scheduleRozaNotifications(userStateRef.current).then(setNotificationStatus);
     })
       .then((listener) => {
         remove = () => void listener.remove();
@@ -335,7 +341,11 @@ export default function App() {
         )}
 
         {activeSection === 'profile' && (
-          <ProfileView userState={userState} onUpdateState={handleUpdateUserState} />
+          <ProfileView
+            userState={userState}
+            onUpdateState={handleUpdateUserState}
+            notificationStatus={notificationStatus}
+          />
         )}
         {activeSection === 'cycle' && (
           <CycleDashboard
@@ -369,7 +379,7 @@ export default function App() {
   // بنابراین پشت پنجره تأیید فقط سفیدی/پس‌زمینه خالی صفحه دیده می‌شد نه خود برنامه.
   // حالا این پنجره روی همان درخت اصلی اپ (به‌عنوان لایه‌ی روی آن) رندر می‌شود.
   return (
-    <div className="min-h-screen pt-[calc(var(--safe-top)+82px)] bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
+    <div className="min-h-screen pt-[82px] bg-[#faf8f5] dark:bg-slate-950 text-slate-800 dark:text-white relative transition-colors duration-300">
       <Header
         userState={userState}
         weather={weather}
@@ -377,6 +387,7 @@ export default function App() {
         onOpenDrawer={() => setIsDrawerOpen(true)}
         onToggleTheme={handleToggleTheme}
         onNavigateTab={(tab) => { setActiveTab(tab); setActiveSection(null); }}
+        onFocusSunscreenCard={() => { setActiveTab('home'); setActiveSection(null); setHomeFocusRequest({ target: 'sunscreen', requestedAt: Date.now() }); }}
         onOpenSection={(section) => { setActiveSection(section); setIsDrawerOpen(false); }}
       />
 
@@ -425,6 +436,7 @@ export default function App() {
                 setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
               }}
               onOpenGuideTopic={openGuideTopic}
+              focusRequest={activeTab === 'home' ? homeFocusRequest : null}
             />
           )}
 

@@ -557,7 +557,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
 
             <PrettySelect label="مرکز" value={apptProviderId} onChange={setApptProviderId} options={providers.map((provider) => ({ value: provider.id, label: provider.name, description: provider.address || provider.phone }))} />
 
-            <PrettySelect label="نوع خدمت" value={apptCategory} onChange={(value) => setApptCategory(value as ServiceCategory)} options={categories.map((category) => ({ value: category, label: CATEGORY_LABELS[category], description: findProcedureRule(category)?.labelFa }))} />
+            <PrettySelect label="نوع خدمت" value={apptCategory} onChange={(value) => setApptCategory(value as ServiceCategory)} options={categories.map((category) => ({ value: category, label: CATEGORY_LABELS[category] }))} />
 
             <JalaliDatePicker labelFa="تاریخ نوبت" value={apptDate} onChange={setApptDate} allowPast={false} />
 

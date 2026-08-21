@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   Flame,
@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DailyTrackerEntry, Product, UserState, WeatherData } from '../../types';
-import { buildDailyGuidance, ingredientNamesFa } from '../../services/recommendationEngine';
+import { buildDailyGuidance } from '../../services/recommendationEngine';
 import { SEVERITY_LABEL_FA, SEVERITY_STYLE } from '../../services/advice/severity';
 import { findGuideTopicForSource, findWhyTopicForIngredientAdvice } from '../../services/content/guideContent';
+import { findIngredientById } from '../../services/content/ingredients';
+import { CATEGORY_LABELS } from '../products/ProductShelf';
 import { getUpcomingAppointments } from '../../services/providers/appointmentService';
 import { LocalDB } from '../../services/db';
 import { formatJalaliDayMonth, formatRelativeDay, toPersianDigits } from '../../services/jalali';
@@ -25,6 +27,14 @@ import { WeatherClimateCard } from './WeatherClimateCard';
 import { Monthly30DayTracker } from './Monthly30DayTracker';
 import type { NavTab } from '../layout/BottomNavigation';
 import type { SectionKey } from '../../App';
+
+/** نام ترکیب به‌همراه مشهورترین شکل محصولش، مثلاً «رتینول ← سرم». */
+function ingredientNameWithForm(ingredientId: string, fallbackNameFa: string): string {
+  const ingredient = findIngredientById(ingredientId);
+  const formLabel = ingredient?.commonCategoryIds?.[0] ? CATEGORY_LABELS[ingredient.commonCategoryIds[0]] : undefined;
+  const name = ingredient?.nameFa || fallbackNameFa;
+  return formLabel ? `${name} ← ${formLabel}` : name;
+}
 
 interface HomeDashboardProps {
   userState: UserState;
@@ -39,6 +49,7 @@ interface HomeDashboardProps {
   onNavigateTab: (tab: NavTab) => void;
   onOpenSection: (section: SectionKey) => void;
   onOpenGuideTopic?: (topicId: string) => void;
+  focusRequest?: { target: 'sunscreen'; requestedAt: number } | null;
 }
 
 const WhyButton: React.FC<{ topicId?: string; onOpenGuideTopic?: (topicId: string) => void; className?: string }> = ({ topicId, onOpenGuideTopic, className = '' }) => {
@@ -112,6 +123,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onNavigateTab,
   onOpenSection,
   onOpenGuideTopic,
+  focusRequest,
 }) => {
   const guidance = buildDailyGuidance({
     profile: userState.profile,
@@ -142,7 +154,27 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const addWater = () => onUpdateDailyLog({ ...todayLog, waterGlasses: todayLog.waterGlasses + 1 });
   const setSkinScore = (score: number) => onUpdateDailyLog({ ...todayLog, skinStatusScore: score });
-  const toggleSunscreen = () => onUpdateDailyLog({ ...todayLog, usedSunscreen: !todayLog.usedSunscreen });
+  const toggleSunscreen = () => {
+    if (todayLog.usedSunscreen) {
+      onUpdateDailyLog({ ...todayLog, usedSunscreen: false });
+    } else {
+      onUpdateDailyLog({
+        ...todayLog,
+        usedSunscreen: true,
+        sunscreenApplyCount: (todayLog.sunscreenApplyCount || 0) + 1,
+      });
+    }
+  };
+
+  const sunscreenCardRef = useRef<HTMLDivElement>(null);
+  const [highlightSunscreen, setHighlightSunscreen] = useState(false);
+  useEffect(() => {
+    if (!focusRequest || focusRequest.target !== 'sunscreen') return;
+    sunscreenCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightSunscreen(true);
+    const timer = window.setTimeout(() => setHighlightSunscreen(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [focusRequest]);
 
   return (
     <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
@@ -289,12 +321,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <div>
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block mb-1.5">پیشنهاد می‌شود</span>
             <div className="flex flex-wrap gap-1.5">
-              {ingredientNamesFa(guidance.recommendedIngredientIds).map((name) => (
+              {guidance.recommendedIngredientIds.map((id) => (
                 <span
-                  key={name}
+                  key={id}
                   className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold"
                 >
-                  {name}
+                  {ingredientNameWithForm(id, id)}
                 </span>
               ))}
             </div>
@@ -320,13 +352,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           <span
                             key={advice.ruleId}
                             title={advice.reasonFa}
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
+                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
                           >
-                            {advice.ingredientNameFa}
+                            {ingredientNameWithForm(advice.ingredientId, advice.ingredientNameFa)}
                             {whyTopicId && onOpenGuideTopic && (
                               <button
                                 onClick={() => onOpenGuideTopic(whyTopicId)}
-                                className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-white/60 dark:bg-slate-900/40"
+                                className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-md bg-white/60 dark:bg-slate-900/40"
                               >
                                 ببین چرا
                               </button>
@@ -344,12 +376,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <div>
               <span className="text-xs font-bold text-rose-700 dark:text-rose-400 block mb-1.5">امروز پرهیز کن</span>
               <div className="flex flex-wrap gap-1.5">
-                {ingredientNamesFa(guidance.avoidIngredientIds).map((name) => (
+                {guidance.avoidIngredientIds.map((id) => (
                   <span
-                    key={name}
+                    key={id}
                     className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 text-xs font-bold"
                   >
-                    {name}
+                    {ingredientNameWithForm(id, id)}
                   </span>
                 ))}
               </div>
@@ -359,7 +391,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       </div>
 
       {/* ثبت سریع روزانه */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 space-y-4">
+      <div
+        ref={sunscreenCardRef}
+        className={`p-4 rounded-3xl bg-white dark:bg-slate-900 border space-y-4 transition-shadow ${
+          highlightSunscreen ? 'border-amber-400 ring-4 ring-amber-200 dark:ring-amber-900/50' : 'border-rose-100 dark:border-slate-800'
+        }`}
+      >
         <h4 className="text-sm font-black text-slate-800 dark:text-white">ثبت سریع امروز</h4>
 
         <div className="flex items-center justify-between gap-3">
@@ -386,7 +423,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           }`}
         >
           <Sun className="w-4 h-4" />
-          {todayLog.usedSunscreen ? 'امروز ضدآفتاب زدم' : 'ضدآفتاب زدم؟'}
+          {todayLog.usedSunscreen
+            ? (todayLog.sunscreenApplyCount || 0) >= 2
+              ? 'ضدآفتابم را تمدید کردم'
+              : 'امروز ضدآفتاب زدم'
+            : 'ضدآفتاب زدم؟'}
         </button>
 
         <div className="space-y-2">

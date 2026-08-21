@@ -12,6 +12,8 @@ import {
   logPeriodStart,
 } from '../../services/cycle/cycleService';
 import { CycleWheel } from './CycleWheel';
+import { CyclePhaseHighlights } from './CyclePhaseHighlights';
+import { CycleHighlightPhase } from '../../services/content/cycleHighlights';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
 import { formatJalaliDate, formatJalaliDayMonth, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
@@ -187,6 +189,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const [manualDate, setManualDate] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // به‌طور پیش‌فرض بسته است؛ کاربر با یک لمس روی هدر بازش می‌کند
   const [symptomsOpen, setSymptomsOpen] = useState(false);
   // راهنمای «این ثبت‌ها فقط روی همین گوشی می‌مانند...» فقط تا وقتی کاربر
@@ -201,12 +204,16 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   };
   const [editCycleLength, setEditCycleLength] = useState(userState.cycleConfig.cycleLength || 28);
   const [editPeriodLength, setEditPeriodLength] = useState(userState.cycleConfig.periodLength || 5);
+  const [editPmsStartDaysBefore, setEditPmsStartDaysBefore] = useState(userState.cycleConfig.pmsStartDaysBefore);
+  const [editPcosFlagged, setEditPcosFlagged] = useState(userState.cycleConfig.pcosFlagged);
 
   /** باز کردن مودال ویرایش، همراه با تاریخ و طول چرخه‌ی فعلی — نه فرم خالی. */
   const openEditPeriod = () => {
     setManualDate(periodLogs[0]?.startIso || todayIso);
     setEditCycleLength(userState.cycleConfig.cycleLength || 28);
     setEditPeriodLength(userState.cycleConfig.periodLength || 5);
+    setEditPmsStartDaysBefore(userState.cycleConfig.pmsStartDaysBefore);
+    setEditPcosFlagged(userState.cycleConfig.pcosFlagged);
     setShowManual(true);
   };
 
@@ -236,6 +243,23 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
   const phaseGuide = PHASE_GUIDE[selectedPhase];
   const phaseLists = buildPhaseLists(selectedPhase);
+  const otherPeriodLogs = useMemo(
+    () => periodLogs.filter((log) => log.id !== openPeriod?.id).slice(0, 8),
+    [periodLogs, openPeriod],
+  );
+
+  // هایلایت‌های فاز چرخه فقط در سه فاز پریودی/تخمک‌گذاری/PMS معنا دارند؛
+  // در فولیکولار و بقیه‌ی روزهای لوتئال (خارج از بازه PMS) چیزی نشان
+  // داده نمی‌شود و فضا کاملاً عادی می‌ماند — دقیقاً طبق state واقعی روز،
+  // نه فاز انتخابی روی چرخ (که کاربر می‌تواند برای مرور روزهای دیگر تغییر دهد).
+  const highlightPhase: CycleHighlightPhase | null =
+    state.phase === 'menstrual'
+      ? 'period'
+      : state.phase === 'ovulation'
+        ? 'ovulation'
+        : state.inPmsWindow
+          ? 'pms'
+          : null;
 
   return (
     <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
@@ -268,6 +292,9 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
         />
       )}
 
+      {/* هایلایت‌های فاز — زیر چرخه، فقط وقتی کاربر واقعاً در یکی از سه فاز باشد */}
+      <CyclePhaseHighlights phase={highlightPhase} />
+
       {/* مودال ویرایش پریود — طول چرخه، مدت خونریزی و تاریخ شروع، هر سه با هم قابل تصحیح */}
       {/* با createPortal مستقیم به document.body می‌رود؛ وگرنه وقتی این کامپوننت از منو
           (به‌صورت Section، داخل کانتینر fixed z-20) باز شده، مودال با وجود z-50 داخل همان
@@ -278,13 +305,13 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           onClick={() => setShowManual(false)}
         >
           <div
-            className="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-4 text-right shadow-2xl"
+            className="w-full max-w-sm max-h-[94vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-4 space-y-3 text-right shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-sm font-black text-slate-800 dark:text-white">ویرایش پریود</h3>
 
-            <div className="space-y-3">
-              <div className="space-y-1.5">
+            <div className="space-y-2.5">
+              <div className="space-y-1">
                 <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
                   <span>طول چرخه شما</span>
                   <span className="text-rose-600">{toPersianDigits(editCycleLength)} روز</span>
@@ -299,7 +326,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
                   <span>مدت زمان خونریزی</span>
                   <span className="text-rose-600">{toPersianDigits(editPeriodLength)} روز</span>
@@ -313,9 +340,35 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                   className="w-full accent-rose-500"
                 />
               </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <span>چند روز قبل PMS شروع شود؟</span>
+                  <span className="text-rose-600">{toPersianDigits(editPmsStartDaysBefore)} روز</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  value={editPmsStartDaysBefore}
+                  onChange={(event) => setEditPmsStartDaysBefore(parseInt(event.target.value, 10))}
+                  className="w-full accent-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  چرخه‌ام نامنظم است یا مشکوک به PCOS
+                </span>
+                <ToggleSwitch
+                  checked={editPcosFlagged}
+                  onChange={setEditPcosFlagged}
+                  labelFa="چرخه‌ام نامنظم است یا مشکوک به PCOS هستم"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h4 className="text-sm font-black text-slate-800 dark:text-white">روز اول پریود را انتخاب کن</h4>
               <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline />
             </div>
@@ -334,6 +387,8 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                       ...userState.cycleConfig,
                       cycleLength: editCycleLength,
                       periodLength: editPeriodLength,
+                      pmsStartDaysBefore: editPmsStartDaysBefore,
+                      pcosFlagged: editPcosFlagged,
                     });
                     logPeriodStart(manualDate);
                     setManualDate('');
@@ -395,63 +450,6 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
         </p>
       </div>
 
-      {/* الگوی شخصی */}
-      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-800 overflow-hidden">
-        <button onClick={() => setPatternOpen((value) => !value)} className="w-full p-4 flex items-center justify-between text-right">
-          <span className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-purple-600" />الگوی شخصی تو</span><span className={`text-slate-400 transition-transform ${patternOpen ? 'rotate-180' : ''}`}>⌄</span>
-        </button>
-        {patternOpen && <div className="p-4 pt-0 space-y-3">
-        {acneSentence || painSentence ? (
-          <>
-            {acneSentence && (
-              <p className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/30 text-sm text-purple-900 dark:text-purple-200 leading-relaxed">
-                {acneSentence}
-                {acnePattern?.riseDay ? ` از روز ${toPersianDigits(Math.max(1, acnePattern.riseDay - 2))} روتین پیشگیرانه را شروع کن.` : ''}
-              </p>
-            )}
-
-            {painSentence && (
-              <p className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-sm text-rose-900 dark:text-rose-200 leading-relaxed">
-                {painSentence}
-              </p>
-            )}
-
-            {/* نمودار از داده واقعی کاربر، نه منحنی ریاضی تزئینی */}
-            {acnePattern && acnePattern.buckets.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">شدت جوش در طول چرخه</span>
-                <div className="flex items-end gap-1 h-24">
-                  {acnePattern.buckets.map((bucket) => (
-                    <div
-                      key={bucket.fromDay}
-                      title={`روز ${bucket.fromDay} تا ${bucket.toDay} — میانگین ${bucket.average}`}
-                      className="flex-1 flex flex-col items-center justify-end gap-1"
-                    >
-                      <div
-                        className={`w-full rounded-t-lg ${bucket.samples > 0 ? 'bg-purple-500' : 'bg-slate-100 dark:bg-slate-800'}`}
-                        style={{ height: `${Math.max(4, (bucket.average / maxBucket) * 100)}%` }}
-                      />
-                      <span className="text-xs text-slate-400">{toPersianDigits(bucket.fromDay)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <EmptyState
-            icon={Sparkles}
-            titleFa="رزا دارد الگوی تو را یاد می‌گیرد"
-            descriptionFa="وقتی دو چرخه علائمت را ثبت کنی، می‌توانیم بگوییم جوش‌های تو دقیقاً از کدام روز شروع می‌شوند و از کدام روز باید پیشگیری را شروع کنی."
-            progress={{
-              current: acnePattern?.cyclesCovered || 0,
-              required: 2,
-              unitFa: 'چرخه داده‌دار',
-            }}
-          />
-        )}
-      </div>}
-      </div>
 
       {/* ثبت علائم — به‌شکل آکاردئونی: هدر همیشه دیده می‌شود، فیلدها با یک لمس باز/بسته می‌شوند */}
       <div className="rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 overflow-hidden">
@@ -543,94 +541,148 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
         )}
       </div>
 
-      {/* تاریخچه پریودها — نسخه ۱ اصلاً تاریخچه نداشت */}
+      {/* الگوی شخصی — زیر «علائم امروز» */}
+      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-slate-800 overflow-hidden">
+        <button onClick={() => setPatternOpen((value) => !value)} className="w-full p-4 flex items-center justify-between text-right">
+          <span className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-purple-600" />الگوی شخصی تو</span><span className={`text-slate-400 transition-transform ${patternOpen ? 'rotate-180' : ''}`}>⌄</span>
+        </button>
+        {patternOpen && <div className="p-4 pt-0 space-y-3">
+        {acneSentence || painSentence ? (
+          <>
+            {acneSentence && (
+              <p className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/30 text-sm text-purple-900 dark:text-purple-200 leading-relaxed">
+                {acneSentence}
+                {acnePattern?.riseDay ? ` از روز ${toPersianDigits(Math.max(1, acnePattern.riseDay - 2))} روتین پیشگیرانه را شروع کن.` : ''}
+              </p>
+            )}
+
+            {painSentence && (
+              <p className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-sm text-rose-900 dark:text-rose-200 leading-relaxed">
+                {painSentence}
+              </p>
+            )}
+
+            {/* نمودار از داده واقعی کاربر، نه منحنی ریاضی تزئینی */}
+            {acnePattern && acnePattern.buckets.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">شدت جوش در طول چرخه</span>
+                <div className="flex items-end gap-1 h-24">
+                  {acnePattern.buckets.map((bucket) => (
+                    <div
+                      key={bucket.fromDay}
+                      title={`روز ${bucket.fromDay} تا ${bucket.toDay} — میانگین ${bucket.average}`}
+                      className="flex-1 flex flex-col items-center justify-end gap-1"
+                    >
+                      <div
+                        className={`w-full rounded-t-lg ${bucket.samples > 0 ? 'bg-purple-500' : 'bg-slate-100 dark:bg-slate-800'}`}
+                        style={{ height: `${Math.max(4, (bucket.average / maxBucket) * 100)}%` }}
+                      />
+                      <span className="text-xs text-slate-400">{toPersianDigits(bucket.fromDay)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            icon={Sparkles}
+            titleFa="رزا دارد الگوی تو را یاد می‌گیرد"
+            descriptionFa="وقتی دو چرخه علائمت را ثبت کنی، می‌توانیم بگوییم جوش‌های تو دقیقاً از کدام روز شروع می‌شوند و از کدام روز باید پیشگیری را شروع کنی."
+            progress={{
+              current: acnePattern?.cyclesCovered || 0,
+              required: 2,
+              unitFa: 'چرخه داده‌دار',
+            }}
+          />
+        )}
+      </div>}
+      </div>
+
+      {/* تاریخچه پریودها — آکاردئونی: فقط پریود در جریان همیشه دیده می‌شود */}
       {periodLogs.length > 0 && (
-        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-          <h3 className="text-sm font-black text-slate-800 dark:text-white">تاریخچه پریودها</h3>
+        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="p-4 space-y-2">
+            <h3 className="text-sm font-black text-slate-800 dark:text-white">تاریخچه پریودها</h3>
 
-          {state.stats.averageLength !== null && (
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              میانگین طول چرخه: {toPersianDigits(state.stats.averageLength)} روز
-              {state.stats.shortestLength !== null && state.stats.longestLength !== null
-                ? ` (بین ${toPersianDigits(state.stats.shortestLength)} تا ${toPersianDigits(state.stats.longestLength)})`
-                : ''}
-              {state.stats.looksIrregular ? ' · چرخه‌ات نامنظم به نطر می‌رسد.' : ''}
-            </p>
-          )}
+            {state.stats.averageLength !== null && (
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                میانگین طول چرخه: {toPersianDigits(state.stats.averageLength)} روز
+                {state.stats.shortestLength !== null && state.stats.longestLength !== null
+                  ? ` (بین ${toPersianDigits(state.stats.shortestLength)} تا ${toPersianDigits(state.stats.longestLength)})`
+                  : ''}
+                {state.stats.looksIrregular ? ' · چرخه‌ات نامنظم به نطر می‌رسد.' : ''}
+              </p>
+            )}
 
-          {state.stats.looksIrregular && (
-            <p className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-              نامنظم بودن ممکن است دلایل مختلفی داشته باشد. می‌توانی گزارش همین ثبت‌ها را برای پزشک زنانت ببری. رزا تشخیص نمی‌دهد.
-            </p>
-          )}
+            {state.stats.looksIrregular && (
+              <p className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                نامنظم بودن ممکن است دلایل مختلفی داشته باشد. می‌توانی گزارش همین ثبت‌ها را برای پزشک زنانت ببری. رزا تشخیص نمی‌دهد.
+              </p>
+            )}
 
-          <div className="space-y-1.5">
-            {periodLogs.slice(0, 8).map((log) => (
-              <div
-                key={log.id}
-                className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60"
-              >
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  {formatJalaliDate(log.startIso)}
-                  {log.endIso ? ` تا ${formatJalaliDayMonth(log.endIso)}` : ' · در جریان'}
+            {openPeriod && (
+              <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
+                <span className="text-sm font-bold text-rose-800 dark:text-rose-300">
+                  {formatJalaliDate(openPeriod.startIso)} · در جریان
                 </span>
                 <button
                   onClick={() => {
-                    LocalDB.deletePeriodLog(log.id);
+                    LocalDB.deletePeriodLog(openPeriod.id);
                     bump();
                   }}
                   aria-label="حذف"
-                  className="icon-only p-2 rounded-xl text-slate-400"
+                  className="icon-only p-2 rounded-xl text-rose-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            ))}
+            )}
           </div>
+
+          {otherPeriodLogs.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((value) => !value)}
+                className="w-full px-4 pb-4 flex items-center justify-between gap-2 text-right"
+              >
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  {toPersianDigits(otherPeriodLogs.length)} پریود قبلی
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {historyOpen && (
+                <div className="px-4 pb-4 space-y-1.5">
+                  {otherPeriodLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60"
+                    >
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        {formatJalaliDate(log.startIso)}
+                        {log.endIso ? ` تا ${formatJalaliDayMonth(log.endIso)}` : ' · در جریان'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          LocalDB.deletePeriodLog(log.id);
+                          bump();
+                        }}
+                        aria-label="حذف"
+                        className="icon-only p-2 rounded-xl text-slate-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {/* تنطیمات چرخه */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-        <h3 className="text-sm font-black text-slate-800 dark:text-white">تنطیمات</h3>
-
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
-            <span>چند روز قبل، علائم PMS شروع می‌شوند؟</span>
-            <span className="text-rose-600">{toPersianDigits(userState.cycleConfig.pmsStartDaysBefore)} روز</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="12"
-            value={userState.cycleConfig.pmsStartDaysBefore}
-            onChange={(event) =>
-              onUpdateCycleConfig({
-                ...userState.cycleConfig,
-                pmsStartDaysBefore: parseInt(event.target.value, 10),
-              })
-            }
-            className="w-full accent-rose-500"
-          />
-          <p className="text-xs text-slate-400 leading-relaxed">
-            یعنی از چند روز قبل از شروع پریودت، PMS (علائم پیش از قاعدگی مثل نوسان خلق، نفخ یا حساسیت پوستی) شروع می‌شود.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-            چرخه‌ام نامنظم است یا مشکوک به PCOS هستم
-          </span>
-          <ToggleSwitch
-            checked={userState.cycleConfig.pcosFlagged}
-            onChange={(value) => onUpdateCycleConfig({ ...userState.cycleConfig, pcosFlagged: value })}
-            labelFa="چرخه‌ام نامنظم است یا مشکوک به PCOS هستم"
-          />
-        </div>
-        <p className="text-xs text-slate-500 dark:text-slate-500 leading-relaxed">
-          با روشن بودن این گزینه، رزا پیش‌بینی را با بازه بازتر و با لحن محتاط‌تر نشان می‌دهد.
-        </p>
-      </div>
     </div>
   );
 };

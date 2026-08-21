@@ -16,7 +16,6 @@ import {
   isLevelUnlocked,
   isTopicRead,
   markGuideTopicRead,
-  unmarkGuideTopicRead,
   useGuideProgress,
 } from '../../services/guide/guideProgress';
 import { toPersianDigits } from '../../services/jalali';
@@ -153,7 +152,7 @@ const LevelSection: React.FC<{
       <div className={`rounded-[1.6rem] border p-4 space-y-3 ${unlocked ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800' : 'bg-slate-50 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800'}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-[11px] font-bold text-rose-600">LEVEL {toPersianDigits(level)}</span>
+            <span className="text-[11px] font-bold text-rose-600">سطح {toPersianDigits(level)}</span>
             <h3 className={`text-sm font-black truncate ${unlocked ? 'text-[#263b56] dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
               {LEVEL_TITLES[level]}
             </h3>
@@ -165,7 +164,7 @@ const LevelSection: React.FC<{
         </div>
 
         {!unlocked && (
-          <p className="text-xs text-slate-400 leading-6">با تمام‌کردن Level قبلی، این بخش باز می‌شود.</p>
+          <p className="text-xs text-slate-400 leading-6">با تمام‌کردن سطح قبلی، این بخش باز می‌شود.</p>
         )}
 
         {unlocked && (
@@ -258,8 +257,7 @@ const TopicModal: React.FC<{ topic: GuideTopic; onClose: () => void }> = ({ topi
 
         <button
           onClick={() => {
-            if (read) unmarkGuideTopicRead(topic.id);
-            else markGuideTopicRead(topic.id);
+            markGuideTopicRead(topic.id);
             onClose();
           }}
           className={`mt-5 w-full rounded-2xl py-3 text-sm font-bold flex items-center justify-center gap-2 ${
@@ -267,7 +265,7 @@ const TopicModal: React.FC<{ topic: GuideTopic; onClose: () => void }> = ({ topi
           }`}
         >
           <Check className="w-4 h-4" />
-          خواندم
+          {read ? 'خوانده‌شده' : 'خواندم'}
         </button>
       </motion.article>
     </div>,

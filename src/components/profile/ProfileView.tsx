@@ -5,6 +5,7 @@ import {
   Check,
   Palette,
   Bell,
+  BellOff,
   Sun,
   Moon,
   Settings,
@@ -17,6 +18,7 @@ import { SkinConcern, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import { toPersianDigits, getAgeFromBirthDate } from '../../services/jalali';
 import { wipeAllData } from '../../services/storage/persistence';
+import { NotificationScheduleResult } from '../../services/notificationService';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { PrettySelect } from '../common/PrettySelect';
 import { BirthDatePicker } from '../common/BirthDatePicker';
@@ -26,6 +28,8 @@ import { NumberStepper } from '../common/NumberStepper';
 interface ProfileViewProps {
   userState: UserState;
   onUpdateState: (state: UserState) => void;
+  /** آخرین نتیجه واقعیِ تلاش برای زمان‌بندی اعلان‌ها (نه صرفاً مقدار تنظیمات). */
+  notificationStatus?: NotificationScheduleResult | null;
 }
 
 const SKIN_TYPE_LABELS: Record<SkinType, string> = {
@@ -101,7 +105,7 @@ const Toggle: React.FC<{ labelFa: string; value: boolean; onChange: (value: bool
  * قفل PIN، کنترل دیده شدن بخش چرخه و متن خنطی اعلان‌ها.
  * حذف شد: XP و سطح که هیچ منطقی نداشتند.
  */
-export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateState }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateState, notificationStatus }) => {
   const [draft, setDraft] = useState<UserState>(userState);
   const [savedMessage, setSavedMessage] = useState(false);
 
@@ -352,6 +356,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
           onChange={(value) => setDraft({ ...draft, notifications: { ...draft.notifications, enabled: value } })}
         />
 
+        {draft.notifications.enabled && notificationStatus === 'permission-denied' && (
+          <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-start gap-2.5">
+            <BellOff size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <span className="text-xs font-bold text-red-700 dark:text-red-300 leading-5">
+              مجوز اعلان به رزا داده نشده، برای همین هیچ‌کدام از یادآوری‌های زیر ارسال نمی‌شوند —
+              روشن بودن کلیدها به تنهایی کافی نیست. از تنظیمات گوشی، بخش برنامه‌ها ← رزا ← اعلان‌ها را باز و فعال کن.
+            </span>
+          </div>
+        )}
+
         {draft.notifications.enabled && (
           <>
             <div className="grid grid-cols-2 gap-2">
@@ -398,6 +412,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
               onChange={(value) =>
                 setDraft({ ...draft, notifications: { ...draft.notifications, appointmentReminder: value } })
               }
+            />
+
+            <Toggle
+              labelFa="یادآوری مصرف دارو"
+              value={draft.notifications.medicationReminder}
+              onChange={(value) =>
+                setDraft({ ...draft, notifications: { ...draft.notifications, medicationReminder: value } })
+              }
+              hintFa="برای هر داروی فعال ثبت‌شده در پرونده پوست، سر بازه صبح/ظهر/شب"
             />
 
             {draft.cycleConfig.enabled && (

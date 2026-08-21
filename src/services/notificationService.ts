@@ -28,29 +28,56 @@
  */
 
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { UserState } from '../types';
+import { Medication, UserState } from '../types';
 import { getTodayCycleState } from './cycle/cycleService';
 import { getUpcomingAppointments } from './providers/appointmentService';
 import { getCachedWeather } from './weatherService';
 import { LocalDB } from './db';
 import { addDays, fromIsoDate, getDaysDifference, getTodayIsoDate } from './jalali';
 
+// هر بلوک فاصله کافی از بلوک بعدی دارد تا offset/index داخلی‌اش هرگز با
+// شناسه بلوک بعدی برخورد نکند (appointmentBase تا ۶ نوبت × ۱۰ = ۶۰ عدد،
+// pmsWindowBase/ovulationBase تا ۱۳ عدد هرکدام، medicationBase تا ۶ دارو
+// × ۵۰ عدد).
 const IDS = {
   morning: 2101,
   night: 2102,
-  cycle: 2103,
   symptom: 2104,
   appointmentBase: 2200,
-  medication: 2300,
-  ovulationBase: 2400,
-  pmsWindowBase: 2500,
-  pmsTomorrow: 2600,
-  periodTomorrow: 2601,
-  uv: 2700,
+  pmsWindowBase: 2300,
+  ovulationBase: 2340,
+  pmsTomorrow: 2380,
+  periodTomorrow: 2381,
+  medicationBase: 2400,
+  uvBase: 2700,
 };
 
 /** حداکثر تعداد روزهای متوالی که برای یک بازه (مثلاً PMS) اعلان جدا می‌سازیم. */
 const MAX_WINDOW_DAYS = 12;
+
+/** حداکثر تعداد یادآوری دارو که از امروز به بعد زمان‌بندی می‌کنیم (برای هر دارو). */
+const MAX_MEDICATION_DAYS = 14;
+
+/**
+ * iOS حداکثر ۶۴ اعلان محلی معلق را می‌پذیرد؛ بیشتر از آن بی‌صدا نادیده
+ * گرفته می‌شود (نه خطا، نه هشدار). برای این‌که یک کاربر با چند نوبت و
+ * چند دارو و بازه‌های چرخه، اعلان‌های حیاتی‌ترش (روتین، ثبت علائم، نوبت
+ * نزدیک) را از دست ندهد، کل لیست را قبل از ارسال به همین سقف محدود
+ * می‌کنیم؛ آیتم‌ها به ترتیب اولویت ساخته می‌شوند، پس برش از انتها درست است.
+ */
+const MAX_PENDING_NOTIFICATIONS = 60;
+
+/** ساعت‌های ثابت هر بازه دارویی، هماهنگ با نوبت‌های روتین. */
+const MEDICATION_HOURS: Record<Medication['timing'][number], { hour: number; minute: number }> = {
+  morning: { hour: 8, minute: 30 },
+  noon: { hour: 13, minute: 30 },
+  night: { hour: 21, minute: 30 },
+};
+
+/** ساعت‌هایی از روز که در آن‌ها یادآور تجدید ضدآفتاب معنا دارد (تابش فعال روز). */
+const UV_CHECK_HOURS = [10, 12, 14, 16, 18];
+
+export type NotificationScheduleResult = 'scheduled' | 'disabled' | 'permission-denied' | 'error';
 
 type NotificationList = Parameters<typeof LocalNotifications.schedule>[0]['notifications'];
 
@@ -89,17 +116,27 @@ function pushOneOff(
   });
 }
 
-export async function scheduleRozaNotifications(userState: UserState): Promise<boolean> {
+export async function scheduleRozaNotifications(userState: UserState): Promise<NotificationScheduleResult> {
   try {
     const settings = userState.notifications;
     if (!settings.enabled) {
       await cancelRozaNotifications();
-      return true;
+      return 'disabled';
     }
 
     const permission = await LocalNotifications.checkPermissions();
+    // مشکل نسخه قبل: نتیجه این تابع (true/false) در App.tsx نادیده گرفته
+    // می‌شد. اگر کاربر یک‌بار مجوز اعلان را رد می‌کرد (خیلی رایج، چون
+    // اندروید ۱۳+ و iOS همان بار اول این پرامپت را نشان می‌دهند)، تمام
+    // کلیدهای این صفحه «روشن» می‌ماندند ولی هیچ اعلانی هرگز ساخته
+    // نمی‌شد و کاربر هیچ نشانه‌ای نمی‌دید. الان وضعیت واقعی برگردانده
+    // می‌شود تا رابط کاربری بتواند هشدار «برو تنظیمات سیستم را باز کن»
+    // نشان دهد.
     const granted = permission.display === 'granted' ? permission : await LocalNotifications.requestPermissions();
-    if (granted.display !== 'granted') return false;
+    if (granted.display !== 'granted') {
+      await cancelRozaNotifications();
+      return 'permission-denied';
+    }
 
     await LocalNotifications.createChannel({
       id: 'roza-care',
@@ -286,34 +323,109 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<b
       });
     }
 
+    /* --------------------------- یادآوری دارو --------------------------- */
+    // مشکل نسخه قبل: تنظیم medicationReminder وجود داشت (و پیش‌فرض روشن
+    // بود)، شناسه‌اش هم رزرو شده بود، ولی هیچ‌جای کد از لیست داروهای فعال
+    // کاربر (که در بخش پزشک/پرونده پوست ثبت می‌شود) یک اعلان واقعی
+    // نمی‌ساخت — یعنی این یادآوری همیشه، برای همه، کاملاً غیرفعال بود.
+    // الان برای هر دارویی که isActive است، به ازای هر بازه مصرف
+    // (صبح/ظهر/شب) و هر روزِ داخل بازه startDateIso..durationDays یک
+    // اعلان روی تاریخ مطلق همان روز ساخته می‌شود.
+    if (settings.medicationReminder) {
+      const medications = LocalDB.getMedications()
+        .filter((item) => item.isActive)
+        .slice(0, 6);
+
+      medications.forEach((medication, medIndex) => {
+        const startedAlready = getDaysDifference(today, medication.startDateIso) <= 0;
+        const firstDay = startedAlready ? today : medication.startDateIso;
+        const windowEnd = medication.durationDays
+          ? addDays(medication.startDateIso, medication.durationDays - 1)
+          : addDays(today, MAX_MEDICATION_DAYS - 1);
+        const span = Math.min(MAX_MEDICATION_DAYS - 1, Math.max(0, getDaysDifference(firstDay, windowEnd)));
+        const timings = medication.timing.length > 0 ? medication.timing : (['morning'] as const);
+
+        for (let offset = 0; offset <= span; offset += 1) {
+          const dateIso = addDays(firstDay, offset);
+          timings.forEach((timing, timingIndex) => {
+            const { hour, minute } = MEDICATION_HOURS[timing];
+            pushOneOff(
+              notifications,
+              today,
+              dateIso,
+              IDS.medicationBase + medIndex * 50 + offset * 3 + timingIndex,
+              title,
+              discreetOr(
+                discreet,
+                genericBody,
+                `وقت مصرف ${medication.nameFa} است.${medication.dose ? ` (${medication.dose})` : ''}`,
+              ),
+              hour,
+              minute,
+            );
+          });
+        }
+      });
+    }
+
     /* --------------------------- هشدار یووی --------------------------- */
-    // بر اساس آخرین داده کش‌شده هواشناسی. چون این یک وضعیت «همین الان»
-    // است نه یک پیش‌بینی چندروزه، با تاخیر کوتاه (نه تاریخ مطلق آینده)
-    // زمان‌بندی می‌شود.
+    // مشکل نسخه قبل: این اعلان با schedule.at = «۶۰ ثانیه دیگر» ساخته
+    // می‌شد. یعنی فقط وقتی معنا داشت که کاربر همان لحظه اپ را باز کرده
+    // بود؛ اگر بعد از باز کردن اپ صبح، یووی ظهر بالا می‌رفت، یا کاربر
+    // بعد از آن لحظه دیگر اپ را باز نمی‌کرد، هیچ هشداری نمی‌آمد — و
+    // «هر چند ساعت تجدیدش کن» که در متن نوشته می‌شد، عملاً هیچ تکراری
+    // نداشت (فقط یک‌بار، همان یک دقیقه بعد).
+    // الان: بر اساس آخرین داده کش‌شده (حداکثر UV پیش‌بینی امروز)، اگر
+    // بالا باشد، برای همه ساعت‌های فعالِ باقی‌مانده امروز (UV_CHECK_HOURS)
+    // یک اعلان تجدید ضدآفتاب جداگانه زمان‌بندی می‌شود — نه فقط یکی.
+    // چون این بخش با هر resume/تغییر تنظیمات دوباره ساخته می‌شود و
+    // HomeDashboard کش هواشناسی را هر بار که اپ باز است تازه می‌کند،
+    // این لیست هم با تازه‌ترین پیش‌بینی هماهنگ می‌ماند.
     if (settings.uvAlert) {
       const weather = getCachedWeather();
       if (weather?.hasData && !weather.isStale && weather.uvIndex >= 6) {
-        notifications.push({
-          id: IDS.uv,
-          title,
-          body: discreetOr(
-            discreet,
-            genericBody,
-            `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست. ضدآفتاب را حتماً بزن و هر چند ساعت تجدیدش کن.`,
-          ),
-          schedule: { at: new Date(Date.now() + 60 * 1000), allowWhileIdle: true },
-          channelId: 'roza-care',
-        });
+        const uvBody = discreetOr(
+          discreet,
+          genericBody,
+          `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست (${weather.uvIndex}). ضدآفتاب را تجدید کن.`,
+        );
+        const now = new Date();
+        const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+        const upcomingHours = UV_CHECK_HOURS.filter((hour) => hour * 60 > currentTotalMinutes);
+
+        if (upcomingHours.length > 0) {
+          upcomingHours.forEach((hour, index) => {
+            pushOneOff(notifications, today, today, IDS.uvBase + index, title, uvBody, hour, 0);
+          });
+        } else if (now.getHours() < 19) {
+          // هیچ‌کدام از ساعت‌های ثابت باقی نمانده ولی هنوز روز است (مثلاً
+          // ساعت ۱۸:۳۰ اپ باز شده): یک هشدار فوری، نه یک ساعت بی‌ربط.
+          notifications.push({
+            id: IDS.uvBase,
+            title,
+            body: uvBody,
+            schedule: { at: new Date(Date.now() + 60 * 1000), allowWhileIdle: true },
+            channelId: 'roza-care',
+          });
+        }
       }
     }
 
-    if (notifications.length > 0) {
-      await LocalNotifications.schedule({ notifications });
+    // سقف امن تعداد اعلان‌های معلق (رجوع کنید به توضیح MAX_PENDING_NOTIFICATIONS).
+    // آیتم‌ها به ترتیب اولویت بالا به پایین ساخته شدند، پس برش از انتها
+    // یعنی روتین صبح/شب/ثبت‌علائم و نزدیک‌ترین یادآوری‌ها همیشه می‌مانند.
+    const finalNotifications =
+      notifications.length > MAX_PENDING_NOTIFICATIONS
+        ? notifications.slice(0, MAX_PENDING_NOTIFICATIONS)
+        : notifications;
+
+    if (finalNotifications.length > 0) {
+      await LocalNotifications.schedule({ notifications: finalNotifications });
     }
-    return true;
+    return 'scheduled';
   } catch (error) {
     console.warn('Local notifications unavailable', error);
-    return false;
+    return 'error';
   }
 }
 

@@ -274,6 +274,12 @@ export interface Ingredient {
   typicalUse?: 'leave_on' | 'wash_off' | 'both';
   /** پرهیز همزمان با خدمات زیبایی (لیزر، پیلینگ، اپیلاسیون). */
   pauseBeforeProcedures?: boolean;
+  /**
+   * دسته‌های محصولی که این ماده معمولاً در آن‌ها فرمولاسیون می‌شود
+   * (بر پایه‌ی شیمی فرمولاسیون کازمتیک، نه برند خاص — توصیه‌ای و تقریبی است).
+   * مثال: نیاسینامید هم‌زمان در چند دسته رایج است، ترتینوئین فقط در treatment.
+   */
+  commonCategoryIds?: ProductCategory[];
 }
 
 export interface Article {
@@ -345,6 +351,7 @@ export interface DailyTrackerEntry extends SyncMeta {
   stressLevel: number; // ۰ = ثبت نشده
   exerciseMinutes: number;
   usedSunscreen: boolean;
+  sunscreenApplyCount?: number;
   junkFood: boolean;
   sugarIntake: 'low' | 'moderate' | 'high';
   skinStatusScore: number; // ۰ = ثبت نشده، وگرنه ۱ تا ۱۰

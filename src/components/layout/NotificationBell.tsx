@@ -9,11 +9,11 @@ import type { DailyTrackerEntry } from '../../types';
 import type { NavTab } from './BottomNavigation';
 import type { SectionKey } from '../../App';
 
-interface Props { todayLog: DailyTrackerEntry; onNavigateTab: (tab: NavTab) => void; onOpenSection: (section: SectionKey) => void; }
+interface Props { todayLog: DailyTrackerEntry; onNavigateTab: (tab: NavTab) => void; onOpenSection: (section: SectionKey) => void; onFocusSunscreenCard: () => void; }
 interface Notice { id: string; text: string; icon: React.ElementType; action: () => void; }
 
 /** زنگوله واقعی: فقط یادآوری‌های قابل اقدام را نشان می‌دهد، نه تاریخ و دما. */
-export const NotificationBell: React.FC<Props> = ({ todayLog, onNavigateTab, onOpenSection }) => {
+export const NotificationBell: React.FC<Props> = ({ todayLog, onNavigateTab, onOpenSection, onFocusSunscreenCard }) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const user = LocalDB.getUserState();
@@ -59,8 +59,8 @@ export const NotificationBell: React.FC<Props> = ({ todayLog, onNavigateTab, onO
       id: 'uv',
       text: `شاخص یووی${weather.city ? ` در ${weather.city}` : ''} امروز بالاست؛ ضدآفتاب را تجدید کن`,
       icon: Sun,
-      // به پنل خانه می‌برد تا کارت «ثبت سریع امروز» دیده شود و همان‌جا ثبت کند
-      action: () => onNavigateTab('home'),
+      // به کارت «ثبت سریع امروز» در پنل خانه می‌برد و مستقیم روی دکمه ضدآفتاب فوکوس می‌کند
+      action: onFocusSunscreenCard,
     });
   }
 

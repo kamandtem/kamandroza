@@ -27,6 +27,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_hyaluronic_acid', 'ing_zinc_pca', 'ing_ceramides', 'ing_salicylic_acid', 'ing_panthenol', 'ing_azelaic_acid'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['serum', 'moisturizer', 'cleanser', 'toner', 'sunscreen'],
     descriptionFa:
       'نیاسینامید یکی از ایمن‌ترین و محبوب‌ترین ترکیبات مراقبت از پوست است که سد دفاعی پوست را تقویت کرده و تولید سِبوم را متعادل می‌کند. برخلاف باور قدیمی، مطالعات تازه نشان داده مصرف همزمان با ویتامین C مشکلی ایجاد نمی‌کند.',
   },
@@ -51,6 +52,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     sideEffectsFa: 'در ۲ تا ۴ هفته اول ممکن است پوسته‌ریزی خفیف، خشکی یا سوزش ایجاد کند.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['serum', 'treatment', 'eyecare'],
     descriptionFa:
       'موثرترین ترکیب اثبات‌شده برای نوسازی سلولی. حتماً فقط شب‌ها استفاده شود و مصرف ضدآفتاب در روز بعد الزامی است. قبل از لیزر، پیلینگ و اپیلاسیون باید چند روز قطع شود.',
   },
@@ -74,6 +76,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     conflictReasonFa: 'دو لایه‌بردار قوی در یک روتین باعث تخریب سد دفاعی و قرمزی ماندگار می‌شود.',
     irritationRisk: 'moderate',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['cleanser', 'toner', 'serum', 'exfoliant', 'treatment'],
     descriptionFa: 'یک لایه‌بردار محلول در چربی که به عمق منافذ نفوذ کرده و انسدادهای چربی و سلول‌های مرده را حل می‌کند.',
   },
   {
@@ -96,6 +99,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     conflictReasonFa: 'مصرف همزمان چند اسید یا اسید با رتینول، ریسک سوزش و لک التهابی را بالا می‌برد.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['toner', 'exfoliant', 'serum'],
     descriptionFa: 'لایه‌بردار محلول در آب که سطح پوست را صیقل می‌دهد. حتماً شب و با ضدآفتاب روز بعد.',
   },
   {
@@ -116,6 +120,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_niacinamide', 'ing_retinol', 'ing_vitamin_c', 'ing_salicylic_acid', 'ing_ceramides', 'ing_panthenol', 'ing_azelaic_acid', 'ing_centella', 'ing_glycolic_acid', 'ing_zinc_pca'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['serum', 'moisturizer', 'mask'],
     descriptionFa: 'آب‌رسان قوی که رطوبت را به پوست می‌کشد. روی پوست نم‌دار بزنید و بلافاصله مرطوب‌کننده رویش بگذارید؛ در هوای خشک به تنهایی می‌تواند پوست را خشک‌تر کند.',
   },
   {
@@ -137,6 +142,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     avoidCombiningIds: ['ing_retinol', 'ing_tretinoin', 'ing_adapalene', 'ing_glycolic_acid', 'ing_lactic_acid'],
     conflictReasonFa: 'با رتینول و اسیدهای قوی در یک نوبت مصرف نشود. ویتامین C مخصوص روتین صبح است.',
     irritationRisk: 'moderate',
+    commonCategoryIds: ['serum', 'toner', 'moisturizer'],
     descriptionFa: 'سپر دفاعی روزانه پوست در برابر آلودگی و آفتاب. برای هوای آلوده شهرهای بزرگ کاملاً توصیه می‌شود.',
   },
   {
@@ -157,6 +163,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_retinol', 'ing_glycolic_acid', 'ing_salicylic_acid', 'ing_niacinamide', 'ing_hyaluronic_acid', 'ing_panthenol'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['moisturizer', 'cleanser', 'serum', 'toner'],
     descriptionFa: 'چسب طبیعی بین سلول‌های پوست. بعد از لیزر، پیلینگ و در روزهای قاعدگی بهترین انتخاب است.',
   },
   {
@@ -177,6 +184,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_niacinamide', 'ing_hyaluronic_acid', 'ing_centella', 'ing_ceramides'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['serum', 'treatment'],
     descriptionFa:
       'گزینه طلایی برای پوست حساس، رزاسه و لک. تنها ترکیب موثر ضدلک که در بارداری هم معمولاً مجاز است؛ با این حال با پزشک خود مشورت کنید.',
   },
@@ -198,6 +206,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_niacinamide', 'ing_hyaluronic_acid', 'ing_azelaic_acid', 'ing_panthenol', 'ing_ceramides'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['serum', 'moisturizer', 'mask', 'toner'],
     descriptionFa: 'ترکیب تسکین‌دهنده محبوب کره‌ای، مناسب برای روزهای پس از خدمات زیبایی و دوره قاعدگی.',
   },
   {
@@ -218,6 +227,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_niacinamide', 'ing_salicylic_acid', 'ing_hyaluronic_acid'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['toner', 'serum', 'moisturizer'],
     descriptionFa: 'ترکیب زینک و عامل مرطوب‌کننده طبیعی پوست که چربی بی‌رویه را کنترل می‌کند.',
   },
   {
@@ -238,6 +248,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     compatibleIngredientIds: ['ing_niacinamide', 'ing_hyaluronic_acid', 'ing_ceramides', 'ing_centella', 'ing_retinol', 'ing_salicylic_acid'],
     avoidCombiningIds: [],
     irritationRisk: 'low',
+    commonCategoryIds: ['moisturizer', 'serum', 'mask', 'cleanser', 'toner'],
     descriptionFa: 'پانتنول پس از جذب به ویتامین B5 تبدیل می‌شود و مانند مرهمی نرم، خشکی و التهاب را تسکین می‌دهد.',
   },
   {
@@ -260,6 +271,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     conflictReasonFa: 'دو لایه‌بردار یا لایه‌بردار با رتینول در یک نوبت، ریسک سوزش را بالا می‌برد.',
     irritationRisk: 'moderate',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['toner', 'exfoliant', 'moisturizer'],
     descriptionFa:
       'ملایم‌ترین عضو خانواده AHA است و مولکول بزرگ‌تری دارد؛ به همین دلیل معمولاً کمتر از گلیکولیک اسید تحریک می‌کند.',
   },
@@ -284,6 +296,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     sideEffectsFa: 'خشکی، پوسته‌ریزی و بی‌رنگ کردن پارچه و حوله.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['cleanser', 'treatment'],
     descriptionFa: 'موثرترین گزینهٔ بدون نسخه برای جوش التهابی؛ با غلطت کم و یک شب در میان شروع کن.',
   },
   {
@@ -308,6 +321,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     sideEffectsFa: 'در هفته‌های اول خشکی و پوسته‌ریزی طبیعی است.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['treatment'],
     descriptionFa:
       'رتینوئید تجویزی و قوی‌تر از رتینول بدون نسخه است. برنامهٔ مصرف و قطع آن را پزشک تعیین می‌کند، نه اپ.',
   },
@@ -331,6 +345,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     conflictReasonFa: 'همزمان با اسیدهای لایه‌بردار در یک نوبت توصیه نمی‌شود.',
     irritationRisk: 'moderate',
     pauseBeforeProcedures: true,
+    commonCategoryIds: ['treatment'],
     descriptionFa: 'رتینوئیدی پایدارتر و معمولاً ملایم‌تر از ترتینوئین؛ اغلب برای آکنه تجویز می‌شود.',
   },
 ];

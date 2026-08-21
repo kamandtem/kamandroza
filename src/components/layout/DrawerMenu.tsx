@@ -46,7 +46,7 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
   const handleMove = (e: React.TouchEvent) => { if (!touchRef.current) return; const t = e.touches[0]; const dx = t.clientX - touchRef.current.x; const dy = t.clientY - touchRef.current.y; if (Math.abs(dx) > Math.abs(dy) && dx > 8) { setDragging(true); setDragX(dx); } };
   const handleEnd = () => { if (dragX > (drawerRef.current?.offsetWidth || 320) * 0.28) onClose(); setDragX(0); setDragging(false); touchRef.current = null; };
 
-  const guideItem = { label: 'راهنمای استفاده از رزا', desc: 'یاد بگیر رزا چرا این توصیه را می‌دهد', icon: GraduationCap, click: () => goSection('guide') };
+  const guideItem = { label: 'راهنمای استفاده از رزا', desc: 'راهنمای استفاده از برنامه', icon: GraduationCap, click: () => goSection('guide') };
 
   const serviceItems = [
     ...(cycleVisible ? [{ label: 'چرخه ماهانه من', desc: 'ثبت پریود و علائم', icon: Moon, click: () => goSection('cycle') }] : []),
@@ -72,7 +72,10 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
   return <AnimatePresence>{isOpen && <><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-[#23334b]/35" /><motion.aside ref={drawerRef} onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} style={dragging ? { transform: `translateX(${dragX}px)`, transition: 'none' } : undefined} initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }} className="fixed top-[calc(var(--safe-top)+12px)] bottom-[calc(var(--safe-bottom)+12px)] right-0 z-50 w-80 max-w-[85vw] rounded-[28px] bg-[#fffdfb] dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden border border-white dark:border-slate-800 touch-pan-y">
     <div className="overflow-y-auto flex-1">
       <div className="sticky top-0 z-20 p-4 pb-3 border-b border-slate-100 dark:border-slate-800 bg-[#fffdfb] dark:bg-slate-900"><div className="flex items-center gap-2.5 text-right">
-        <div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div>
+        <button onClick={() => goSection('profile')} aria-label="پروفایل" className="relative shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-3xl overflow-hidden">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div>
+          <span className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-rose-500 text-white shadow-md ring-2 ring-[#fffdfb] dark:ring-slate-900"><Camera className="w-3 h-3" /></span>
+        </button>
 
         <div role="button" tabIndex={0} onClick={() => goSection('profile')} onKeyDown={(event) => { if (event.key === 'Enter') goSection('profile'); }} className="flex-1 min-w-0 flex flex-col items-start gap-1 text-right cursor-pointer">
           <p className="text-[11px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
@@ -80,10 +83,7 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
           <div onClick={(event) => event.stopPropagation()}><GuideBadge onClick={() => goSection('guide')} /></div>
         </div>
 
-        <button onClick={() => goSection('profile')} aria-label="پروفایل" className="relative shrink-0">
-          <div className="w-16 h-16 rounded-2xl bg-[#fff0d8] dark:bg-amber-950/40 border-2 border-[#f2ba61] flex items-center justify-center text-3xl overflow-hidden">{userState.profile.avatarUrl?.startsWith('data:') ? <img src={userState.profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : userState.profile.avatarUrl || '🌸'}</div>
-          <span className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-rose-500 text-white shadow-md ring-2 ring-[#fffdfb] dark:ring-slate-900"><Camera className="w-3 h-3" /></span>
-        </button>
+        <div className="shrink-0 flex flex-col items-center gap-1.5"><button onClick={() => goSection('profile')} aria-label="تنظیمات" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500"><Settings className="w-[18px] h-[18px]" /></button><button onClick={onToggleTheme} aria-label="تغییر تم" className="icon-only p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-amber-500 dark:text-indigo-300">{userState.themeMode === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}</button></div>
       </div></div>
       <div className="px-3 py-3 space-y-4">
         <div>
