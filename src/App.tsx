@@ -437,6 +437,7 @@ export default function App() {
               }}
               onOpenGuideTopic={openGuideTopic}
               focusRequest={activeTab === 'home' ? homeFocusRequest : null}
+              onFocusRequestHandled={() => setHomeFocusRequest(null)}
             />
           )}
 

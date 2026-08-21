@@ -50,6 +50,15 @@ interface HomeDashboardProps {
   onOpenSection: (section: SectionKey) => void;
   onOpenGuideTopic?: (topicId: string) => void;
   focusRequest?: { target: 'sunscreen'; requestedAt: number } | null;
+  /**
+   * وقتی focusRequest واقعاً مصرف شد (اسکرول انجام شد) صدا زده می‌شود تا
+   * والد آن را null کند. بدون این، چون این کامپوننت هر بار که کاربر از
+   * تب دیگری به خانه برمی‌گردد از نو mount می‌شود، همان focusRequest قدیمی
+   * (که فقط باید یک‌بار — همان لحظه‌ی زدن «تجدید ضدآفتاب» — اثر کند) دوباره
+   * effect را با mount جدید اجرا می‌کرد و هر ورود به خانه را می‌کشاند به
+   * کارت ثبت سریع.
+   */
+  onFocusRequestHandled?: () => void;
 }
 
 const WhyButton: React.FC<{ topicId?: string; onOpenGuideTopic?: (topicId: string) => void; className?: string }> = ({ topicId, onOpenGuideTopic, className = '' }) => {
@@ -124,6 +133,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenSection,
   onOpenGuideTopic,
   focusRequest,
+  onFocusRequestHandled,
 }) => {
   const guidance = buildDailyGuidance({
     profile: userState.profile,
@@ -172,8 +182,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     if (!focusRequest || focusRequest.target !== 'sunscreen') return;
     sunscreenCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setHighlightSunscreen(true);
+    // این درخواست فقط باید همان یک‌بار (لحظه‌ی زدن «تجدید ضدآفتاب») اثر کند؛
+    // به والد اطلاع می‌دهیم تا آن را null کند، وگرنه دفعه بعد که کاربر از
+    // تب دیگری به خانه برمی‌گردد (و این کامپوننت دوباره mount می‌شود)،
+    // همین focusRequest قدیمی دوباره کاربر را به این کارت می‌کشاند.
+    onFocusRequestHandled?.();
     const timer = window.setTimeout(() => setHighlightSunscreen(false), 2200);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
   return (

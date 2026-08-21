@@ -21,6 +21,12 @@ interface JalaliDatePickerProps {
   allowPast?: boolean;
   /** اگر true باشد، تقویم بدون دکمه‌ی محرک، همیشه به‌شکل باز نمایش داده می‌شود. */
   inline?: boolean;
+  /**
+   * نسخه فشرده‌تر (سلول‌ها و فاصله‌ها کوچک‌تر) — برای جاهایی مثل مودال
+   * «ویرایش پریود» که تقویم کنار چند نوار دیگر است و نباید صفحه را
+   * اسکرول‌پذیر کند.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -36,6 +42,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
   allowFuture = true,
   allowPast = true,
   inline = false,
+  compact = false,
 }) => {
   const todayIso = getTodayIsoDate();
   const initial = value
@@ -87,12 +94,12 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
           type="button"
           onClick={goNext}
           aria-label="ماه بعد"
-          className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1.5' : 'p-2'}`}
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
         </button>
 
-        <span className="text-sm font-black text-slate-800 dark:text-white">
+        <span className={`font-black text-slate-800 dark:text-white ${compact ? 'text-xs' : 'text-sm'}`}>
           {PERSIAN_MONTH_NAMES[viewMonth - 1]} {toPersianDigits(viewYear)}
         </span>
 
@@ -100,15 +107,15 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
           type="button"
           onClick={goPrevious}
           aria-label="ماه قبل"
-          className="icon-only p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+          className={`icon-only rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ${compact ? 'p-1.5' : 'p-2'}`}
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center">
+      <div className={`grid grid-cols-7 text-center ${compact ? 'gap-0.5' : 'gap-1'}`}>
         {PERSIAN_WEEK_HEADERS.map((day) => (
-          <span key={day} className="text-xs font-bold text-slate-400 py-1">
+          <span key={day} className={`font-bold text-slate-400 ${compact ? 'text-[10px] py-0.5' : 'text-xs py-1'}`}>
             {day}
           </span>
         ))}
@@ -128,7 +135,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
                 onChange(cell.iso as string);
                 if (!inline) setIsOpen(false);
               }}
-              className={`icon-only aspect-square rounded-xl text-sm font-bold transition-all ${
+              className={`icon-only aspect-square rounded-xl font-bold transition-all ${compact ? 'text-xs' : 'text-sm'} ${
                 isSelected
                   ? 'bg-rose-500 text-white'
                   : isToday
@@ -177,7 +184,9 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
       )}
 
       {isOpen && inline && (
-        <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg space-y-3">
+        <div
+          className={`rounded-2xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-700 shadow-lg ${compact ? 'p-2 space-y-1.5' : 'p-3 space-y-3'}`}
+        >
           {calendarBody}
         </div>
       )}

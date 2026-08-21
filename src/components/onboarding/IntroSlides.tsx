@@ -33,10 +33,11 @@ export const IntroSlides: React.FC<IntroSlidesProps> = ({ onDone }) => {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col bg-[#fffdf7] overflow-hidden">
-      {/* نوار بالا: نزدیک‌تر به گوشه‌های واقعی صفحه (هم از بالا هم از کناره‌ها) */}
+      {/* نوار بالا: با کمترین فاصله ممکن از گوشه واقعی صفحه (فقط safe-area، بدون کف
+          ثابت زیاد) تا واقعاً در گوشه بنشیند، نه پایین‌تر از آن. */}
       <header
-        className="w-full max-w-md mx-auto flex items-center justify-between shrink-0 px-3"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 6px)', paddingBottom: '6px' }}
+        className="w-full max-w-md mx-auto flex items-center justify-between shrink-0 px-2.5"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 2px)', paddingBottom: '2px' }}
       >
         <span className="text-sm font-black text-[#263b56]">
           معرفی رزا <span className="text-slate-400 font-bold">({toPersianDigits(index + 1)} از {toPersianDigits(slides.length)})</span>

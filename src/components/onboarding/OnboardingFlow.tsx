@@ -10,6 +10,10 @@ import { BirthDatePicker } from '../common/BirthDatePicker';
 import { CityAutocomplete } from '../common/CityAutocomplete';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { toPersianDigits } from '../../services/jalali';
+import { StepIllustration } from './StepIllustration';
+import { CareProgressJar } from './CareProgressJar';
+import { SkinTypeGrid } from './SkinTypeGrid';
+import { ProfileSummaryReveal } from './ProfileSummaryReveal';
 
 interface OnboardingFlowProps {
   onComplete: (state: UserState) => void;
@@ -23,6 +27,20 @@ const SKIN_TYPES: { type: SkinType; titleFa: string; hintFa: string }[] = [
   { type: 'dehydrated', titleFa: 'کم‌آب', hintFa: 'هم چرب هم خشک، خطوط ریز کم‌آبی' },
   { type: 'normal', titleFa: 'نرمال', hintFa: 'متعادل و بدون دغدغه خاص' },
 ];
+
+const SKIN_TYPE_LABELS: Record<SkinType, string> = SKIN_TYPES.reduce(
+  (acc, item) => ({ ...acc, [item.type]: item.titleFa }),
+  {} as Record<SkinType, string>,
+);
+
+/** تصویرسازی متناظر هر مرحله — همان ۳ فایل قبلی intro-b/intro-c/skincare-bro کنارشان اضافه شده‌اند. */
+const STEP_IMAGES: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: '/assets/onboarding/onboarding-step1-welcome.svg',
+  2: '/assets/onboarding/onboarding-step2-profile.svg',
+  3: '/assets/onboarding/onboarding-step3-skin.svg',
+  4: '/assets/onboarding/onboarding-step4-safety.svg',
+  5: '/assets/onboarding/onboarding-step5-cycle.svg',
+};
 
 const TOTAL_STEPS = 4;
 
@@ -54,6 +72,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const [pmsDays, setPmsDays] = useState(5);
   const [regularity, setRegularity] = useState<MenstrualCycleConfig['regularity']>('unknown');
   const [dontKnowLength, setDontKnowLength] = useState(false);
+
+  // بعد از تکمیل مرحله ۵، به‌جای onComplete فوری، اول کارت خلاصه پروفایل
+  // نشان داده می‌شود. finalState همان چیزی است که finish() از قبل ساخته
+  // و ذخیره کرده؛ onComplete واقعی فقط با تپ کاربر روی «ورود به اپ» صدا زده می‌شود.
+  const [showSummary, setShowSummary] = useState(false);
+  const [finalState, setFinalState] = useState<UserState | null>(null);
+
+  const displayName = name.trim();
 
   /*
    * قبلاً مستقیم navigator.geolocation صدا زده می‌شد که داخل اپ نصب‌شده
@@ -116,8 +142,25 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     // تاریخ آخرین پریود به تاریخچه می‌رود، نه یک فیلد تنها.
     if (cycleEnabled && lastPeriod) logPeriodStart(lastPeriod);
 
-    onComplete(state);
+    // onComplete اینجا صدا زده نمی‌شود — ابتدا کارت خلاصه پروفایل نشان داده می‌شود.
+    setFinalState(state);
+    setShowSummary(true);
   };
+
+  const continueToApp = () => {
+    if (finalState) onComplete(finalState);
+  };
+
+  const summaryRows = finalState
+    ? [
+        { label: 'نوع پوست', value: SKIN_TYPE_LABELS[finalState.profile.skinType] },
+        { label: 'حساسیت پوست', value: `${toPersianDigits(finalState.profile.sensitivityScore)} از ۱۰` },
+        {
+          label: 'وضعیت چرخه',
+          value: finalState.cycleConfig.enabled ? 'فعال' : 'غیرفعال (هر زمان از پروفایل روشن می‌شود)',
+        },
+      ]
+    : [];
 
   const NextButton: React.FC<{ label: string; onClick: () => void; disabled?: boolean }> = ({
     label,
@@ -136,29 +179,34 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-[#fdf1e9] via-[#faf5fb] to-[#eef4fb] dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 flex items-center justify-center p-4 overflow-hidden">
-      {/* حباب‌های رنگی پس‌زمینه — بدون این‌ها افکت شیشه‌ای (glassmorphism) کارت دیده نمی‌شود */}
-      <div className="pointer-events-none absolute -top-16 -right-16 w-72 h-72 rounded-full bg-rose-300/40 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/3 -left-20 w-72 h-72 rounded-full bg-amber-200/50 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 right-10 w-80 h-80 rounded-full bg-purple-300/30 blur-3xl" />
+      {/* حباب‌های رنگی پس‌زمینه — بدون این‌ها افکت شیشه‌ای (glassmorphism) کارت دیده نمی‌شود.
+          حرکت drift بسیار آرام و بی‌نهایت؛ pointer-events-none باقی می‌ماند تا مزاحم لمس نشود. */}
+      <motion.div
+        className="pointer-events-none absolute -top-16 -right-16 w-72 h-72 rounded-full bg-rose-300/40 blur-3xl"
+        animate={{ x: [0, 26, -10, 0], y: [0, -18, 12, 0] }}
+        transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="pointer-events-none absolute top-1/3 -left-20 w-72 h-72 rounded-full bg-amber-200/50 blur-3xl"
+        animate={{ x: [0, -20, 14, 0], y: [0, 16, -14, 0] }}
+        transition={{ duration: 30, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="pointer-events-none absolute -bottom-20 right-10 w-80 h-80 rounded-full bg-purple-300/30 blur-3xl"
+        animate={{ x: [0, 16, -22, 0], y: [0, -14, 10, 0] }}
+        transition={{ duration: 34, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
       <div className="relative w-full max-w-md p-6 rounded-3xl bg-white/45 dark:bg-slate-900/40 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-[0_8px_40px_rgba(142,82,65,.18)] text-right space-y-5">
-        {/* نوار پیشرفت */}
-        <div className="flex items-center gap-1.5">
-          {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
-            <span
-              key={index}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${
-                index < step ? 'bg-[#8e5241]' : 'bg-white/50 dark:bg-slate-800'
-              }`}
-            />
-          ))}
-        </div>
+        {!showSummary && <CareProgressJar progress={(step - 1) / TOTAL_STEPS} />}
 
-        {step === 1 && (
+        {showSummary && finalState && (
+          <ProfileSummaryReveal name={displayName || undefined} rows={summaryRows} onContinue={continueToApp} />
+        )}
+
+        {!showSummary && step === 1 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#8e5241] to-[#ca7f6a] text-white flex items-center justify-center text-3xl font-black mx-auto shadow-lg">
-              R
-            </div>
+            <StepIllustration src={STEP_IMAGES[1]} alt="خوش‌آمدگویی رزا" />
             <h1 className="text-xl font-black text-[#2e2621] dark:text-white text-center">به رزا خوش آمدید</h1>
             <p className="text-sm text-[#6e5d50] dark:text-slate-400 leading-relaxed text-center">
               همراه مراقبت از پوست، مو، چرخه ماهانه و نوبت‌های آرایشگاه و پزشک، به زبان فارسی و تقویم شمسی.
@@ -178,8 +226,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           </motion.div>
         )}
 
-        {step === 2 && (
+        {!showSummary && step === 2 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <StepIllustration src={STEP_IMAGES[2]} alt="مشخصات فردی" />
             <h2 className="text-lg font-black text-[#2e2621] dark:text-white">کمی از خودت بگو</h2>
 
             <div className="space-y-3">
@@ -227,28 +276,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           </motion.div>
         )}
 
-        {step === 3 && (
+        {!showSummary && step === 3 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-            <h2 className="text-lg font-black text-[#2e2621] dark:text-white">پوستت را بشناسیم</h2>
+            <StepIllustration src={STEP_IMAGES[3]} alt="شناخت نوع پوست" />
+            <h2 className="text-lg font-black text-[#2e2621] dark:text-white">
+              {displayName ? `${displayName}، بیا پوستت را بشناسیم` : 'پوستت را بشناسیم'}
+            </h2>
 
-            <div className="space-y-2">
-              {SKIN_TYPES.map((item) => (
-                <button
-                  key={item.type}
-                  onClick={() => setSkinType(item.type)}
-                  className={`w-full p-3.5 rounded-2xl text-right border transition-all ${
-                    skinType === item.type
-                      ? 'bg-[#8e5241] text-white border-[#8e5241]'
-                      : 'bg-white/40 dark:bg-slate-800/50 backdrop-blur-md text-[#5c4a3e] dark:text-slate-300 border-white/60 dark:border-slate-700/60'
-                  }`}
-                >
-                  <span className="block text-sm font-black">{item.titleFa}</span>
-                  <span className={`block text-xs mt-0.5 ${skinType === item.type ? 'text-rose-100' : 'opacity-70'}`}>
-                    {item.hintFa}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <SkinTypeGrid items={SKIN_TYPES} value={skinType} onChange={setSkinType} />
 
             <div className="p-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60 space-y-2">
               <div className="flex justify-between text-sm font-bold text-[#5c4a3e] dark:text-slate-300">
@@ -280,14 +315,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         )}
 
         {/* مرحله ایمنی — نسخه ۱ اصلاً این را نمی‌پرسید */}
-        {step === 4 && (
+        {!showSummary && step === 4 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <StepIllustration src={STEP_IMAGES[4]} alt="ایمنی بارداری و شیردهی" />
             <h2 className="text-lg font-black text-[#2e2621] dark:text-white flex items-center gap-2">
               <HeartPulse className="w-5 h-5 text-rose-500" />
               دو سؤال کوتاه برای پیشنهاد امن‌تر
             </h2>
             <p className="text-sm text-[#705c4f] dark:text-slate-400 leading-relaxed">
-              بعضی ترکیبات مانند رتینول در بارداری و شیردهی توصیه نمی‌شوند. پاسخ‌ها فقط روی گوشی خودت می‌مانند.
+              {displayName ? `${displayName}، ب` : 'ب'}عضی ترکیبات مانند رتینول در بارداری و شیردهی توصیه نمی‌شوند. پاسخ‌ها فقط روی گوشی خودت می‌مانند.
             </p>
 
             <div className="space-y-2">
@@ -325,14 +361,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           </motion.div>
         )}
 
-        {step === 5 && (
+        {!showSummary && step === 5 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <StepIllustration src={STEP_IMAGES[5]} alt="چرخه ماهانه" />
             <h2 className="text-lg font-black text-[#2e2621] dark:text-white flex items-center gap-2">
               <Moon className="w-5 h-5 text-rose-500" />
               چرخه ماهانه
             </h2>
             <p className="text-sm text-[#705c4f] dark:text-slate-400 leading-relaxed">
-              این بخش کاملاً اختیاری است. اگر فعالش کنی، رزا می‌تواند الگوی پوستت را در طول چرخه پیدا کند و بگوید روزهای مناسب لیزر و فیشیال کدامند.
+              {displayName ? `${displayName} جان، ا` : 'ا'}ین بخش کاملاً اختیاری است. اگر فعالش کنی، رزا می‌تواند الگوی پوستت را در طول چرخه پیدا کند و بگوید روزهای مناسب لیزر و فیشیال کدامند.
             </p>
 
             <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 backdrop-blur-md border border-rose-200/60 dark:border-rose-900/40">

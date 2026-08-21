@@ -77,9 +77,9 @@ export const DrawerMenu: React.FC<Props> = ({ isOpen, onClose, userState, cycleV
           <span className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-rose-500 text-white shadow-md ring-2 ring-[#fffdfb] dark:ring-slate-900"><Camera className="w-3 h-3" /></span>
         </button>
 
-        <div role="button" tabIndex={0} onClick={() => goSection('profile')} onKeyDown={(event) => { if (event.key === 'Enter') goSection('profile'); }} className="flex-1 min-w-0 flex flex-col items-start gap-1 text-right cursor-pointer">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
-          <h2 className="text-[15px] font-black text-[#17263b] dark:text-white truncate leading-none w-full">{userState.profile.name || 'کاربر رزا'}</h2>
+        <div role="button" tabIndex={0} onClick={() => goSection('profile')} onKeyDown={(event) => { if (event.key === 'Enter') goSection('profile'); }} className="flex-1 min-w-0 h-16 flex flex-col justify-between items-start text-right cursor-pointer py-0.5">
+          <p className="text-[12px] text-slate-500 dark:text-slate-400">روز بخیر 🌹</p>
+          <h2 className="text-[16px] font-black text-[#17263b] dark:text-white truncate leading-none w-full">{userState.profile.name || 'کاربر رزا'}</h2>
           <div onClick={(event) => event.stopPropagation()}><GuideBadge onClick={() => goSection('guide')} /></div>
         </div>
 

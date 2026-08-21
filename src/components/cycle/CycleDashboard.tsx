@@ -310,8 +310,8 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           >
             <h3 className="text-sm font-black text-slate-800 dark:text-white">ویرایش پریود</h3>
 
-            <div className="space-y-2.5">
-              <div className="space-y-1">
+            <div className="space-y-1.5">
+              <div className="space-y-0.5">
                 <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
                   <span>طول چرخه شما</span>
                   <span className="text-rose-600">{toPersianDigits(editCycleLength)} روز</span>
@@ -326,7 +326,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
                   <span>مدت زمان خونریزی</span>
                   <span className="text-rose-600">{toPersianDigits(editPeriodLength)} روز</span>
@@ -341,7 +341,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex justify-between text-sm font-bold text-slate-700 dark:text-slate-300">
                   <span>چند روز قبل PMS شروع شود؟</span>
                   <span className="text-rose-600">{toPersianDigits(editPmsStartDaysBefore)} روز</span>
@@ -370,7 +370,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
 
             <div className="space-y-1">
               <h4 className="text-sm font-black text-slate-800 dark:text-white">روز اول پریود را انتخاب کن</h4>
-              <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline />
+              <JalaliDatePicker value={manualDate} onChange={setManualDate} allowFuture={false} inline compact />
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1">

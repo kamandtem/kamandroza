@@ -64,7 +64,7 @@ export const CyclePhaseHighlights: React.FC<CyclePhaseHighlightsProps> = ({ phas
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-4 overflow-x-auto px-1 py-1 no-scrollbar" dir="rtl">
+      <div className="flex gap-4 justify-center overflow-x-auto px-1 py-1 no-scrollbar" dir="rtl">
         {highlights.map((highlight, index) => {
           const seen = seenIds.has(highlight.id);
           const ringColor = seen ? '#d1d5db' : PHASE_COLOR[phase];
