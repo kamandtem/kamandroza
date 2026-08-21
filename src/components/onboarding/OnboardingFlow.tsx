@@ -394,11 +394,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
             {!isPregnant && cycleEnabled && (
               <div className="space-y-4 p-4 rounded-2xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-slate-700/60">
+                {/* inline: تقویم ساده همیشه باز، بدون دکمه محرک و بدون مودال/پنل
+                    روی‌هم؛ همان چیزی که بقیه اپ برای ثبت تاریخ می‌بیند، نه
+                    پنل «ویرایش پریود» (که کنارش اسلایدر طول چرخه و... دارد). */}
                 <JalaliDatePicker
                   labelFa="روز اول آخرین پریود"
                   value={lastPeriod}
                   onChange={setLastPeriod}
                   allowFuture={false}
+                  inline
                 />
 
                 <div className="flex items-center justify-between gap-3">
