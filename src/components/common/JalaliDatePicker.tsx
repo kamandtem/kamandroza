@@ -113,9 +113,9 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
         </button>
       </div>
 
-      <div className={`grid grid-cols-7 text-center ${compact ? 'gap-0.5' : 'gap-1'}`}>
+      <div className="grid grid-cols-7 gap-1 text-center">
         {PERSIAN_WEEK_HEADERS.map((day) => (
-          <span key={day} className={`font-bold text-slate-400 ${compact ? 'text-[9px] py-0' : 'text-xs py-1'}`}>
+          <span key={day} className={`font-bold text-slate-400 ${compact ? 'text-[10px] py-0' : 'text-xs py-1'}`}>
             {day}
           </span>
         ))}
@@ -135,7 +135,7 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
                 onChange(cell.iso as string);
                 if (!inline) setIsOpen(false);
               }}
-              className={`icon-only rounded-xl font-bold transition-all ${compact ? 'h-6 text-[11px] rounded-lg' : 'aspect-square text-sm'} ${
+              className={`icon-only rounded-xl font-bold transition-all aspect-square ${compact ? 'text-xs rounded-lg' : 'text-sm'} ${
                 isSelected
                   ? 'bg-rose-500 text-white'
                   : isToday

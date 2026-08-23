@@ -13,6 +13,12 @@ interface SkinLabProps {
   initialTab?: 'ingredients' | 'conflicts';
   userState: UserState;
   products: Product[];
+  /** دیپ‌لینک: وقتی از جستجوی هوشمند یا جای دیگری به یک ماده خاص هدایت می‌شویم. */
+  initialIngredientId?: string | null;
+  onConsumedInitialIngredient?: () => void;
+  /** دیپ‌لینک: وقتی جستجوی هوشمند یک سؤال «تداخل X با Y» تشخیص داده، مستقیم تداخل‌سنج را با همین دو ماده باز کن. */
+  initialConflictPair?: { firstId: string; secondId: string } | null;
+  onConsumedInitialConflictPair?: () => void;
 }
 
 const SAFETY_STYLE = {
@@ -36,7 +42,14 @@ const SAFETY_LABEL = {
  *  ۲) وضعیت ایمنی هر ترکیب برای این کاربر خاص (بارداری، شیردهی، دارو،
  *     حساسیت) نمایش داده می‌شود. نسخه ۱ فیلدهای ایمنی را داشت ولی هرگز استفاده نمی‌کرد.
  */
-export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', userState }) => {
+export const SkinLab: React.FC<SkinLabProps> = ({
+  initialTab = 'ingredients',
+  userState,
+  initialIngredientId,
+  onConsumedInitialIngredient,
+  initialConflictPair,
+  onConsumedInitialConflictPair,
+}) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Ingredient | null>(null);
@@ -45,6 +58,28 @@ export const SkinLab: React.FC<SkinLabProps> = ({ initialTab = 'ingredients', us
   const [pickerSlot, setPickerSlot] = useState<'first' | 'second' | null>(null);
 
   const medications = useMemo(() => LocalDB.getMedications(), []);
+
+  // دیپ‌لینک از جستجوی هوشمند: مستقیم کارت همان ماده را باز کن.
+  React.useEffect(() => {
+    if (!initialIngredientId) return;
+    const ingredient = INGREDIENTS_DATABASE.find((item) => item.id === initialIngredientId);
+    if (ingredient) {
+      setActiveTab('ingredients');
+      setSelected(ingredient);
+    }
+    onConsumedInitialIngredient?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialIngredientId]);
+
+  // دیپ‌لینک از جستجوی هوشمند: سؤال «تداخل X با Y» بوده، مستقیم تب تداخل‌سنج را با همین دو ماده باز کن.
+  React.useEffect(() => {
+    if (!initialConflictPair) return;
+    setActiveTab('conflicts');
+    setFirstId(initialConflictPair.firstId);
+    setSecondId(initialConflictPair.secondId);
+    onConsumedInitialConflictPair?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConflictPair]);
 
   const filtered = INGREDIENTS_DATABASE.filter((ingredient) => {
     const needle = search.trim().toLowerCase();

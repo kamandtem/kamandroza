@@ -40,9 +40,9 @@ import { addDays, fromIsoDate, getDaysDifference, getTodayIsoDate } from './jala
 // pmsWindowBase/ovulationBase تا ۱۳ عدد هرکدام، medicationBase تا ۶ دارو
 // × ۵۰ عدد).
 const IDS = {
-  morning: 2101,
-  night: 2102,
-  symptom: 2104,
+  dailyMorningBase: 2110,
+  dailyNightBase: 2130,
+  dailySymptomBase: 2150,
   appointmentBase: 2200,
   pmsWindowBase: 2300,
   ovulationBase: 2340,
@@ -54,6 +54,15 @@ const IDS = {
 
 /** حداکثر تعداد روزهای متوالی که برای یک بازه (مثلاً PMS) اعلان جدا می‌سازیم. */
 const MAX_WINDOW_DAYS = 12;
+
+/**
+ * تعداد روزهایی که یادآوری‌های روزانه با ساعت ثابت (روتین صبح/شب، ثبت
+ * علائم) از امروز به بعد از پیش زمان‌بندی می‌شوند — یعنی هر کدام از این
+ * سه یادآوری، ۱۰ اعلانِ جداگانه با تاریخ مطلق (نه یک اعلانِ «تکرارشونده»)
+ * می‌شوند. رجوع کنید به توضیح بالای بخش «یادآوری‌های روزانه» برای این‌که
+ * چرا این الگو جایگزین `on:{hour,minute}+repeats:true` شد.
+ */
+const DAILY_ROLLING_HORIZON_DAYS = 10;
 
 /** حداکثر تعداد یادآوری دارو که از امروز به بعد زمان‌بندی می‌کنیم (برای هر دارو). */
 const MAX_MEDICATION_DAYS = 14;
@@ -77,7 +86,7 @@ const MEDICATION_HOURS: Record<Medication['timing'][number], { hour: number; min
 /** ساعت‌هایی از روز که در آن‌ها یادآور تجدید ضدآفتاب معنا دارد (تابش فعال روز). */
 const UV_CHECK_HOURS = [10, 12, 14, 16, 18];
 
-export type NotificationScheduleResult = 'scheduled' | 'disabled' | 'permission-denied' | 'error';
+export type NotificationScheduleResult = 'scheduled' | 'disabled' | 'permission-denied' | 'exact-alarm-denied' | 'error';
 
 type NotificationList = Parameters<typeof LocalNotifications.schedule>[0]['notifications'];
 
@@ -116,6 +125,132 @@ function pushOneOff(
   });
 }
 
+/**
+ * یک یادآوری روزانه با ساعت ثابت (روتین صبح/شب، ثبت علائم) را برای
+ * `DAILY_ROLLING_HORIZON_DAYS` روز آینده، هرکدام با تاریخ مطلق جدا،
+ * زمان‌بندی می‌کند — به‌جای یک اعلان «تکرارشونده» با `on:{hour,minute}`.
+ *
+ * چرا: نسخه قبل از `schedule.on` بدون تاریخ کامل + `repeats:true` استفاده
+ * می‌کرد که طبق تجربه‌ی گسترده روی ionic-team/capacitor-plugins (ایشوهای
+ * ۴۳۳۲، ۱۷۷۳، ۲۷۵۲) روی اندروید به‌شدت ناپایدار است. این الگو («daroto»،
+ * یک برنامه‌ی خواهر که یادآوری داروی همین کاربر را می‌فرستد) هیچ‌وقت از
+ * `on`/`repeats` استفاده نمی‌کند — همیشه هر occurrence را با یک تاریخ
+ * مطلق (`at`) جداگانه زمان‌بندی می‌کند. اینجا هم دقیقاً همان اصل با
+ * `pushOneOff` (که خودش از تاریخ مطلق استفاده می‌کند) پیاده شده: به‌جای
+ * یک اعلان که قرار است هر روز تکرار شود، ۱۰ اعلانِ واقعی و مجزا برای ۱۰
+ * روز آینده ساخته می‌شود. چون این تابع با هر resume/تغییر تنظیمات دوباره
+ * فراخوانی می‌شود (رجوع کنید به useEffect مربوطه در App.tsx)، تا وقتی
+ * کاربر حداقل هر ۱۰ روز یک‌بار اپ را باز کند، این افق ۱۰‌روزه همیشه
+ * به‌روز می‌ماند — دقیقاً همان مدل «افق چرخشی + resync در resume» که
+ * برنامه‌ی مرجع استفاده می‌کند.
+ *
+ * اگر ساعتِ هدف امروز از پیش گذشته باشد، اعلان امروز رد می‌شود (چون
+ * زمانش گذشته و ساختنش بی‌فایده/احتمالاً نامعتبر است) و افق از فردا
+ * شروع می‌شود.
+ */
+function pushDailyRolling(
+  list: NotificationList,
+  today: string,
+  idBase: number,
+  title: string,
+  body: string,
+  hour: number,
+  minute: number,
+): void {
+  const now = new Date();
+  const passedToday = now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute);
+  const startOffset = passedToday ? 1 : 0;
+  for (let offset = startOffset; offset < startOffset + DAILY_ROLLING_HORIZON_DAYS; offset += 1) {
+    const dateIso = addDays(today, offset);
+    pushOneOff(list, today, dateIso, idBase + offset, title, body, hour, minute);
+  }
+}
+
+/**
+ * سقف زمانی امن برای هر تماس با پلاگین محلی. اگر پل بومی (native bridge)
+ * به هر دلیلی هرگز جواب ندهد (باگ پلاگین، تداخل WebView و غیره)، بدون
+ * این سقف، کل `scheduleRozaNotifications` برای همیشه در حالت pending
+ * می‌ماند و کاربر هیچ‌وقت نه خطا می‌بیند و نه اعلانی می‌گیرد — دقیقاً
+ * همان الگویی که برنامه‌ی مرجع (daroto) برای رفع همین دسته باگ‌های
+ * «بی‌صدا هیچ‌وقت جواب نمی‌ده» اضافه کرده بود.
+ */
+const PLUGIN_CALL_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(`«${label}» بیش از ${PLUGIN_CALL_TIMEOUT_MS / 1000} ثانیه جواب نداد`)), PLUGIN_CALL_TIMEOUT_MS);
+    }),
+  ]);
+}
+
+/**
+ * بررسی مجوز «هشدار دقیق» (Exact Alarm) اندروید ۱۲ به بعد.
+ *
+ * این یک لایه ایمنی جدا از مجوز عمومی نوتیفیکیشن است: کاربر می‌تواند
+ * مجوز نمایش اعلان را داده باشد (granted) ولی مجوز دقیق‌بودن زمان‌بندی
+ * را نداشته باشد — در این حالت سیستم اعلان را همچنان ارسال می‌کند ولی
+ * هیچ تضمینی برای دقیق‌بودن زمانش نیست (ممکن است با تاخیر زیاد یا اصلاً
+ * دیر برسد). چون `checkExactNotificationSetting` فقط از نسخه‌های جدید
+ * پلاگین و فقط روی اندروید در دسترس است، فراخوانی را با try/catch
+ * محافظت می‌کنیم تا روی وب/iOS یا نسخه‌های قدیمی‌تر خطا ندهد.
+ */
+export async function checkExactAlarmStatus(): Promise<'granted' | 'denied' | 'unsupported'> {
+  try {
+    const anyLocalNotifications = LocalNotifications as unknown as {
+      checkExactNotificationSetting?: () => Promise<{ exact_alarm: string }>;
+    };
+    if (typeof anyLocalNotifications.checkExactNotificationSetting !== 'function') return 'unsupported';
+    const result = await withTimeout(anyLocalNotifications.checkExactNotificationSetting(), 'checkExactNotificationSetting');
+    return result.exact_alarm === 'granted' ? 'granted' : 'denied';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+/** کاربر را به صفحه تنظیمات سیستم برای فعال‌کردن «هشدارهای دقیق» می‌برد. */
+export async function openExactAlarmSettings(): Promise<void> {
+  try {
+    const anyLocalNotifications = LocalNotifications as unknown as {
+      changeExactNotificationSetting?: () => Promise<unknown>;
+    };
+    if (typeof anyLocalNotifications.changeExactNotificationSetting === 'function') {
+      await withTimeout(anyLocalNotifications.changeExactNotificationSetting(), 'changeExactNotificationSetting');
+    }
+  } catch {
+    /* روی وب/iOS یا نسخه‌های قدیمی پلاگین موجود نیست */
+  }
+}
+
+/**
+ * یک اعلان تشخیصی واقعی، ۵ ثانیه بعد. برای این‌که کاربر (یا خودمان موقع
+ * دیباگ) بدون صبر کردن تا فردا صبح، بلافاصله بفهمد کل زنجیره — پلاگین →
+ * مجوز → schedule واقعی روی گوشی — درست کار می‌کند یا کجا گیر کرده.
+ * دقیقاً همان الگوی «تست نوتیفیکیشن» برنامه‌ی مرجع daroto.
+ */
+export async function sendTestNotification(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await withTimeout(
+      LocalNotifications.schedule({
+        notifications: [
+          {
+            id: 9999,
+            title: 'رزا',
+            body: 'اگه این پیام رو می‌بینی، زمان‌بندی اعلان روی گوشیت درست کار می‌کند.',
+            schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+            channelId: 'roza-care',
+          },
+        ],
+      }),
+      'schedule (test)',
+    );
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: String(error) };
+  }
+}
+
 export async function scheduleRozaNotifications(userState: UserState): Promise<NotificationScheduleResult> {
   try {
     const settings = userState.notifications;
@@ -124,7 +259,7 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
       return 'disabled';
     }
 
-    const permission = await LocalNotifications.checkPermissions();
+    const permission = await withTimeout(LocalNotifications.checkPermissions(), 'checkPermissions');
     // مشکل نسخه قبل: نتیجه این تابع (true/false) در App.tsx نادیده گرفته
     // می‌شد. اگر کاربر یک‌بار مجوز اعلان را رد می‌کرد (خیلی رایج، چون
     // اندروید ۱۳+ و iOS همان بار اول این پرامپت را نشان می‌دهند)، تمام
@@ -132,21 +267,40 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
     // نمی‌شد و کاربر هیچ نشانه‌ای نمی‌دید. الان وضعیت واقعی برگردانده
     // می‌شود تا رابط کاربری بتواند هشدار «برو تنظیمات سیستم را باز کن»
     // نشان دهد.
-    const granted = permission.display === 'granted' ? permission : await LocalNotifications.requestPermissions();
+    const alreadyGranted = permission.display === 'granted';
+    const granted = alreadyGranted ? permission : await withTimeout(LocalNotifications.requestPermissions(), 'requestPermissions');
     if (granted.display !== 'granted') {
       await cancelRozaNotifications();
       return 'permission-denied';
     }
 
-    await LocalNotifications.createChannel({
-      id: 'roza-care',
-      name: 'یادآوری‌های رزا',
-      description: 'یادآوری روتین، چرخه، نوبت و هواشناسی',
-      importance: 3,
-      visibility: settings.discreetText ? 0 : 1,
-      sound: 'default',
-      vibration: true,
-    }).catch(() => undefined);
+    // فقط دقیقاً همان لحظه‌ای که مجوز تازه گرفته می‌شود (نه هر resume/تغییر
+    // تنظیمات روزمره‌ای که از قبل granted بوده) کاربر را — اگر لازم بود —
+    // یک‌بار مستقیم به تنظیمات «هشدار دقیق» می‌بریم. دقیقاً همان الگوی
+    // برنامه‌ی مرجع daroto: به‌جای این‌که فقط بعداً غیرفعال‌بودنش را گزارش
+    // کنیم، همان لحظه‌ی اول که کاربر اعلان‌ها را روشن می‌کند سعی می‌کنیم
+    // مشکل را حل کنیم، نه فقط تشخیصش بدهیم. اگر هر resync بعدی هم همین کار
+    // را می‌کرد، هر بار که اپ برمی‌گردد کاربر ناخواسته به صفحه تنظیمات
+    // پرتاب می‌شد — مزاحم و غیرضروری.
+    if (!alreadyGranted) {
+      const exactStatus = await checkExactAlarmStatus();
+      if (exactStatus === 'denied') {
+        await openExactAlarmSettings();
+      }
+    }
+
+    await withTimeout(
+      LocalNotifications.createChannel({
+        id: 'roza-care',
+        name: 'یادآوری‌های رزا',
+        description: 'یادآوری روتین، چرخه، نوبت و هواشناسی',
+        importance: 3,
+        visibility: settings.discreetText ? 0 : 1,
+        sound: 'default',
+        vibration: true,
+      }),
+      'createChannel',
+    ).catch(() => undefined);
 
     await cancelRozaNotifications();
 
@@ -156,38 +310,50 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
     const title = 'رزا';
     const genericBody = 'یک یادآوری در برنامه داری. باز کن.';
 
+    // یادآوری‌های روزانه با ساعت ثابت (روتین صبح/شب، ثبت علائم):
+    //
+    // ریشه اصلی باگ گزارش‌شده («ساعت را تنظیم می‌کنم، آن لحظه می‌رسد ولی
+    // اعلانی نمی‌آید»): این سه اعلان قبلاً با `schedule.on:{hour,minute}`
+    // (با یا بدون `repeats`) ساخته می‌شدند — رجوع کنید به توضیح کامل بالای
+    // pushDailyRolling برای این‌که چرا این کل الگو کنار گذاشته شد و به‌جایش
+    // هرکدام به ۱۰ اعلانِ روزانه‌ی مجزا با تاریخ مطلق تبدیل شدند (همان
+    // اصلی که برنامه‌ی مرجع daroto برای هر یادآوری واقعی خودش استفاده
+    // می‌کند: هیچ‌وقت به تکرارِ خودکارِ سیستم‌عامل اعتماد نکن).
     if (settings.morningRoutine) {
-      notifications.push({
-        id: IDS.morning,
+      pushDailyRolling(
+        notifications,
+        today,
+        IDS.dailyMorningBase,
         title,
-        body: 'وقت روتین صبح است. ضدآفتاب را فراموش نکن.',
-        schedule: { on: { hour: settings.morningHour, minute: settings.morningMinute }, allowWhileIdle: true },
-        channelId: 'roza-care',
-      });
+        'وقت روتین صبح است. ضدآفتاب را فراموش نکن.',
+        settings.morningHour,
+        settings.morningMinute,
+      );
     }
 
     if (settings.nightRoutine) {
-      notifications.push({
-        id: IDS.night,
+      pushDailyRolling(
+        notifications,
+        today,
+        IDS.dailyNightBase,
         title,
-        body: 'چند دقیقه برای روتین شب وقت بگذار.',
-        schedule: { on: { hour: settings.nightHour, minute: settings.nightMinute }, allowWhileIdle: true },
-        channelId: 'roza-care',
-      });
+        'چند دقیقه برای روتین شب وقت بگذار.',
+        settings.nightHour,
+        settings.nightMinute,
+      );
     }
 
     // یادآوری ثبت علائم روزانه — با ساعتی که کاربر خودش انتخاب کرده
     if (settings.symptomReminder) {
-      notifications.push({
-        id: IDS.symptom,
+      pushDailyRolling(
+        notifications,
+        today,
+        IDS.dailySymptomBase,
         title,
-        body: discreetOr(discreet, genericBody, 'وقتشه علائم امروزت را در بخش سیکل ثبت کنی.'),
-        schedule: {
-          on: { hour: settings.symptomReminderHour, minute: settings.symptomReminderMinute },
-          allowWhileIdle: true,
-        },
-        channelId: 'roza-care',
-      });
+        discreetOr(discreet, genericBody, 'وقتشه علائم امروزت را در بخش سیکل ثبت کنی.'),
+        settings.symptomReminderHour,
+        settings.symptomReminderMinute,
+      );
     }
 
     /* ------------------------- یادآوری‌های چرخه ------------------------- */
@@ -420,8 +586,18 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
         : notifications;
 
     if (finalNotifications.length > 0) {
-      await LocalNotifications.schedule({ notifications: finalNotifications });
+      await withTimeout(LocalNotifications.schedule({ notifications: finalNotifications }), 'schedule');
     }
+
+    // حتی وقتی اعلان‌ها با موفقیت زمان‌بندی شدند، اگر اندروید هشدار دقیق
+    // را غیرفعال کرده باشد، بگو — چون این دقیقاً همان حالتی است که کاربر
+    // «تنظیم می‌کنم ولی سر وقت نمی‌رسد» را تجربه می‌کند، بدون این‌که هیچ
+    // خطایی دیده شود.
+    const exactAlarmStatus = await checkExactAlarmStatus();
+    if (exactAlarmStatus === 'denied') {
+      return 'exact-alarm-denied';
+    }
+
     return 'scheduled';
   } catch (error) {
     console.warn('Local notifications unavailable', error);
@@ -431,11 +607,14 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
 
 export async function cancelRozaNotifications(): Promise<void> {
   try {
-    const pending = await LocalNotifications.getPending();
+    const pending = await withTimeout(LocalNotifications.getPending(), 'getPending');
     if (pending.notifications.length > 0) {
-      await LocalNotifications.cancel({
-        notifications: pending.notifications.map((item) => ({ id: item.id })),
-      });
+      await withTimeout(
+        LocalNotifications.cancel({
+          notifications: pending.notifications.map((item) => ({ id: item.id })),
+        }),
+        'cancel',
+      );
     }
   } catch {
     /* در وب موجود نیست */

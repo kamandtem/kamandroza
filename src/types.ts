@@ -236,6 +236,11 @@ export interface Ingredient {
   name: string;
   nameFa: string;
   category: 'active' | 'hydrator' | 'soother' | 'exfoliant' | 'antioxidant' | 'barrier_repair' | 'oil';
+  /**
+   * نام‌های رایج/محاوره‌ای/غلط‌نویسی‌های رایج این ماده (فارسی و انگلیسی).
+   * فقط برای جستجو استفاده می‌شود؛ در UI نمایش رسمی نداده نمی‌شود.
+   */
+  commonNamesFa?: string[];
   benefitsFa: string[];
   risksFa?: string[];
   suitableSkinTypes: SkinType[];

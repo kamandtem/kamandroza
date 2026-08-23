@@ -11,6 +11,7 @@ import { addDays, formatJalaliDayMonth, getDaysDifference, getTodayIsoDate, toPe
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
 import { PrettySelect } from '../common/PrettySelect';
+import { BrandAutocomplete } from '../common/BrandAutocomplete';
 
 interface ProductShelfProps {
   products: Product[];
@@ -29,6 +30,27 @@ export const CATEGORY_LABELS: Record<ProductCategory, string> = {
   toner: 'تونر',
   exfoliant: 'لایه‌بردار',
   haircare: 'مراقبت از مو',
+};
+
+/**
+ * راهنمای فیلد «نام محصول»، مخصوص هر نوع.
+ *
+ * قبلاً هم «نام محصول» و هم «نوع محصول» را می‌پرسیدیم بدون اینکه روشن باشد
+ * فرق‌شان چیست؛ کاربر معمولاً همان نوع را (که بالاتر/پایین‌تر انتخاب کرده)
+ * دوباره در نام می‌نوشت. حالا «نوع» اول انتخاب می‌شود و این راهنما نشان
+ * می‌دهد در «نام» باید همان برچسب دقیق روی بسته نوشته شود، نه نوع کلی.
+ */
+const NAME_PLACEHOLDER_BY_CATEGORY: Record<ProductCategory, string> = {
+  cleanser: 'مثلاً: ژل شست‌وشوی صورت',
+  moisturizer: 'مثلاً: کرم مرطوب‌کننده روزانه',
+  serum: 'مثلاً: سرم ویتامین C روشن‌کننده',
+  sunscreen: 'مثلاً: ضدآفتاب بی‌رنگ فاقد چربی SPF50',
+  treatment: 'مثلاً: ژل موضعی ضدجوش',
+  mask: 'مثلاً: ماسک خاک رس',
+  eyecare: 'مثلاً: کرم دور چشم ضدپف',
+  toner: 'مثلاً: تونر آبرسان بدون الکل',
+  exfoliant: 'مثلاً: لایه‌بردار اسیدی BHA',
+  haircare: 'مثلاً: شامپو ضدریزش مو',
 };
 
 /**
@@ -215,20 +237,21 @@ export const ProductShelf: React.FC<ProductShelfProps> = ({ products, onUpdatePr
               </button>
             </div>
 
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="نام محصول"
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            />
-            <input
-              value={brand}
-              onChange={(event) => setBrand(event.target.value)}
-              placeholder="برند (مانند لافارر، سینره، سی‌گل)"
-              className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
-            />
-
             <PrettySelect label="نوع محصول" value={category} onChange={(value) => setCategory(value as ProductCategory)} options={Object.entries(CATEGORY_LABELS).map(([key, label]) => ({ value: key, label }))} />
+
+            <div>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={NAME_PLACEHOLDER_BY_CATEGORY[category]}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold"
+              />
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 px-1">
+                همان اسمی که روی بسته نوشته شده را وارد کن؛ نوع محصول را بالاتر انتخاب کردی.
+              </p>
+            </div>
+
+            <BrandAutocomplete value={brand} onChange={setBrand} labelFa="برند" />
 
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <button type="button" onClick={() => setIngredientsOpen((value) => !value)} className="w-full min-h-[58px] px-4 py-3 flex items-center justify-between gap-3 text-right bg-slate-50 dark:bg-slate-800">

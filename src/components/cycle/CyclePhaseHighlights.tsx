@@ -194,10 +194,16 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ highlights, startIndex, accen
       dir="ltr"
     >
       <div className="relative w-full h-full max-w-md mx-auto overflow-hidden">
+        {/* object-contain: تصویر عمودی ۹:۱۶ باید کامل و بدون برش دیده بشود؛ با
+            object-cover قبلی، روی گوشی‌هایی که نسبت صفحه‌شان از ۹:۱۶ کشیده‌تر
+            بود (اکثر گوشی‌های امروزی)، تصویر برای پرکردن کل صفحه بزرگ‌نمایی
+            و از چپ/راست برش می‌خورد — همان چیزی که به‌نظر «کش‌آمده» می‌رسید.
+            پس‌زمینه مشکی پشت خودِ کانتینر، هر فضای خالی احتمالی بالا/پایین
+            یا کنار را هم به‌شکل نوار مشکیِ استاندارد استوری پر می‌کند. */}
         <img
           src={images[slideIndex]}
           alt={currentHighlight.titleFa}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           draggable={false}
         />
 

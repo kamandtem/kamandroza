@@ -18,7 +18,7 @@ import { SkinConcern, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
 import { toPersianDigits, getAgeFromBirthDate } from '../../services/jalali';
 import { wipeAllData } from '../../services/storage/persistence';
-import { NotificationScheduleResult } from '../../services/notificationService';
+import { NotificationScheduleResult, openExactAlarmSettings, sendTestNotification } from '../../services/notificationService';
 import { ToggleSwitch } from '../common/ToggleSwitch';
 import { PrettySelect } from '../common/PrettySelect';
 import { BirthDatePicker } from '../common/BirthDatePicker';
@@ -30,6 +30,17 @@ interface ProfileViewProps {
   onUpdateState: (state: UserState) => void;
   /** آخرین نتیجه واقعیِ تلاش برای زمان‌بندی اعلان‌ها (نه صرفاً مقدار تنظیمات). */
   notificationStatus?: NotificationScheduleResult | null;
+}
+
+/**
+ * از بیرون (App.tsx) لازم است بدانیم آیا کاربر تغییری داده که هنوز
+ * «ذخیره تغییرات» نزده، تا وقتی می‌خواهد از صفحه تنظیمات خارج شود
+ * (تب دیگر، دکمه برگشت، منو، جستجو و…) از او بپرسیم. چون draft داخل
+ * همین کامپوننت زندگی می‌کند، این وضعیت را با ref به بیرون می‌دهیم.
+ */
+export interface ProfileViewHandle {
+  hasUnsavedChanges: () => boolean;
+  saveChanges: () => void;
 }
 
 const SKIN_TYPE_LABELS: Record<SkinType, string> = {
@@ -105,9 +116,10 @@ const Toggle: React.FC<{ labelFa: string; value: boolean; onChange: (value: bool
  * قفل PIN، کنترل دیده شدن بخش چرخه و متن خنطی اعلان‌ها.
  * حذف شد: XP و سطح که هیچ منطقی نداشتند.
  */
-export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateState, notificationStatus }) => {
+export const ProfileView = React.forwardRef<ProfileViewHandle, ProfileViewProps>(({ userState, onUpdateState, notificationStatus }, ref) => {
   const [draft, setDraft] = useState<UserState>(userState);
   const [savedMessage, setSavedMessage] = useState(false);
+  const [testNotificationState, setTestNotificationState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
 
   const save = () => {
     onUpdateState(draft);
@@ -115,6 +127,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
     setSavedMessage(true);
     setTimeout(() => setSavedMessage(false), 2500);
   };
+
+  React.useImperativeHandle(ref, () => ({
+    hasUnsavedChanges: () => JSON.stringify(draft) !== JSON.stringify(userState),
+    saveChanges: save,
+  }), [draft, userState]);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -376,6 +393,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
           </div>
         )}
 
+        {/*
+          «هشدار دقیق» (Exact Alarm) یک مجوز جداگانه از مجوز عمومی نوتیفیکیشن
+          است که از اندروید ۱۲ به بعد وجود دارد. مشکل رایج «ساعتشو تنظیم
+          می‌کنم ولی سر وقت نمی‌آد» معمولاً همین‌جاست: مجوز نمایش اعلان
+          داده شده، ولی سیستم اجازه زمان‌بندی دقیق را نداده، پس اعلان یا با
+          تاخیر زیاد می‌رسد یا اصلاً نمی‌رسد — بدون هیچ خطای قابل‌مشاهده‌ای.
+        */}
+        {draft.notifications.enabled && notificationStatus === 'exact-alarm-denied' && (
+          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-start gap-2.5">
+            <BellOff size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <span className="text-xs font-bold text-amber-800 dark:text-amber-300 leading-5 flex-1">
+              اعلان‌ها زمان‌بندی شدند ولی گوشی اجازه «هشدار دقیق» را نداده — یعنی ممکن است سر ساعت تنظیم‌شده نرسند.
+              برای رفع قطعی این مشکل، «هشدارها و یادآورها» را برای رزا در تنظیمات گوشی فعال کن.
+              <button
+                type="button"
+                onClick={() => void openExactAlarmSettings()}
+                className="block mt-2 text-amber-900 dark:text-amber-200 underline font-black"
+              >
+                باز کردن تنظیمات هشدار دقیق
+              </button>
+            </span>
+          </div>
+        )}
+
         {draft.notifications.enabled && (
           <>
             <div className="grid grid-cols-2 gap-2">
@@ -562,6 +603,37 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
         <a href="mailto:arjmandmahtab7@gmail.com?subject=پیشنهاد%20برای%20رزا" className="block w-full text-center py-3 rounded-2xl bg-[#eef3fa] dark:bg-slate-800 text-[#263b56] dark:text-white text-sm font-bold">ارسال پیام به برنامه‌نویس</a>
       </Section>
 
+      {/*
+        عیب‌یابی اعلان‌ها — عمداً کم‌دیده و بسته‌به‌طور‌پیش‌فرض (details/summary،
+        نه یک Section همیشه-باز مثل بقیه). این ابزار برای کاربر روزمره نیست؛
+        برای وقتی است که خودِ کاربر یا برنامه‌نویس نیاز دارد بدون صبر تا فردا
+        صبح بفهمد زنجیره‌ی اعلان‌ها (پلاگین → مجوز → زمان‌بندی روی گوشی) واقعاً
+        کار می‌کند یا کجا گیر کرده.
+      */}
+      <details className="group p-4 rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800">
+        <summary className="text-xs font-bold text-slate-400 dark:text-slate-500 cursor-pointer select-none">
+          عیب‌یابی اعلان‌ها
+        </summary>
+        <div className="mt-3 space-y-2">
+          <button
+            type="button"
+            onClick={async () => {
+              setTestNotificationState('sending');
+              const result = await sendTestNotification();
+              setTestNotificationState(result.ok ? 'sent' : 'failed');
+              setTimeout(() => setTestNotificationState('idle'), 4000);
+            }}
+            disabled={testNotificationState === 'sending'}
+            className="w-full py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold disabled:opacity-60"
+          >
+            {testNotificationState === 'sending' && 'در حال ارسال…'}
+            {testNotificationState === 'sent' && 'فرستاده شد — ۵ ثانیه صبر کن'}
+            {testNotificationState === 'failed' && 'ارسال نشد، دوباره امتحان کن'}
+            {testNotificationState === 'idle' && 'ارسال یک اعلان تستی (۵ ثانیه دیگر)'}
+          </button>
+        </div>
+      </details>
+
       <button
         onClick={save}
         className="w-full py-3.5 rounded-2xl bg-gradient-to-l from-rose-500 to-amber-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
@@ -582,4 +654,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateSta
       </p>
     </div>
   );
-};
+});
+
+ProfileView.displayName = 'ProfileView';

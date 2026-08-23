@@ -9,10 +9,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "cap:sync": "npx cap sync",
+    "cap:sync": "npx cap sync && node scripts/ensure-notification-permissions.mjs",
     "cap:open:android": "npx cap open android",
-    "android:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
-    "android:release": "npm run build && npx cap sync android && cd android && ./gradlew bundleRelease"
+    "android:build": "npm run build && npx cap sync android && node scripts/ensure-notification-permissions.mjs && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run build && npx cap sync android && node scripts/ensure-notification-permissions.mjs && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@capacitor/app": "^7.0.1",

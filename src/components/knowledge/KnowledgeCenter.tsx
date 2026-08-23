@@ -16,13 +16,26 @@ import { toPersianDigits } from '../../services/jalali';
  * چون از نظر محتوایی به دانشنامه نزدیک‌تر است تا به ابزار تداخل‌سنجی).
  * این دو با هم قاطی نمی‌شوند؛ یک سوییچ تب بالای صفحه بینشان جابه‌جا می‌کند.
  */
-export const KnowledgeCenter: React.FC = () => {
+interface KnowledgeCenterProps {
+  /** دیپ‌لینک از جستجوی هوشمند: مستقیم یک مقاله خاص را باز کن. */
+  initialArticleId?: string | null;
+  /** دیپ‌لینک از جستجوی هوشمند: مستقیم تب عوارض پوستی را باز کن و روی این عارضه اسکرول کن. */
+  initialConditionId?: string | null;
+  onConsumedInitialDeepLink?: () => void;
+}
+
+export const KnowledgeCenter: React.FC<KnowledgeCenterProps> = ({
+  initialArticleId,
+  initialConditionId,
+  onConsumedInitialDeepLink,
+}) => {
   const [activeTab, setActiveTab] = useState<'articles' | 'conditions'>('articles');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [selected, setSelected] = useState<Article | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
   const [conditionSearch, setConditionSearch] = useState('');
+  const [highlightedConditionId, setHighlightedConditionId] = useState<string | null>(null);
 
   const categories = [
     { id: 'all', label: 'همه' },
@@ -46,6 +59,37 @@ export const KnowledgeCenter: React.FC = () => {
       condition.symptomsFa.some((symptom) => symptom.includes(needle))
     );
   });
+
+  // دیپ‌لینک از جستجوی هوشمند: مستقیم همان مقاله را باز کن.
+  React.useEffect(() => {
+    if (!initialArticleId) return;
+    const article = [...ARTICLES_DATABASE, ...EXTRA_ARTICLES, ...TREND_ARTICLES].find(
+      (item) => item.id === initialArticleId,
+    );
+    if (article) {
+      setActiveTab('articles');
+      setSelected(article);
+    }
+    onConsumedInitialDeepLink?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialArticleId]);
+
+  // دیپ‌لینک از جستجوی هوشمند: تب عوارض پوستی را باز کن و روی همان عارضه هایلایت بزن.
+  React.useEffect(() => {
+    if (!initialConditionId) return;
+    const exists = SKIN_CONDITIONS_DATABASE.some((item) => item.id === initialConditionId);
+    if (exists) {
+      setActiveTab('conditions');
+      setConditionSearch('');
+      setHighlightedConditionId(initialConditionId);
+      window.setTimeout(() => {
+        document.getElementById(initialConditionId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
+      window.setTimeout(() => setHighlightedConditionId((current) => (current === initialConditionId ? null : current)), 3000);
+    }
+    onConsumedInitialDeepLink?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConditionId]);
 
   return (
     <div className="pb-[calc(var(--safe-bottom)+7rem)] pt-3 px-4 max-w-lg mx-auto space-y-4">
@@ -171,7 +215,7 @@ export const KnowledgeCenter: React.FC = () => {
           </div>
 
           {filteredConditions.map((condition) => (
-            <ConditionCard key={condition.id} condition={condition} />
+            <ConditionCard key={condition.id} condition={condition} highlighted={highlightedConditionId === condition.id} />
           ))}
         </div>
       )}
@@ -202,8 +246,23 @@ export const KnowledgeCenter: React.FC = () => {
   );
 };
 
-const ConditionCard: React.FC<{ condition: SkinConditionInfo }> = ({ condition }) => (
-  <details className="group rounded-3xl bg-white dark:bg-slate-900 border border-rose-100 dark:border-slate-800 overflow-hidden">
+const ConditionCard: React.FC<{ condition: SkinConditionInfo; highlighted?: boolean }> = ({ condition, highlighted }) => {
+  const detailsRef = React.useRef<HTMLDetailsElement>(null);
+
+  // وقتی از جستجوی هوشمند به این عارضه هدایت می‌شویم، خودش را باز کن
+  // (imperative روی ref، نه prop کنترل‌شده — details اصلاً حالت کنترل‌شده تمیزی در React ندارد).
+  React.useEffect(() => {
+    if (highlighted && detailsRef.current) detailsRef.current.open = true;
+  }, [highlighted]);
+
+  return (
+  <details
+    ref={detailsRef}
+    id={condition.id}
+    className={`group rounded-3xl bg-white dark:bg-slate-900 border overflow-hidden transition-colors ${
+      highlighted ? 'border-rose-400 ring-2 ring-rose-200 dark:ring-rose-900' : 'border-rose-100 dark:border-slate-800'
+    }`}
+  >
     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       {/* عکس بزرگ و تمام‌عرض — قبلاً فقط تامبنیل ۴۸ در ۴۸ بود و عکس عارضه عملاً دیده نمی‌شد.
           حالا مثل کارت مقالات، عکس تمام‌عرض بالای کارت است. */}
@@ -254,4 +313,5 @@ const ConditionCard: React.FC<{ condition: SkinConditionInfo }> = ({ condition }
       </p>
     </div>
   </details>
-);
+  );
+};

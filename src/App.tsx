@@ -22,7 +22,7 @@ import { KnowledgeCenter } from './components/knowledge/KnowledgeCenter';
 import { SkinLab } from './components/lab/SkinLab';
 import { ProductShelf } from './components/products/ProductShelf';
 import { ProgressTracker } from './components/progress/ProgressTracker';
-import { ProfileView } from './components/profile/ProfileView';
+import { ProfileView, ProfileViewHandle } from './components/profile/ProfileView';
 import { CycleDashboard } from './components/cycle/CycleDashboard';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { FaceMasksView } from './components/masks/FaceMasksView';
@@ -31,6 +31,8 @@ import { MakeupTipsView } from './components/makeup/MakeupTipsView';
 import { PersonalRoutineView } from './components/routine/PersonalRoutineView';
 import { SplashScreen } from './components/common/SplashScreen';
 import { RozaGuideView } from './components/guide/RozaGuideView';
+import { SmartSearchModal } from './components/common/SmartSearchModal';
+import { SearchResult } from './services/search/searchEngine';
 
 export type SectionKey =
   | 'profile'
@@ -118,10 +120,59 @@ export default function App() {
   const [homeFocusRequest, setHomeFocusRequest] = useState<{ target: 'sunscreen'; requestedAt: number } | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  /* --------------- تغییرات ذخیره‌نشده در صفحه تنظیمات --------------- */
+  // صفحه تنظیمات (activeSection === 'profile') یک draft محلی دارد و فقط
+  // با زدن «ذخیره تغییرات» واقعاً ثبت می‌شود. اگر کاربر چیزی عوض کرده
+  // ولی هنوز ثبت نکرده و می‌خواهد از این صفحه خارج شود (برگشت، تب پایین،
+  // منو، جستجو، اعلان‌ها)، باید قبل از خروجِ واقعی از او پرسیده شود.
+  const profileViewRef = React.useRef<ProfileViewHandle>(null);
+  const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
+  const requestLeaveProfileIfNeeded = useCallback(
+    (action: () => void) => {
+      if (activeSection === 'profile' && profileViewRef.current?.hasUnsavedChanges()) {
+        setPendingLeaveAction(() => action);
+        return;
+      }
+      action();
+    },
+    [activeSection],
+  );
+
   const [guideInitialTopicId, setGuideInitialTopicId] = useState<string | null>(null);
   const openGuideTopic = (topicId: string) => {
-    setGuideInitialTopicId(topicId);
-    setActiveSection('guide');
+    requestLeaveProfileIfNeeded(() => {
+      setGuideInitialTopicId(topicId);
+      setActiveSection('guide');
+    });
+  };
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [labInitialIngredientId, setLabInitialIngredientId] = useState<string | null>(null);
+  const [labInitialConflictPair, setLabInitialConflictPair] = useState<{ firstId: string; secondId: string } | null>(null);
+  const [knowledgeInitialArticleId, setKnowledgeInitialArticleId] = useState<string | null>(null);
+  const [knowledgeInitialConditionId, setKnowledgeInitialConditionId] = useState<string | null>(null);
+  const handleSearchResultSelect = (result: SearchResult) => {
+    setIsSearchOpen(false);
+    requestLeaveProfileIfNeeded(() => {
+      if (result.type === 'ingredient') {
+        setLabInitialIngredientId(result.id);
+        setActiveSection('lab');
+      } else if (result.type === 'interaction' && result.interaction) {
+        setLabInitialConflictPair({
+          firstId: result.interaction.firstIngredientId,
+          secondId: result.interaction.secondIngredientId,
+        });
+        setActiveSection('lab');
+      } else if (result.type === 'condition') {
+        setKnowledgeInitialConditionId(result.id);
+        setActiveSection('knowledge');
+      } else if (result.type === 'article') {
+        setKnowledgeInitialArticleId(result.id);
+        setActiveSection('knowledge');
+      } else if (result.type === 'guide') {
+        openGuideTopic(result.id);
+      }
+    });
   };
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lastBackAt = React.useRef(0);
@@ -256,7 +307,7 @@ export default function App() {
       return true;
     }
     if (activeSection) {
-      setActiveSection(null);
+      requestLeaveProfileIfNeeded(() => setActiveSection(null));
       return true;
     }
     if (activeTab !== 'home') {
@@ -271,7 +322,7 @@ export default function App() {
       lastBackAt.current = now;
     }
     return true;
-  }, [isDrawerOpen, activeSection, activeTab]);
+  }, [isDrawerOpen, activeSection, activeTab, requestLeaveProfileIfNeeded]);
 
   useEffect(() => {
     let remove: (() => void) | undefined;
@@ -293,9 +344,23 @@ export default function App() {
     LocalDB.saveDailyLog(log);
   };
 
-  const handleUpdateUserState = (state: UserState) => {
-    setUserState(state);
-    LocalDB.saveUserState(state);
+  /**
+   * باگ قبلی: وقتی دو به‌روزرسانی جدا (مثلاً cycleConfig و profile) پشت سر هم و
+   * همزمان (در یک تابع، بدون رندر میانی) صدا زده می‌شدند، هرکدام از روی همان
+   * userState «قدیمی» (کلوژر لحظه‌ی رندر) اسپرد می‌شدند؛ پس دومی، تغییر اولی را
+   * پاک می‌کرد. مشخصاً در «ثبت پریودی از حالت بارداری»: onUpdateCycleConfig ابتدا
+   * enabled را true می‌کرد، اما بلافاصله onUpdateProfile با اسپرد همان userState
+   * قدیمی (که هنوز enabled:false در آن بود) این تغییر را از بین می‌برد و کاربر
+   * دوباره با «هنوز پریودی ثبت نشده» روبه‌رو می‌شد. حالا هم به شکل تابعی (روی
+   * جدیدترین state) و هم به شکل مقدار مستقیم قابل فراخوانی است تا این‌جور
+   * زنجیره‌های به‌روزرسانی هرگز همدیگر را از بین نبرند.
+   */
+  const handleUpdateUserState = (update: UserState | ((prev: UserState) => UserState)) => {
+    setUserState((prev) => {
+      const next = typeof update === 'function' ? (update as (prev: UserState) => UserState)(prev) : update;
+      LocalDB.saveUserState(next);
+      return next;
+    });
   };
 
   const handleUpdateProducts = (next: Product[]) => {
@@ -342,6 +407,7 @@ export default function App() {
 
         {activeSection === 'profile' && (
           <ProfileView
+            ref={profileViewRef}
             userState={userState}
             onUpdateState={handleUpdateUserState}
             notificationStatus={notificationStatus}
@@ -350,11 +416,21 @@ export default function App() {
         {activeSection === 'cycle' && (
           <CycleDashboard
             userState={userState}
-            onUpdateCycleConfig={(config) => handleUpdateUserState({ ...userState, cycleConfig: config })}
-            onUpdateProfile={(profile) => handleUpdateUserState({ ...userState, profile })}
+            onUpdateCycleConfig={(config) => handleUpdateUserState((prev) => ({ ...prev, cycleConfig: config }))}
+            onUpdateProfile={(profile) => handleUpdateUserState((prev) => ({ ...prev, profile }))}
           />
         )}
-        {activeSection === 'lab' && <SkinLab initialTab="ingredients" userState={userState} products={products} />}
+        {activeSection === 'lab' && (
+          <SkinLab
+            initialTab="ingredients"
+            userState={userState}
+            products={products}
+            initialIngredientId={labInitialIngredientId}
+            onConsumedInitialIngredient={() => setLabInitialIngredientId(null)}
+            initialConflictPair={labInitialConflictPair}
+            onConsumedInitialConflictPair={() => setLabInitialConflictPair(null)}
+          />
+        )}
         {activeSection === 'products' && (
           <ProductShelf products={products} onUpdateProducts={handleUpdateProducts} userState={userState} />
         )}
@@ -364,7 +440,16 @@ export default function App() {
         {activeSection === 'clinic' && <AppointmentsView kind="clinic" userState={userState} />}
         {activeSection === 'makeup' && <MakeupTipsView />}
         {activeSection === 'personalRoutine' && <PersonalRoutineView />}
-        {activeSection === 'knowledge' && <KnowledgeCenter />}
+        {activeSection === 'knowledge' && (
+          <KnowledgeCenter
+            initialArticleId={knowledgeInitialArticleId}
+            initialConditionId={knowledgeInitialConditionId}
+            onConsumedInitialDeepLink={() => {
+              setKnowledgeInitialArticleId(null);
+              setKnowledgeInitialConditionId(null);
+            }}
+          />
+        )}
         {activeSection === 'guide' && (
           <RozaGuideView
             initialTopicId={guideInitialTopicId}
@@ -386,27 +471,36 @@ export default function App() {
         todayLog={todayLog}
         onOpenDrawer={() => setIsDrawerOpen(true)}
         onToggleTheme={handleToggleTheme}
-        onNavigateTab={(tab) => { setActiveTab(tab); setActiveSection(null); }}
-        onFocusSunscreenCard={() => { setActiveTab('home'); setActiveSection(null); setHomeFocusRequest({ target: 'sunscreen', requestedAt: Date.now() }); }}
-        onOpenSection={(section) => { setActiveSection(section); setIsDrawerOpen(false); }}
+        onNavigateTab={(tab) => requestLeaveProfileIfNeeded(() => { setActiveTab(tab); setActiveSection(null); })}
+        onFocusSunscreenCard={() => requestLeaveProfileIfNeeded(() => { setActiveTab('home'); setActiveSection(null); setHomeFocusRequest({ target: 'sunscreen', requestedAt: Date.now() }); })}
+        onOpenSection={(section) => requestLeaveProfileIfNeeded(() => { setActiveSection(section); setIsDrawerOpen(false); })}
+        onOpenSearch={() => setIsSearchOpen(true)}
       />
+
+      {isSearchOpen && (
+        <SmartSearchModal
+          onClose={() => setIsSearchOpen(false)}
+          onSelectResult={handleSearchResultSelect}
+          profile={userState.profile}
+        />
+      )}
 
       <DrawerMenu
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         userState={userState}
         cycleVisible={cycleVisible}
-        onNavigateTab={(tab) => {
+        onNavigateTab={(tab) => requestLeaveProfileIfNeeded(() => {
           setActiveSection(null);
           setActiveTab(tab);
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        }}
-        onOpenSection={(section) => {
+        })}
+        onOpenSection={(section) => requestLeaveProfileIfNeeded(() => {
           setActiveSection(section);
           const key = sectionTourKey(section);
           setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        }}
+        })}
         onToggleTheme={handleToggleTheme}
       />
 
@@ -448,8 +542,8 @@ export default function App() {
           {activeTab === 'cycle' && (
             <CycleDashboard
               userState={userState}
-              onUpdateCycleConfig={(config) => handleUpdateUserState({ ...userState, cycleConfig: config })}
-              onUpdateProfile={(profile) => handleUpdateUserState({ ...userState, profile })}
+              onUpdateCycleConfig={(config) => handleUpdateUserState((prev) => ({ ...prev, cycleConfig: config }))}
+              onUpdateProfile={(profile) => handleUpdateUserState((prev) => ({ ...prev, profile }))}
             />
           )}
 
@@ -459,16 +553,50 @@ export default function App() {
 
       <BottomNavigation
         activeTab={activeTab}
-        onTabChange={(tab) => {
+        onTabChange={(tab) => requestLeaveProfileIfNeeded(() => {
           setActiveSection(null);
           setActiveTab(tab);
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        }}
-        onFabClick={() => setActiveSection('personalRoutine')}
+        })}
+        onFabClick={() => requestLeaveProfileIfNeeded(() => setActiveSection('personalRoutine'))}
         fabLabel="افزودن برنامه شخصی امروز"
       />
       {tourKey && <FeatureTourOverlay tourKey={tourKey} onDone={() => setTourKey(null)} />}
+
+      {pendingLeaveAction && (
+        <div className="fixed inset-0 z-[90] bg-[#20334d]/45 flex items-center justify-center p-5">
+          <div className="w-full max-w-sm rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 text-center shadow-2xl space-y-4">
+            <h2 className="text-base font-black text-[#263b56] dark:text-white">تغییرات ثبت نشده</h2>
+            <p className="text-sm leading-7 text-slate-500 dark:text-slate-400">
+              می‌خواهی تغییراتی که در تنظیمات دادی ثبت شود؟
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const action = pendingLeaveAction;
+                  setPendingLeaveAction(null);
+                  action?.();
+                }}
+                className="flex-1 rounded-2xl bg-slate-100 dark:bg-slate-800 py-3 text-sm font-bold"
+              >
+                خیر
+              </button>
+              <button
+                onClick={() => {
+                  profileViewRef.current?.saveChanges();
+                  const action = pendingLeaveAction;
+                  setPendingLeaveAction(null);
+                  action?.();
+                }}
+                className="flex-1 rounded-2xl bg-rose-500 py-3 text-sm font-bold text-white"
+              >
+                بله
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExitConfirm && (
         <div className="fixed inset-0 z-[90] bg-[#20334d]/45 flex items-center justify-center p-5">
