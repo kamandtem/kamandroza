@@ -1,4 +1,5 @@
 import { Ingredient } from '../../types';
+import { normalizeFa } from '../textNormalize';
 
 /**
  * دیتابیس ترکیبات.
@@ -19,7 +20,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     nameFa: 'نیاسینامید (ویتامین B3)',
     commonNamesFa: ['نیاسیناماید', 'ویتامین بی۳', 'نیاسین آمید', 'niacinamide', 'vitamin b3'],
     category: 'active',
-    benefitsFa: ['تنطیم ترشح چربی پوست', 'کاهش التهاب و قرمزی جوش', 'کم‌رنگ کردن لک‌های تیره', 'کاهش ظاهر منافذ'],
+    benefitsFa: ['تنظیم ترشح چربی پوست', 'کاهش التهاب و قرمزی جوش', 'کم‌رنگ کردن لک‌های تیره', 'کاهش ظاهر منافذ'],
     suitableSkinTypes: ['dry', 'oily', 'combination', 'normal', 'sensitive', 'dehydrated'],
     avoidSkinTypes: [],
     usageTime: 'both',
@@ -49,7 +50,7 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     pregnancySafety: 'avoid',
     breastfeedingSafety: 'avoid',
     compatibleIngredientIds: ['ing_hyaluronic_acid', 'ing_niacinamide', 'ing_ceramides', 'ing_panthenol'],
-    avoidCombiningIds: ['ing_salicylic_acid', 'ing_vitamin_c', 'ing_glycolic_acid', 'ing_lactic_acid', 'ing_benzoyl_peroxide'],
+    avoidCombiningIds: ['ing_salicylic_acid', 'ing_vitamin_c', 'ing_glycolic_acid', 'ing_lactic_acid', 'ing_benzoyl_peroxide', 'ing_tretinoin', 'ing_adapalene'],
     conflictReasonFa: 'مصرف همزمان با لایه‌بردارهای اسیدی سد دفاعی را تخریب می‌کند. یکی را صبح و دیگری را شب یا در شب‌های متفاوت استفاده کنید.',
     sideEffectsFa: 'در ۲ تا ۴ هفته اول ممکن است پوسته‌ریزی خفیف، خشکی یا سوزش ایجاد کند.',
     irritationRisk: 'high',
@@ -274,13 +275,14 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     typicalUse: 'leave_on',
     benefitsFa: ['لایه‌برداری ملایم', 'افزایش رطوبت سطح پوست', 'یکدست کردن بافت'],
     suitableSkinTypes: ['normal', 'dry', 'combination', 'dehydrated'],
-    avoidSkinTypes: [],
+    // ملایم‌ترین AHA است، ولی همچنان AHA؛ پوست حساس باید احتیاط کند.
+    avoidSkinTypes: ['sensitive'],
     usageTime: 'night',
     pregnancySafety: 'safe',
     breastfeedingSafety: 'safe',
     compatibleIngredientIds: ['ing_hyaluronic_acid', 'ing_panthenol', 'ing_ceramides', 'ing_niacinamide'],
-    avoidCombiningIds: ['ing_retinol', 'ing_glycolic_acid', 'ing_salicylic_acid'],
-    conflictReasonFa: 'دو لایه‌بردار یا لایه‌بردار با رتینول در یک نوبت، ریسک سوزش را بالا می‌برد.',
+    avoidCombiningIds: ['ing_retinol', 'ing_tretinoin', 'ing_adapalene', 'ing_glycolic_acid', 'ing_salicylic_acid'],
+    conflictReasonFa: 'دو لایه‌بردار یا لایه‌بردار با رتینوئید در یک نوبت، ریسک سوزش را بالا می‌برد.',
     irritationRisk: 'moderate',
     pauseBeforeProcedures: true,
     commonCategoryIds: ['toner', 'exfoliant', 'moisturizer'],
@@ -304,13 +306,13 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     pregnancySafety: 'consult_doctor',
     breastfeedingSafety: 'consult_doctor',
     compatibleIngredientIds: ['ing_niacinamide', 'ing_hyaluronic_acid', 'ing_panthenol', 'ing_ceramides'],
-    avoidCombiningIds: ['ing_retinol', 'ing_tretinoin', 'ing_vitamin_c'],
+    avoidCombiningIds: ['ing_retinol', 'ing_tretinoin', 'ing_adapalene', 'ing_vitamin_c'],
     conflictReasonFa: 'در یک نوبت با رتینوئید یا ویتامین C مصرف نشود؛ یکی را صبح و دیگری را شب بزن.',
     sideEffectsFa: 'خشکی، پوسته‌ریزی و بی‌رنگ کردن پارچه و حوله.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
     commonCategoryIds: ['cleanser', 'treatment'],
-    descriptionFa: 'موثرترین گزینهٔ بدون نسخه برای جوش التهابی؛ با غلطت کم و یک شب در میان شروع کن.',
+    descriptionFa: 'موثرترین گزینهٔ بدون نسخه برای جوش التهابی؛ با غلظت کم و یک شب در میان شروع کن.',
   },
   {
     id: 'ing_tretinoin',
@@ -325,13 +327,15 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     prescriptionOnly: true,
     benefitsFa: ['درمان آکنه', 'نوسازی پوست', 'کاهش لک و چروک'],
     suitableSkinTypes: ['oily', 'combination', 'normal'],
-    avoidSkinTypes: [],
+    // تصحیح ممیزی: رتینولِ OTC ['sensitive'] داشت ولی ترتینوئین — که قوی‌ترین
+    // رتینوئید این دیتابیس است — [] داشت. یعنی قاعده برعکس عمل می‌کرد.
+    avoidSkinTypes: ['sensitive', 'dehydrated', 'dry'],
     usageTime: 'night',
     pregnancySafety: 'avoid',
     breastfeedingSafety: 'avoid',
     compatibleIngredientIds: ['ing_hyaluronic_acid', 'ing_ceramides', 'ing_panthenol', 'ing_niacinamide'],
-    avoidCombiningIds: ['ing_glycolic_acid', 'ing_salicylic_acid', 'ing_lactic_acid', 'ing_benzoyl_peroxide'],
-    conflictReasonFa: 'با لایه‌بردارهای اسیدی در یک نوبت مصرف نشود.',
+    avoidCombiningIds: ['ing_glycolic_acid', 'ing_salicylic_acid', 'ing_lactic_acid', 'ing_benzoyl_peroxide', 'ing_vitamin_c'],
+    conflictReasonFa: 'با لایه‌بردارهای اسیدی یا ویتامین C در یک نوبت مصرف نشود؛ یکی صبح و دیگری شب.',
     sideEffectsFa: 'در هفته‌های اول خشکی و پوسته‌ریزی طبیعی است.',
     irritationRisk: 'high',
     pauseBeforeProcedures: true,
@@ -349,15 +353,16 @@ export const INGREDIENTS_DATABASE: Ingredient[] = [
     activeClass: 'retinoid',
     potency: 'moderate',
     typicalUse: 'leave_on',
-    benefitsFa: ['درمان جوش سرسیاه و زیرپوستی', 'تنطیم نوسازی سلولی'],
+    benefitsFa: ['درمان جوش سرسیاه و زیرپوستی', 'تنظیم نوسازی سلولی'],
     suitableSkinTypes: ['oily', 'combination', 'normal'],
-    avoidSkinTypes: [],
+    // تصحیح ممیزی: هر رتینوئیدی روی پوست حساس و خشک ریسک تحریک دارد.
+    avoidSkinTypes: ['sensitive', 'dehydrated'],
     usageTime: 'night',
     pregnancySafety: 'avoid',
     breastfeedingSafety: 'consult_doctor',
     compatibleIngredientIds: ['ing_niacinamide', 'ing_hyaluronic_acid', 'ing_ceramides', 'ing_panthenol'],
-    avoidCombiningIds: ['ing_glycolic_acid', 'ing_lactic_acid', 'ing_salicylic_acid'],
-    conflictReasonFa: 'همزمان با اسیدهای لایه‌بردار در یک نوبت توصیه نمی‌شود.',
+    avoidCombiningIds: ['ing_glycolic_acid', 'ing_lactic_acid', 'ing_salicylic_acid', 'ing_benzoyl_peroxide'],
+    conflictReasonFa: 'همزمان با اسیدهای لایه‌بردار یا بنزویل پراکساید در یک نوبت توصیه نمی‌شود.',
     irritationRisk: 'moderate',
     pauseBeforeProcedures: true,
     commonCategoryIds: ['treatment'],
@@ -369,11 +374,39 @@ export function findIngredientById(id: string): Ingredient | undefined {
   return INGREDIENTS_DATABASE.find((item) => item.id === id);
 }
 
+/**
+ * پیدا کردن ترکیب از یک متن آزاد (چیزی که کاربر دستی تایپ کرده).
+ *
+ * نسخهٔ قبل فقط تطبیق دقیق داشت و commonNamesFa را کاملاً نادیده می‌گرفت؛
+ * یعنی «رتین آ» یا «Retinol» یا «هیالرونیک» هیچ‌وقت به ترکیب وصل نمی‌شد و
+ * customIngredients عملاً از همهٔ قاعده‌ها جا می‌ماند. حالا سه مرحله:
+ * تطبیق دقیق نرمال‌شده، بعد نام‌های رایج، بعد شامل‌بودن با طول امن.
+ */
 export function findIngredientByName(query: string): Ingredient | undefined {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeFa(query);
   if (!needle) return undefined;
-  return INGREDIENTS_DATABASE.find(
-    (item) => item.id === needle || item.name.toLowerCase() === needle || item.nameFa === query.trim(),
+
+  const namesOf = (item: Ingredient) =>
+    [item.id, item.name, item.nameFa, ...(item.commonNamesFa || [])].map(normalizeFa).filter(Boolean);
+
+  const exact = INGREDIENTS_DATABASE.find((item) => namesOf(item).includes(needle));
+  if (exact) return exact;
+
+  // تطبیق جزئی فقط برای متن‌های به‌قدر کافی بلند، وگرنه خطای کاذب می‌دهد.
+  if (needle.length < 4) return undefined;
+  return INGREDIENTS_DATABASE.find((item) =>
+    namesOf(item).some((name) => name.length >= 4 && (name.includes(needle) || needle.includes(name))),
+  );
+}
+
+/** همهٔ ترکیباتی که در یک متن آزاد (مثل فهرست ترکیبات یک محصول) پیدا می‌شوند. */
+export function findIngredientsInText(text: string): Ingredient[] {
+  const haystack = normalizeFa(text);
+  if (!haystack) return [];
+  return INGREDIENTS_DATABASE.filter((item) =>
+    [item.name, item.nameFa, ...(item.commonNamesFa || [])]
+      .map(normalizeFa)
+      .some((name) => name.length >= 4 && haystack.includes(name)),
   );
 }
 

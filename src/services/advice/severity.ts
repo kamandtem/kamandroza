@@ -5,7 +5,7 @@
  * برای شدت متن یا رنگ بسازد.
  */
 
-import { AdviceSeverity } from '../../types';
+import { AdviceAction, AdviceSeverity } from '../../types';
 
 export const SEVERITY_RANK: Record<AdviceSeverity, number> = {
   INFO: 0,
@@ -59,4 +59,65 @@ export const SEVERITY_STYLE: Record<AdviceSeverity, string> = {
   CAUTION: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200',
   IMPORTANT: 'bg-orange-50 dark:bg-orange-950/40 border-orange-300 dark:border-orange-900/50 text-orange-900 dark:text-orange-200',
   PROFESSIONAL_INSTRUCTION: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200',
+};
+
+/* ------------------------- پل با واژگان قدیمی ایمنی ------------------------- */
+
+/**
+ * لایهٔ ایمنی (safety.ts) با سه سطح blocked/caution/safe کار می‌کند و
+ * SkinLab هم مستقیم همان را نشان می‌داد، در حالی که خانه و روتین با پنج
+ * سطح INFO..PROFESSIONAL_INSTRUCTION حرف می‌زدند. نتیجه: یک ماده در دو
+ * صفحه دو برچسب متفاوت می‌گرفت. این تابع تنها مسیر ترجمه است و هر UI
+ * باید از همین بخواند تا واژگان اپ یکی بماند.
+ */
+export function severityFromSafetyLevel(
+  level: 'blocked' | 'caution' | 'safe',
+): AdviceSeverity | null {
+  if (level === 'blocked') return 'IMPORTANT';
+  if (level === 'caution') return 'CAUTION';
+  return null; // safe یعنی هیچ توصیه‌ای لازم نیست
+}
+
+/** برچسب حالت «مشکلی ندارد» — تا UI خودش متن نسازد. */
+export const SAFE_LABEL_FA = 'برای تو مشکلی ندارد';
+export const SAFE_STYLE =
+  'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200';
+
+/** برچسب و استایل یک سطح، با پوشش حالت safe. یک تابع برای همهٔ صفحه‌ها. */
+export function describeSeverity(severity: AdviceSeverity | null): {
+  labelFa: string;
+  hintFa: string;
+  style: string;
+} {
+  if (severity === null) {
+    return { labelFa: SAFE_LABEL_FA, hintFa: 'لازم نیست کاری کنی.', style: SAFE_STYLE };
+  }
+  return {
+    labelFa: SEVERITY_LABEL_FA[severity],
+    hintFa: SEVERITY_HINT_FA[severity],
+    style: SEVERITY_STYLE[severity],
+  };
+}
+
+/**
+ * کاری که از کاربر خواسته می‌شود، از شدت مشتق می‌شود نه دستی.
+ * قبلاً هر جای کد خودش تصمیم می‌گرفت 'stop' یا 'reduce' بدهد و همین باعث
+ * می‌شد یک نوبت وکس همان action نوبت میکرونیدلینگ را بگیرد.
+ */
+export function actionForSeverity(severity: AdviceSeverity, prescription = false): AdviceAction {
+  // رزا هرگز نمی‌گوید داروی تجویزی را قطع کن؛ حداکثر می‌گوید با پزشکت هماهنگ کن.
+  if (prescription) return 'info';
+  if (severity === 'PROFESSIONAL_INSTRUCTION') return 'stop';
+  if (severity === 'IMPORTANT') return 'pause';
+  if (severity === 'CAUTION') return 'reduce';
+  if (severity === 'SUGGESTION') return 'use';
+  return 'info';
+}
+
+export const ACTION_LABEL_FA: Record<AdviceAction, string> = {
+  info: 'فقط بدان',
+  use: 'می‌توانی استفاده کنی',
+  reduce: 'کمترش کن',
+  pause: 'در این بازه نگه‌دار',
+  stop: 'در این بازه قطع',
 };

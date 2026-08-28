@@ -7,10 +7,10 @@
  * الان: اگر داده نباشد hasData=false می‌شود و کارت کاملاً مخفی می‌ماند.
  */
 
-import { Geolocation } from '@capacitor/geolocation';
 import { WeatherData } from '../types';
 import { isFeatureEnabled } from '../config/appConfig';
 import { readJson, writeJson } from './storage/persistence';
+import { getCurrentLocation } from './locationService';
 
 const CACHE_KEY = 'roza_weather_cache_v2';
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -130,26 +130,12 @@ export async function fetchWeather(city: string, skinType?: string, coords?: Wea
 }
 
 /**
- * موقعیت دقیق برای آب‌وهوا.
- *
- * قبلاً مستقیماً navigator.geolocation صدا زده می‌شد. داخل اپ اندروید/iOS
- * ساخته‌شده با Capacitor، این API مرورگر معمولاً کار نمی‌کند (پرامپت
- * دسترسی هیچ‌وقت درست نمایش داده نمی‌شود)، پس دکمه «موقعیت دقیق من»
- * عملاً همیشه شکست می‌خورد. با پلاگین Geolocation کپسیتور، هم روی اپ
- * نصب‌شده (پرامپت بومی اندروید/iOS) و هم در مرورگر (نسخه وب همین پلاگین)
- * درست کار می‌کند.
+ * موقعیت برای آب‌وهوا — فقط برای تشخیص شهر لازم است، نه مسیریابی دقیق،
+ * پس enableHighAccuracy لازم نیست (باتری کمتر مصرف می‌شود). درخواست
+ * Permission، خواندن GPS و ذخیره‌سازی همه در locationService مرکزی
+ * انجام می‌شود؛ این تابع فقط همان را برای شکل داده آب‌وهوا صدا می‌زند.
  */
 export async function requestWeatherLocation(): Promise<WeatherCoords> {
-  const current = await Geolocation.checkPermissions().catch(() => null);
-  let granted = current?.location === 'granted' || current?.coarseLocation === 'granted';
-  if (!granted) {
-    const requested = await Geolocation.requestPermissions();
-    granted = requested.location === 'granted' || requested.coarseLocation === 'granted';
-  }
-  if (!granted) throw new Error('geolocation_denied');
-
-  const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 });
-  const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-  localStorage.setItem('roza_weather_coords_v1', JSON.stringify(coords));
-  return coords;
+  const location = await getCurrentLocation({ highAccuracy: false, timeoutMs: 12000 });
+  return { latitude: location.latitude, longitude: location.longitude };
 }

@@ -30,6 +30,19 @@ import { DATA_SCHEMA_VERSION } from '../config/appConfig';
 import { readJson, writeJson } from './storage/persistence';
 import { getJalaliToday, jalaliToGregorian, toIsoDate } from './jalali';
 
+/**
+ * پیش‌فرض فیلدهایی که در نسخه‌های قبلی ثبت روزانه وجود نداشتند.
+ * چهار امتیاز علائم پوست حالا ورودی واقعی موتور توصیه‌اند، پس رکوردهای
+ * قدیمی باید عدد داشته باشند نه undefined.
+ */
+const LEGACY_LOG_DEFAULTS = {
+  usedSunscreen: false,
+  rednessScore: 0,
+  drynessScore: 0,
+  acneScore: 0,
+  oilinessScore: 0,
+} as const;
+
 export { INGREDIENTS_DATABASE, findIngredientById, findIngredientByName } from './content/ingredients';
 export { SKIN_CONDITIONS_DATABASE } from './content/conditions';
 export { ARTICLES_DATABASE } from './content/articles';
@@ -223,7 +236,12 @@ export function runMigrations(): void {
   if (legacyLogs && readList<DailyTrackerEntry>(KEYS.dailyLogs).length === 0) {
     writeJson(
       KEYS.dailyLogs,
-      legacyLogs.map((log) => stampMeta<DailyTrackerEntry>({ usedSunscreen: false, ...log, updatedAt: '' })),
+      // پیش‌فرض‌ها با spread می‌آیند تا داده واقعی رکورد رویشان بنشیند.
+      // قبلاً usedSunscreen اسمی و قبل از spread نوشته می‌شد و کامپایلر
+      // هم هشدار می‌داد که مقدار واقعی کاربر بازنویسی خواهد شد.
+      legacyLogs.map((log) =>
+        stampMeta<DailyTrackerEntry>({ ...LEGACY_LOG_DEFAULTS, ...log, updatedAt: '' }),
+      ),
     );
   }
 }

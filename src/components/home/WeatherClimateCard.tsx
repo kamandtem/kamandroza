@@ -18,7 +18,14 @@ import {
 import { WeatherData } from '../../types';
 import { toPersianDigits } from '../../services/jalali';
 
-interface Props { weather: WeatherData; onRequestLocation?: () => void; locationLoading?: boolean; locationError?: boolean; }
+interface Props {
+  weather: WeatherData;
+  onRequestLocation?: () => void;
+  locationLoading?: boolean;
+  locationError?: boolean;
+  /** پیام دقیق خطا از locationService؛ اگر نبود، متن عمومی نشان داده می‌شود. */
+  locationErrorFa?: string | null;
+}
 
 /**
  * آیکون آب‌وهوا بر اساس weather_code سرویس Open-Meteo و شب/روز بودن انتخاب می‌شود؛
@@ -61,7 +68,7 @@ function humidityCategory(h: number): string {
   return 'مرطوب';
 }
 
-export const WeatherClimateCard: React.FC<Props> = ({ weather, onRequestLocation, locationLoading, locationError }) => {
+export const WeatherClimateCard: React.FC<Props> = ({ weather, onRequestLocation, locationLoading, locationError, locationErrorFa }) => {
   if (!weather.hasData) {
     return (
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-700 space-y-3">
@@ -82,7 +89,13 @@ export const WeatherClimateCard: React.FC<Props> = ({ weather, onRequestLocation
             {locationLoading ? 'در حال دریافت موقعیت...' : 'فعال‌کردن موقعیت دقیق'}
           </button>
         )}
-        {locationError && <p className="text-xs text-rose-600 font-bold">اجازه موقعیت داده نشد؛ می‌توانی شهر را در پروفایل وارد کنی.</p>}
+        {/* پیام دقیق همان خطایی که واقعاً رخ داده — نه همیشه «اجازه داده نشد».
+            GPS خاموش، Timeout و رد دائمی هرکدام راه‌حل متفاوتی دارند. */}
+        {locationError && (
+          <p className="text-xs text-rose-600 dark:text-rose-400 font-bold leading-relaxed">
+            {locationErrorFa || 'موقعیت در دسترس نیست؛ می‌توانی شهر را در پروفایل وارد کنی.'}
+          </p>
+        )}
       </div>
     );
   }

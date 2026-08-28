@@ -18,7 +18,8 @@ import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { EmptyState } from '../common/EmptyState';
 import { formatJalaliDate, formatJalaliDayMonth, getTodayIsoDate, toPersianDigits } from '../../services/jalali';
 import { ToggleSwitch } from '../common/ToggleSwitch';
-import { PHASE_INGREDIENTS } from '../../services/cycle/cycleService';
+import { PHASE_GUIDE } from '../../services/cycle/phaseGuide';
+import { proceduresByPhaseSuitability } from '../../services/providers/procedureRules';
 import { ingredientNamesFa } from '../../services/recommendationEngine';
 
 interface CycleDashboardProps {
@@ -26,6 +27,15 @@ interface CycleDashboardProps {
   onUpdateCycleConfig: (config: MenstrualCycleConfig) => void;
   /** برای پایان‌دادن به حالت بارداری وقتی پریود دوباره شروع شده. */
   onUpdateProfile: (profile: SkinProfile) => void;
+  /**
+   * ثبت/حذف پریود مستقیم روی LocalDB نوشته می‌شود (نه userState)، پس
+   * پیش‌بینی PMS/تخمک‌گذاری/شروع پریود که خودِ اعلان‌ها از آن ساخته
+   * می‌شوند، بی‌خبر از این تغییر می‌ماند تا resume بعدی اپ. این تابع
+   * بلافاصله بعد از هر ثبت یا حذف یک پریود صدا زده می‌شود تا زمان‌بندی
+   * اعلان‌ها همان لحظه با پیش‌بینی تازه هماهنگ شود. اختیاری است تا
+   * کامپوننت بدون آن هم (مثلاً در تست) قابل استفاده بماند.
+   */
+  onCycleDataChanged?: () => void;
 }
 
 const SYMPTOMS: { key: SymptomKey; labelFa: string; scale: boolean }[] = [
@@ -44,45 +54,36 @@ const SYMPTOMS: { key: SymptomKey; labelFa: string; scale: boolean }[] = [
 ];
 
 /**
- * توضیح کلی هر فاز + چند نکته‌ی رویه‌ای (نه ترکیب) که به شناسه ترکیب ربطی
- * ندارد. خودِ فهرست ترکیبات پیشنهادی/پرهیزی از PHASE_INGREDIENTS ساخته
- * می‌شود — همان جدولی که کارت «ترکیبات امروز» در خانه هم از آن می‌خواند —
- * تا این دو کارت هرگز با هم ناهم‌خوان نشوند.
+ * فهرست نهایی do/avoid یک فاز.
+ *
+ * سه منبع قبلی حذف شده‌اند: متن فاز از phaseGuide می‌آید (همان منبعی که
+ * کارت خانه و موتور توصیه هم از آن می‌خوانند) و پرهیز پروسیجرها از
+ * procedureRules مشتق می‌شود.
+ *
+ * تناقض واقعی‌ای که با همین تغییر بسته شد: این کارت با متن هاردکد می‌گفت در
+ * فاز لوتئال «نوبت لیزر و اپیلاسیون» نگیر، ولی قواعد نوبت برای لیزر و وکس
+ * فقط قاعدگی را منع کرده بودند؛ پس در روز ۱۶ چرخه، بخش چرخه می‌گفت لیزر
+ * نگیر و بخش نوبت‌ها همان روز را بی‌اشکال نشان می‌داد.
  */
-const PHASE_GUIDE: Record<MenstrualPhase, { titleFa: string; skinFa: string; extraDoFa: string[]; extraAvoidFa: string[] }> = {
-  menstrual: {
-    titleFa: 'قاعدگی',
-    skinFa: 'سد دفاعی حساس‌تر و رطوبت کمتر. احتمال التهاب بیشتر.',
-    extraDoFa: ['شوینده ملایم'],
-    extraAvoidFa: ['پیلینگ و لیزر'],
-  },
-  follicular: {
-    titleFa: 'فولیکولار',
-    skinFa: 'معمولاً مقاوم‌ترین بخش ماه.',
-    extraDoFa: ['لایه‌برداری ملایم', 'بهترین زمان لیزر و فیشیال'],
-    extraAvoidFa: [],
-  },
-  ovulation: {
-    titleFa: 'تخمک‌گذاری',
-    skinFa: 'ترشح چربی رو به افزایش است.',
-    extraDoFa: ['مرطوب‌کننده سبک'],
-    extraAvoidFa: ['کرم‌های سنگین و چرب'],
-  },
-  luteal: {
-    titleFa: 'لوتئال',
-    skinFa: 'منافذ مستعد انسداد و جوش هورمونی.',
-    extraDoFa: [],
-    extraAvoidFa: ['کرم کومدون‌زا', 'دستکاری جوش', 'نوبت لیزر و اپیلاسیون'],
-  },
-};
-
-/** فهرست نهایی do/avoid یک فاز: نام ترکیبات (از همان منبع کارت خانه) + نکات رویه‌ای فاز. */
-function buildPhaseLists(phase: MenstrualPhase) {
-  const ingredients = PHASE_INGREDIENTS[phase];
+function buildPhaseLists(phase: MenstrualPhase, inPmsWindow: boolean) {
   const guide = PHASE_GUIDE[phase];
+  const procedures = proceduresByPhaseSuitability(phase, inPmsWindow);
+
   return {
-    doFa: [...ingredientNamesFa(ingredients.recommendedIds), ...guide.extraDoFa],
-    avoidFa: [...ingredientNamesFa(ingredients.avoidIds), ...guide.extraAvoidFa],
+    doFa: [
+      ...ingredientNamesFa(guide.recommendedIds),
+      ...guide.extraDoFa,
+      ...procedures.goodFa.slice(0, 3).map((label) => `زمان مناسب ${label}`),
+    ],
+    avoidFa: [
+      ...guide.extraAvoidFa,
+      ...procedures.avoidFa.map((label) => `نوبت ${label}`),
+    ],
+    cautionFa: [
+      ...ingredientNamesFa(guide.cautionIds).map((name) => `${name} را کم کن`),
+      ...procedures.cautionFa.map((label) => `نوبت ${label}`),
+    ],
+    cautionReasonFa: guide.cautionReasonFa,
   };
 }
 
@@ -94,7 +95,12 @@ function buildPhaseLists(phase: MenstrualPhase) {
  * «جوش‌های تو معمولاً از روز ۲۳ شروع و روز ۲۷ به اوج می‌رسند».
  * این تنها چیزی است که کاربر جای دیگری تولید نمی‌شود.
  */
-export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpdateCycleConfig, onUpdateProfile }) => {
+export const CycleDashboard: React.FC<CycleDashboardProps> = ({
+  userState,
+  onUpdateCycleConfig,
+  onUpdateProfile,
+  onCycleDataChanged,
+}) => {
   const [refresh, setRefresh] = useState(0);
   const bump = () => setRefresh((value) => value + 1);
   const todayIso = getTodayIsoDate();
@@ -194,6 +200,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
     setManualDate('');
     setShowManual(false);
     bump();
+    onCycleDataChanged?.();
   };
 
   /* ------------------------- ثبت علائم امروز ------------------------- */
@@ -221,7 +228,8 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
   const maxBucket = Math.max(1, ...(acnePattern?.buckets || []).map((bucket) => bucket.average));
 
   const phaseGuide = PHASE_GUIDE[selectedPhase];
-  const phaseLists = buildPhaseLists(selectedPhase);
+  // بازهٔ PMS فقط وقتی معنا دارد که فاز انتخابی همان فاز واقعی امروز باشد.
+  const phaseLists = buildPhaseLists(selectedPhase, selectedPhase === state.phase && state.inPmsWindow);
   const otherPeriodLogs = useMemo(
     () => periodLogs.filter((log) => log.id !== openPeriod?.id).slice(0, 8),
     [periodLogs, openPeriod],
@@ -392,7 +400,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
           />
         </div>
       ) : (
-        // اگر ردیابی چرخه بعداً از تنطیمات فعال شده و هنوز هیچ پریودی ثبت
+        // اگر ردیابی چرخه بعداً از تنظیمات فعال شده و هنوز هیچ پریودی ثبت
         // نشده، چرخ فازها (که تنها راه باز کردن فرم ثبت پریود بود) اصلاً
         // رندر نمی‌شود و کاربر هیچ راهی برای شروع ندارد. این کارت همیشه
         // یک راه ورودی مستقل به همان فرم می‌دهد.
@@ -428,6 +436,30 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* «حواست باشد» از «پرهیز کن» جدا است. قبلاً هرچه در فهرست پرهیز بود
+            قرمز و قطعی نشان داده می‌شد، در حالی که فاز چرخه به‌تنهایی دلیل
+            کافی برای منع یک ترکیب یا یک نوبت نیست. */}
+        {phaseLists.cautionFa.length > 0 && (
+          <div className="space-y-1.5">
+            <span className="text-xs font-black text-amber-700 dark:text-amber-400">حواست باشد</span>
+            <div className="flex flex-wrap gap-1.5">
+              {phaseLists.cautionFa.map((item) => (
+                <span
+                  key={item}
+                  className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-bold"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+            {phaseLists.cautionReasonFa && (
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+                {phaseLists.cautionReasonFa}
+              </p>
+            )}
           </div>
         )}
 
@@ -633,6 +665,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                   onClick={() => {
                     LocalDB.deletePeriodLog(openPeriod.id);
                     bump();
+                    onCycleDataChanged?.();
                   }}
                   aria-label="حذف"
                   className="icon-only p-2 rounded-xl text-rose-400"
@@ -671,6 +704,7 @@ export const CycleDashboard: React.FC<CycleDashboardProps> = ({ userState, onUpd
                         onClick={() => {
                           LocalDB.deletePeriodLog(log.id);
                           bump();
+                          onCycleDataChanged?.();
                         }}
                         aria-label="حذف"
                         className="icon-only p-2 rounded-xl text-slate-400"

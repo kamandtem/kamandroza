@@ -4,7 +4,9 @@ import { motion } from 'motion/react';
 import { ChevronDown, FlaskConical, Search, AlertTriangle, CheckCircle2, ShieldCheck, Sparkles, X, Layers } from 'lucide-react';
 import { Ingredient, Product, UserState } from '../../types';
 import { INGREDIENTS_DATABASE } from '../../services/content/ingredients';
-import { checkPairConflict, evaluateIngredientSafety } from '../../services/safety';
+import { SafetyLevel, checkPairConflict, evaluateIngredientSafety } from '../../services/safety';
+import { describeSeverity, severityFromSafetyLevel } from '../../services/advice/severity';
+import { resolveShelfActives } from '../../services/advice/userContext';
 import { LocalDB } from '../../services/db';
 import { toPersianDigits } from '../../services/jalali';
 import { CATEGORY_LABELS } from '../products/ProductShelf';
@@ -21,18 +23,17 @@ interface SkinLabProps {
   onConsumedInitialConflictPair?: () => void;
 }
 
-const SAFETY_STYLE = {
-  blocked: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200',
-  caution:
-    'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200',
-  safe: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200',
-} as const;
-
-const SAFETY_LABEL = {
-  blocked: 'برای تو توصیه نمی‌شود',
-  caution: 'با احتیاط',
-  safe: 'مناسب تو',
-} as const;
+/**
+ * برچسب و رنگ ایمنی — از همان واژگان پنج‌سطحی اپ.
+ *
+ * قبلاً این فایل جدول برچسب و رنگ خودش را داشت و با واژگان قدیمی
+ * blocked/caution/safe حرف می‌زد، در حالی که خانه و روتین با
+ * INFO..PROFESSIONAL_INSTRUCTION حرف می‌زدند؛ نتیجه این بود که یک ماده در دو
+ * صفحه دو برچسب متفاوت می‌گرفت. تنها مسیر ترجمه severityFromSafetyLevel است.
+ */
+function describeVerdict(level: SafetyLevel) {
+  return describeSeverity(severityFromSafetyLevel(level));
+}
 
 /**
  * ترکیبات و تداخل‌سنج.
@@ -45,6 +46,7 @@ const SAFETY_LABEL = {
 export const SkinLab: React.FC<SkinLabProps> = ({
   initialTab = 'ingredients',
   userState,
+  products,
   initialIngredientId,
   onConsumedInitialIngredient,
   initialConflictPair,
@@ -58,6 +60,9 @@ export const SkinLab: React.FC<SkinLabProps> = ({
   const [pickerSlot, setPickerSlot] = useState<'first' | 'second' | null>(null);
 
   const medications = useMemo(() => LocalDB.getMedications(), []);
+  // قفسهٔ واقعی کاربر (شامل ترکیبات دستی‌نوشته) تا کارت ماده بتواند بگوید
+  // این ماده در کدام محصول خودِ کاربر هست، نه فقط حرف عمومی بزند.
+  const shelfActives = useMemo(() => resolveShelfActives(products), [products]);
 
   // دیپ‌لینک از جستجوی هوشمند: مستقیم کارت همان ماده را باز کن.
   React.useEffect(() => {
@@ -144,9 +149,11 @@ export const SkinLab: React.FC<SkinLabProps> = ({
 
                   {/* برچسب ایمنی مخصوص این کاربر */}
                   <span
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border shrink-0 ${SAFETY_STYLE[verdict.level]}`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border shrink-0 ${
+                      describeVerdict(verdict.level).style
+                    }`}
                   >
-                    {SAFETY_LABEL[verdict.level]}
+                    {describeVerdict(verdict.level).labelFa}
                   </span>
                 </div>
 
@@ -214,7 +221,9 @@ export const SkinLab: React.FC<SkinLabProps> = ({
           {pairResult && (
             <div
               className={`p-4 rounded-3xl border space-y-2 ${
-                pairResult.conflict ? SAFETY_STYLE.blocked : SAFETY_STYLE.safe
+                pairResult.conflict
+                  ? describeSeverity('IMPORTANT').style
+                  : describeSeverity(null).style
               }`}
             >
               <h4 className="font-black text-sm flex items-center gap-1.5">
@@ -369,11 +378,17 @@ export const SkinLab: React.FC<SkinLabProps> = ({
                 const verdict = evaluateIngredientSafety(selected, userState.profile, medications);
                 if (verdict.reasonsFa.length === 0) return null;
                 return (
-                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${SAFETY_STYLE[verdict.level]}`}>
+                  <div className={`p-3.5 rounded-2xl border space-y-1.5 ${describeVerdict(verdict.level).style}`}>
                     <span className="text-xs font-black flex items-center gap-1.5">
                       {verdict.level === 'safe' ? <ShieldCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                      {SAFETY_LABEL[verdict.level]}
+                      {describeVerdict(verdict.level).labelFa}
                     </span>
+                    <p className="text-[11px] leading-relaxed opacity-80">{describeVerdict(verdict.level).hintFa}</p>
+                    {shelfActives.has(selected.id) && (
+                      <p className="text-[11px] font-bold leading-relaxed">
+                        این ماده در محصول خودت هست: {shelfActives.get(selected.id)?.productNamesFa.join(' و ')}
+                      </p>
+                    )}
                     {verdict.reasonsFa.map((reason, index) => (
                       <p key={index} className="text-xs leading-relaxed">{reason}</p>
                     ))}

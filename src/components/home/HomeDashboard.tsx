@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DailyTrackerEntry, Product, UserState, WeatherData } from '../../types';
-import { buildDailyGuidance } from '../../services/recommendationEngine';
-import { SEVERITY_LABEL_FA, SEVERITY_STYLE } from '../../services/advice/severity';
+import { buildDailyGuidance, ingredientNamesFa } from '../../services/recommendationEngine';
+import { SEVERITY_HINT_FA, SEVERITY_LABEL_FA, SEVERITY_STYLE } from '../../services/advice/severity';
 import { findGuideTopicForSource, findWhyTopicForIngredientAdvice } from '../../services/content/guideContent';
 import { findIngredientById } from '../../services/content/ingredients';
 import { CATEGORY_LABELS } from '../products/ProductShelf';
@@ -27,6 +27,14 @@ import { WeatherClimateCard } from './WeatherClimateCard';
 import { Monthly30DayTracker } from './Monthly30DayTracker';
 import type { NavTab } from '../layout/BottomNavigation';
 import type { SectionKey } from '../../App';
+
+/** چهار علامت واقعی پوست که موتور توصیه از آن‌ها می‌خواند. */
+const SKIN_SIGNAL_FIELDS: { key: 'rednessScore' | 'drynessScore' | 'acneScore' | 'oilinessScore'; labelFa: string }[] = [
+  { key: 'rednessScore', labelFa: 'قرمزی' },
+  { key: 'drynessScore', labelFa: 'خشکی یا کشیدگی' },
+  { key: 'acneScore', labelFa: 'جوش' },
+  { key: 'oilinessScore', labelFa: 'چربی' },
+];
 
 /** نام ترکیب به‌همراه مشهورترین شکل محصولش، مثلاً «رتینول ← سرم». */
 function ingredientNameWithForm(ingredientId: string, fallbackNameFa: string): string {
@@ -44,6 +52,8 @@ interface HomeDashboardProps {
   onRequestWeatherLocation?: () => void;
   weatherLocationLoading?: boolean;
   weatherLocationError?: boolean;
+  /** پیام دقیق خطای موقعیت (رد دسترسی، GPS خاموش، Timeout، ...). */
+  weatherLocationErrorFa?: string | null;
   cycleVisible: boolean;
   onUpdateDailyLog: (log: DailyTrackerEntry) => void;
   onNavigateTab: (tab: NavTab) => void;
@@ -127,6 +137,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onRequestWeatherLocation,
   weatherLocationLoading,
   weatherLocationError,
+  weatherLocationErrorFa,
   cycleVisible,
   onUpdateDailyLog,
   onNavigateTab,
@@ -194,7 +205,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="pb-[calc(var(--safe-bottom)+7rem)] px-4 max-w-lg mx-auto space-y-4">
-      {weather.hasData || onRequestWeatherLocation ?       <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} /> : null}
+      {weather.hasData || onRequestWeatherLocation ?       <WeatherClimateCard weather={weather} onRequestLocation={onRequestWeatherLocation} locationLoading={weatherLocationLoading} locationError={weatherLocationError} locationErrorFa={weatherLocationErrorFa} /> : null}
 
       {/* در حالت بارداری، کارت چرخه به‌جای پیش‌بینی پریود فقط وضعیت بارداری را نشان می‌دهد */}
       {cycleVisible && userState.profile.isPregnant && (
@@ -334,20 +345,48 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         <h4 className="text-sm font-black text-slate-800 dark:text-white">ترکیبات امروز</h4>
 
         <div className="space-y-2">
-          <div>
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block mb-1.5">پیشنهاد می‌شود</span>
-            <div className="flex flex-wrap gap-1.5">
-              {guidance.recommendedIngredientIds.map((id) => (
-                <span
-                  key={id}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold"
-                >
-                  {ingredientNameWithForm(id, id)}
-                </span>
-              ))}
-            </div>
-          </div>
+          {/*
+            فهرست سبز، حالا با دلیل.
 
+            قبلاً یک ماده هم چیپ سبز «پیشنهاد می‌شود» می‌گرفت و هم — چون
+            قواعد چرخه/سن/علائم توصیهٔ SUGGESTION تولید می‌کنند — یک کارت
+            جداگانه با همان نام پایین‌تر؛ یعنی یک ماده دو بار در یک کارت.
+            حالا توصیه‌های «استفاده کن» کارت جدا نمی‌گیرند و دلیلشان روی
+            همین چیپ نشسته است.
+          */}
+          {guidance.recommendedIngredientIds.length > 0 && (
+            <div>
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block mb-1.5">
+                پیشنهاد می‌شود
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {guidance.recommendedIngredientIds.map((id) => {
+                  const whyFa = guidance.recommendedReasonById[id];
+                  return (
+                    <span
+                      key={id}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold"
+                    >
+                      {ingredientNameWithForm(id, id)}
+                      {whyFa && <span className="block font-normal opacity-80 leading-relaxed pt-0.5">{whyFa}</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/*
+            کارت کامل توصیه.
+
+            قبلاً هر توصیه فقط یک چیپ با نام ماده بود و reasonFa داخل
+            attribute title می‌رفت؛ روی اپ لمسی Capacitor آن tooltip هرگز
+            ظاهر نمی‌شد، یعنی «چرا رزا امروز این را گفت» عملاً نامرئی بود.
+            headlineFa، triggersFa، productNamesFa، untilIso و educationalOnly
+            هم ساخته می‌شدند و در هیچ کامپوننتی مصرف نمی‌شدند — نتیجه‌اش همان
+            چیزی بود که کامنت types.ts ممنوع کرده بود: کاربر «امروز از X
+            استفاده نکن» می‌دید برای ماده‌ای که ندارد.
+          */}
           {guidance.ingredientAdvice.length > 0 && (
             <div className="space-y-2">
               {(['PROFESSIONAL_INSTRUCTION', 'IMPORTANT', 'CAUTION', 'SUGGESTION', 'INFO'] as const)
@@ -357,35 +396,100 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 }))
                 .filter((group) => group.items.length > 0)
                 .map((group) => (
-                  <div key={group.severity}>
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1.5">
+                  <div key={group.severity} className="space-y-1.5">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400 block">
                       {SEVERITY_LABEL_FA[group.severity]}
+                      <span className="font-normal opacity-70"> — {SEVERITY_HINT_FA[group.severity]}</span>
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+
+                    <div className="space-y-1.5">
                       {group.items.map((advice) => {
-                        const whyTopicId = findWhyTopicForIngredientAdvice({ ingredientId: advice.ingredientId, source: advice.source })?.id;
+                        const whyTopicId = findWhyTopicForIngredientAdvice({
+                          ingredientId: advice.ingredientId,
+                          source: advice.source,
+                        })?.id;
                         return (
-                          <span
+                          <div
                             key={advice.ruleId}
-                            title={advice.reasonFa}
-                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-bold ${SEVERITY_STYLE[advice.severity]}`}
+                            className={`px-3 py-2.5 rounded-2xl border text-xs space-y-1.5 ${SEVERITY_STYLE[advice.severity]}`}
                           >
-                            {ingredientNameWithForm(advice.ingredientId, advice.ingredientNameFa)}
-                            {whyTopicId && onOpenGuideTopic && (
-                              <button
-                                onClick={() => onOpenGuideTopic(whyTopicId)}
-                                className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-md bg-white/60 dark:bg-slate-900/40"
-                              >
-                                ببین چرا
-                              </button>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-black leading-relaxed">{advice.headlineFa}</span>
+                              {whyTopicId && onOpenGuideTopic && (
+                                <button
+                                  onClick={() => onOpenGuideTopic(whyTopicId)}
+                                  className="shrink-0 text-[10px] font-black underline underline-offset-2"
+                                >
+                                  ببین چرا
+                                </button>
+                              )}
+                            </div>
+
+                            {/* دلیل، حالا واقعاً روی صفحه است نه داخل tooltip */}
+                            {advice.reasonFa && (
+                              <p className="leading-relaxed opacity-90">{advice.reasonFa}</p>
                             )}
-                          </span>
+
+                            {/* «تا کِی» — قبلاً در تایپ بود و هرگز به کاربر نمی‌رسید */}
+                            {advice.untilIso && (
+                              <p className="font-bold opacity-90">
+                                تا {formatJalaliDayMonth(advice.untilIso)}
+                              </p>
+                            )}
+
+                            {advice.scopeFa && (
+                              <p className="font-bold opacity-90">دامنه: {advice.scopeFa}</p>
+                            )}
+
+                            {/* ماده در قفسه نیست: صریح می‌گوییم، تا شکل دستور نگیرد */}
+                            {advice.educationalOnly && (
+                              <p className="opacity-75">
+                                این ماده در محصولات ثبت‌شدهٔ تو نیست؛ این مورد فقط آموزشی است.
+                              </p>
+                            )}
+
+                            {advice.triggersFa.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {advice.triggersFa.slice(0, 4).map((trigger) => (
+                                  <span
+                                    key={trigger}
+                                    className="px-2 py-0.5 rounded-lg bg-white/60 dark:bg-slate-900/40 text-[10px] font-bold"
+                                  >
+                                    {trigger}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   </div>
                 ))}
             </div>
+          )}
+
+          {/* نکته‌های فقط-اطلاعی: فاز چرخه به‌تنهایی دلیل کافی برای منع یک
+              اکتیو نیست، پس اینها ممنوعیت نیستند و رنگ هشدار هم نمی‌گیرند. */}
+          {guidance.ingredientNotes.length > 0 && (
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">فقط خوب است بدانی</span>
+              {guidance.ingredientNotes.map((note) => (
+                <p key={note.ruleId} className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <span className="font-bold">{note.ingredientNameFa}:</span> {note.reasonFa}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* ماده‌هایی که یک قاعده پیشنهاد کرده بود ولی قاعدهٔ دیگری محدودشان
+              می‌کند. قبلاً همین‌ها هم‌زمان چیپ سبز «پیشنهاد می‌شود» و چیپ
+              نارنجی «با احتیاط» می‌گرفتند. */}
+          {guidance.withheldIngredientIds.length > 0 && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {ingredientNamesFa(guidance.withheldIngredientIds).join('، ')} برای پوست تو معمولاً مفیدند، ولی
+              امروز به‌خاطر موارد بالا از فهرست پیشنهاد بیرون ماندند.
+            </p>
           )}
 
           {guidance.ingredientAdvice.length === 0 && guidance.avoidIngredientIds.length > 0 && (
@@ -466,6 +570,47 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             این عدد ملاک نمودار روند پوست و الگوی چرخه‌ات می‌شود.
           </p>
+        </div>
+
+        {/*
+          چهار علامت واقعی پوست.
+
+          این چهار فیلد در DailyTrackerEntry وجود داشتند و ورودی مستقیم
+          getSkinSignals بودند، ولی هیچ‌جای UI آن‌ها را نمی‌نوشت — فقط مقدار
+          پیش‌فرض صفر در App.tsx. یعنی نصف ورودی موتور علائم مرده بود و تنها
+          منبع واقعی، فرم ثبت علائم چرخه بود (که کاربران بدون چرخه هرگز
+          نمی‌دیدند). حالا نوشته می‌شوند.
+        */}
+        <div className="space-y-2.5">
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
+            امروز چه چیزی روی پوستت دیدی؟
+          </span>
+          {SKIN_SIGNAL_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1">
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{field.labelFa}</span>
+              <div className="flex items-center gap-1">
+                {[0, 2, 4, 6, 8, 10].map((score) => (
+                  <button
+                    key={score}
+                    onClick={() => onUpdateDailyLog({ ...todayLog, [field.key]: score })}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      todayLog[field.key] === score
+                        ? 'bg-rose-500 text-white border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {score === 0 ? 'ندارم' : toPersianDigits(score)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {guidance.skinSignals.hasData && guidance.skinSignals.sourceFa && (
+            // sourceFa ساخته می‌شد و هیچ‌جا نمایش داده نمی‌شد.
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
+              {guidance.skinSignals.sourceFa}؛ روتین امروز روی همین تنظیم شد.
+            </p>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Moon, ChevronLeft, AlertTriangle } from 'lucide-react';
-import { MenstrualCycleConfig, MenstrualPhase } from '../../types';
+import { MenstrualCycleConfig } from '../../types';
 import { estimateOvulationDay, getTodayCycleState } from '../../services/cycle/cycleService';
+import { PHASE_GUIDE } from '../../services/cycle/phaseGuide';
 import { toPersianDigits } from '../../services/jalali';
 import { RED, ORANGE, TEAL, TRACK, NAVY, point, arcPath, rangeToAngles } from '../cycle/CycleWheel';
 
@@ -11,35 +12,14 @@ interface HormoneCycleCardProps {
   compact?: boolean;
 }
 
-const PHASE_INFO: Record<MenstrualPhase, { titleFa: string; skinFa: string; actionFa: string; color: string }> = {
-  menstrual: {
-    titleFa: 'فاز قاعدگی',
-    skinFa: 'سد دفاعی پوست حساس‌تر است و رطوبتش کمتر می‌ماند.',
-    actionFa: 'روتین ملایم و آبرسان. لایه‌بردار قوی نه.',
-    color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-900',
-  },
-  follicular: {
-    titleFa: 'فاز فولیکولار',
-    skinFa: 'معمولاً مقاوم‌ترین و شاداب‌ترین بخش ماه.',
-    actionFa: 'بهترین زمان فیشیال، لیزر و ترکیبات فعال.',
-    color:
-      'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-900',
-  },
-  ovulation: {
-    titleFa: 'تخمک‌گذاری تقریبی',
-    skinFa: 'ترشح چربی رو به افزایش است.',
-    actionFa: 'مرطوب‌کننده سبک و پاکسازی منظم.',
-    color:
-      'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-900',
-  },
-  luteal: {
-    titleFa: 'فاز لوتئال',
-    skinFa: 'منافذ مستعد انسداد و جوش هورمونی هستند.',
-    actionFa: 'پیشگیری با نیاسینامید و آزلائیک اسید.',
-    color:
-      'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-900',
-  },
-};
+/**
+ * متن فاز از منبع واحد phaseGuide می‌آید.
+ *
+ * قبلاً همین فایل یک جدول هاردکد جدا (PHASE_INFO) داشت، CycleDashboard یکی
+ * دیگر و recommendationEngine متن inline خودش را؛ سه کارت می‌توانستند سه
+ * حرف متفاوت بزنند. این نام مستعار فقط برای خوانایی JSX پایین‌تر است.
+ */
+const PHASE_INFO = PHASE_GUIDE;
 
 interface MiniCycleWheelProps {
   day: number;
@@ -175,7 +155,7 @@ export const HormoneCycleCard: React.FC<HormoneCycleCardProps> = ({ cycleConfig,
           </div>
 
           <div className={`p-3 rounded-2xl border ${info.color} space-y-1`}>
-            <span className="text-sm font-black block">{info.titleFa}</span>
+            <span className="text-sm font-black block">{info.cardTitleFa}</span>
             <p className="text-xs leading-relaxed opacity-90">{info.skinFa}</p>
           </div>
         </div>

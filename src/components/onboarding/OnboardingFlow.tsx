@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Geolocation } from '@capacitor/geolocation';
 import { ArrowLeft, Check, Moon, ShieldCheck, Sparkles, HeartPulse } from 'lucide-react';
 import { motion } from 'motion/react';
 import { MenstrualCycleConfig, SkinType, UserState } from '../../types';
 import { LocalDB } from '../../services/db';
+import { getCurrentLocation, getLocationErrorMessageFa } from '../../services/locationService';
 import { logPeriodStart } from '../../services/cycle/cycleService';
 import { JalaliDatePicker } from '../common/JalaliDatePicker';
 import { BirthDatePicker } from '../common/BirthDatePicker';
@@ -58,6 +58,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'denied'>('idle');
+  const [locationErrorFa, setLocationErrorFa] = useState('');
   const [birthDateIso, setBirthDateIso] = useState('');
   const [skinType, setSkinType] = useState<SkinType>('normal');
   const [sensitivity, setSensitivity] = useState(5);
@@ -82,29 +83,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const displayName = name.trim();
 
   /*
-   * قبلاً مستقیم navigator.geolocation صدا زده می‌شد که داخل اپ نصب‌شده
-   * (Capacitor WebView) معمولاً پرامپت دسترسی را درست نشان نمی‌دهد و این
-   * دکمه در عمل هیچ‌وقت کار نمی‌کرد. با پلاگین Geolocation کپسیتور، هم
-   * پرامپت بومی اندروید/iOS و هم حالت وب (برای پیش‌نمایش مرورگری) پشتیبانی
-   * می‌شود.
+   * Permission و خواندن GPS اینجا مدیریت نمی‌شود — locationService مرکزی
+   * (همان که weatherService هم استفاده می‌کند) این کار را انجام می‌دهد و
+   * نتیجه را با accuracy/timestamp/source ذخیره می‌کند. این کامپوننت فقط
+   * وضعیت را برای UI نگه می‌دارد.
    */
   const requestLocation = async () => {
     setLocationStatus('loading');
+    setLocationErrorFa('');
     try {
-      const current = await Geolocation.checkPermissions();
-      let granted = current.location === 'granted' || current.coarseLocation === 'granted';
-      if (!granted) {
-        const requested = await Geolocation.requestPermissions();
-        granted = requested.location === 'granted' || requested.coarseLocation === 'granted';
-      }
-      if (!granted) { setLocationStatus('denied'); return; }
-
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 86400000 });
-      localStorage.setItem('roza_weather_coords_v1', JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+      await getCurrentLocation({ highAccuracy: false });
       localStorage.setItem('roza_location_permission_requested_v1', '1');
       setLocationStatus('success');
       if (!city.trim()) setCity('موقعیت من');
-    } catch {
+    } catch (error) {
+      setLocationErrorFa(getLocationErrorMessageFa(error));
       setLocationStatus('denied');
     }
   };
@@ -266,7 +259,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               >
                 {locationStatus === 'loading' ? 'در حال دریافت موقعیت...' : locationStatus === 'success' ? 'موقعیت برای آب‌وهوا ثبت شد' : 'استفاده از موقعیت دقیق من'}
               </button>
-              {locationStatus === 'denied' && <p className="text-xs font-bold text-rose-600">اجازه موقعیت داده نشد. می‌توانی شهر را دستی وارد کنی.</p>}
+              {locationStatus === 'denied' && (
+                <p className="text-xs font-bold text-rose-600">{locationErrorFa || 'اجازه موقعیت داده نشد. می‌توانی شهر را دستی وارد کنی.'}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-2 pt-1">

@@ -52,6 +52,19 @@ const IDS = {
   uvBase: 2700,
 };
 
+/**
+ * شناسهٔ کانال اعلان.
+ *
+ * اندروید تنظیمات یک کانال را بعد از ساخت، تغییرناپذیر می‌کند: importance و
+ * visibility فقط لحظهٔ اولین createChannel اعمال می‌شوند. پس با کانالِ ثابتِ
+ * قبلی، وقتی کاربر «متن خنثی روی صفحه قفل» را روشن/خاموش می‌کرد، هیچ اتفاقی
+ * روی گوشی نمی‌افتاد — همان چیزی که کاربر به‌عنوان «این تنظیم کار نمی‌کند»
+ * تجربه می‌کند. حالا هر حالت، کانال خودش را دارد.
+ */
+const CHANNEL_BASE = 'roza-care';
+const CHANNEL_DISCREET = 'roza-care-discreet';
+let CHANNEL_ID: string = CHANNEL_BASE;
+
 /** حداکثر تعداد روزهای متوالی که برای یک بازه (مثلاً PMS) اعلان جدا می‌سازیم. */
 const MAX_WINDOW_DAYS = 12;
 
@@ -62,7 +75,7 @@ const MAX_WINDOW_DAYS = 12;
  * می‌شوند. رجوع کنید به توضیح بالای بخش «یادآوری‌های روزانه» برای این‌که
  * چرا این الگو جایگزین `on:{hour,minute}+repeats:true` شد.
  */
-const DAILY_ROLLING_HORIZON_DAYS = 10;
+const DAILY_ROLLING_HORIZON_DAYS = 7;
 
 /** حداکثر تعداد یادآوری دارو که از امروز به بعد زمان‌بندی می‌کنیم (برای هر دارو). */
 const MAX_MEDICATION_DAYS = 14;
@@ -74,7 +87,7 @@ const MAX_MEDICATION_DAYS = 14;
  * نزدیک) را از دست ندهد، کل لیست را قبل از ارسال به همین سقف محدود
  * می‌کنیم؛ آیتم‌ها به ترتیب اولویت ساخته می‌شوند، پس برش از انتها درست است.
  */
-const MAX_PENDING_NOTIFICATIONS = 60;
+const MAX_PENDING_NOTIFICATIONS = 58;
 
 /** ساعت‌های ثابت هر بازه دارویی، هماهنگ با نوبت‌های روتین. */
 const MEDICATION_HOURS: Record<Medication['timing'][number], { hour: number; minute: number }> = {
@@ -89,6 +102,49 @@ const UV_CHECK_HOURS = [10, 12, 14, 16, 18];
 export type NotificationScheduleResult = 'scheduled' | 'disabled' | 'permission-denied' | 'exact-alarm-denied' | 'error';
 
 type NotificationList = Parameters<typeof LocalNotifications.schedule>[0]['notifications'];
+type NotificationItem = NotificationList[number];
+
+/**
+ * صفحه‌ای که با لمس اعلان باید باز شود.
+ *
+ * چیزی که کاملاً غایب بود: هیچ اعلانی payload مقصد نداشت و هیچ‌جا به
+ * localNotificationActionPerformed گوش داده نمی‌شد. یعنی کاربر یادآوری
+ * «وقت مصرف دارو» را لمس می‌کرد و اپ فقط روی صفحهٔ خانه باز می‌شد — رفتاری
+ * که هیچ اپ بومی‌ای ندارد.
+ */
+export type NotificationRoute = 'home' | 'routine' | 'cycle' | 'appointments' | 'medications';
+
+/**
+ * اولویت هر اعلان، برای وقتی به سقف صف سیستم می‌خوریم.
+ *
+ * قبلاً کل لیست با یک slice از انتها بریده می‌شد و کامنت ادعا می‌کرد
+ * «آیتم‌ها به ترتیب اولویت ساخته شده‌اند». واقعیت برعکس بود: ۳۰ اعلانِ
+ * روتین و ثبت علائم اول ساخته می‌شدند و یادآوری دارو و نوبت آخر — پس
+ * دقیقاً همان دو موردی که حیاتی‌اند اول قربانی می‌شدند. حالا بریدن بر اساس
+ * همین اولویت و نزدیک‌ترین زمان انجام می‌شود، نه ترتیب ساخت.
+ */
+/*
+ * عمداً یک شیء ساده، نه `const enum`: پروژه isolatedModules را روشن دارد و
+ * باندلر esbuild است؛ const enum در این ترکیب رفتار تضمین‌شده ندارد.
+ */
+const Tier = {
+  medication: 0,
+  appointment: 1,
+  routine: 2,
+  cycleKeyDay: 3,
+  symptom: 4,
+  cycleWindow: 5,
+  uv: 6,
+} as const;
+
+type Tier = (typeof Tier)[keyof typeof Tier];
+
+interface PlannedNotification {
+  item: NotificationItem;
+  tier: Tier;
+  /** زمان واقعی شلیک — ملاک مرتب‌سازی و حذف موارد گذشته. */
+  fireAt: number;
+}
 
 function discreetOr(discreet: boolean, discreetText: string, fullText: string): string {
   return discreet ? discreetText : fullText;
@@ -105,7 +161,7 @@ function dateParts(iso: string): { year: number; month: number; day: number } {
  * اگر تاریخ از امروز گذشته باشد، چیزی اضافه نمی‌کند (اعلانِ گذشته بی‌فایده است).
  */
 function pushOneOff(
-  list: NotificationList,
+  list: PlannedNotification[],
   today: string,
   dateIso: string,
   id: number,
@@ -113,15 +169,35 @@ function pushOneOff(
   body: string,
   hour: number,
   minute: number,
+  tier: Tier,
+  route: NotificationRoute,
 ): void {
   if (getDaysDifference(today, dateIso) < 0) return;
   const { year, month, day } = dateParts(dateIso);
+
+  /*
+   * مهم‌ترین اصلاح این تابع: فقط «تاریخ» با امروز مقایسه می‌شد، نه ساعت.
+   * پس اگر کاربر ساعت ۹ شب اپ را باز می‌کرد، یادآوری داروی صبح، هشدار ۱۰
+   * صبح چرخه و یادآوری ۹ صبحِ نوبتِ همان روز همه با زمانی در گذشته
+   * زمان‌بندی می‌شدند — و اندروید اعلانِ گذشته را بلافاصله شلیک می‌کند.
+   * نتیجه: هر بار باز کردن اپ در عصر، یک رشته اعلانِ بی‌ربط پشت سر هم.
+   * حالا هر چیزی که زمانش گذشته (با ۳۰ ثانیه حاشیه) ساخته نمی‌شود.
+   */
+  const fireDate = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const fireAt = fireDate.getTime();
+  if (fireAt <= Date.now() + 30 * 1000) return;
+
   list.push({
-    id,
-    title,
-    body,
-    schedule: { on: { year, month, day, hour, minute }, allowWhileIdle: true },
-    channelId: 'roza-care',
+    tier,
+    fireAt,
+    item: {
+      id,
+      title,
+      body,
+      schedule: { on: { year, month, day, hour, minute }, allowWhileIdle: true },
+      channelId: CHANNEL_ID,
+      extra: { route },
+    },
   });
 }
 
@@ -149,20 +225,21 @@ function pushOneOff(
  * شروع می‌شود.
  */
 function pushDailyRolling(
-  list: NotificationList,
+  list: PlannedNotification[],
   today: string,
   idBase: number,
   title: string,
   body: string,
   hour: number,
   minute: number,
+  tier: Tier,
+  route: NotificationRoute,
 ): void {
-  const now = new Date();
-  const passedToday = now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute);
-  const startOffset = passedToday ? 1 : 0;
-  for (let offset = startOffset; offset < startOffset + DAILY_ROLLING_HORIZON_DAYS; offset += 1) {
+  // خودِ pushOneOff حالا موارد گذشته را رد می‌کند، پس محاسبهٔ دستی
+  // passedToday لازم نیست و افق همیشه کامل ساخته می‌شود.
+  for (let offset = 0; offset <= DAILY_ROLLING_HORIZON_DAYS; offset += 1) {
     const dateIso = addDays(today, offset);
-    pushOneOff(list, today, dateIso, idBase + offset, title, body, hour, minute);
+    pushOneOff(list, today, dateIso, idBase + offset, title, body, hour, minute, tier, route);
   }
 }
 
@@ -231,6 +308,27 @@ export async function openExactAlarmSettings(): Promise<void> {
  */
 export async function sendTestNotification(): Promise<{ ok: boolean; error?: string }> {
   try {
+    /*
+     * کانال باید قبل از ارسال قطعاً وجود داشته باشد.
+     *
+     * اندروید ۸ به بعد اعلانی که به یک کانالِ ساخته‌نشده اشاره کند را
+     * بی‌صدا دور می‌ریزد. اگر کاربر یادآوری‌ها را خاموش کرده باشد،
+     * scheduleRozaNotifications زودهنگام برمی‌گردد و هرگز کانال را نمی‌سازد؛
+     * در آن حالت همین دکمه‌ی «تست» — که تنها ابزار عیب‌یابی کاربر است —
+     * موفق گزارش می‌شد ولی هیچ اعلانی نمی‌آمد و کاربر را به بیراهه می‌برد.
+     */
+    await withTimeout(
+      LocalNotifications.createChannel({
+        id: CHANNEL_ID,
+        name: 'یادآوری‌های رزا',
+        description: 'یادآوری روتین، چرخه، نوبت، دارو و هواشناسی',
+        importance: 5,
+        sound: 'default',
+        vibration: true,
+      }),
+      'createChannel (test)',
+    ).catch(() => undefined);
+
     await withTimeout(
       LocalNotifications.schedule({
         notifications: [
@@ -239,7 +337,8 @@ export async function sendTestNotification(): Promise<{ ok: boolean; error?: str
             title: 'رزا',
             body: 'اگه این پیام رو می‌بینی، زمان‌بندی اعلان روی گوشیت درست کار می‌کند.',
             schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
-            channelId: 'roza-care',
+            channelId: CHANNEL_ID,
+            extra: { route: 'home' as NotificationRoute },
           },
         ],
       }),
@@ -251,7 +350,27 @@ export async function sendTestNotification(): Promise<{ ok: boolean; error?: str
   }
 }
 
-export async function scheduleRozaNotifications(userState: UserState): Promise<NotificationScheduleResult> {
+/**
+ * صف سریال زمان‌بندی.
+ *
+ * باگ واقعیِ همزمانی: این تابع از سه جا صدا زده می‌شود (افکت تغییر تنظیمات،
+ * listener رویداد resume، و resyncNotifications بعد از ثبت/لغو نوبت) و اولین
+ * کارش `cancelRozaNotifications()` است — یعنی پاک کردن همهٔ اعلان‌های معلق.
+ * وقتی دو فراخوانی هم‌زمان می‌شدند (که در لحظهٔ resume دقیقاً اتفاق می‌افتد،
+ * چون resume هم listener را بیدار می‌کند و هم می‌تواند state را عوض کند)،
+ * cancel نفر دوم روی schedule نفر اول می‌افتاد و کاربر با صفر اعلان معلق
+ * می‌ماند، بدون هیچ خطایی. حالا فراخوانی‌ها پشت سر هم اجرا می‌شوند.
+ */
+let schedulingChain: Promise<NotificationScheduleResult> = Promise.resolve('scheduled');
+
+export function scheduleRozaNotifications(userState: UserState): Promise<NotificationScheduleResult> {
+  schedulingChain = schedulingChain
+    .catch(() => 'error' as NotificationScheduleResult)
+    .then(() => runScheduling(userState));
+  return schedulingChain;
+}
+
+async function runScheduling(userState: UserState): Promise<NotificationScheduleResult> {
   try {
     const settings = userState.notifications;
     if (!settings.enabled) {
@@ -289,12 +408,21 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
       }
     }
 
+    /*
+     * importance از ۳ (DEFAULT) به ۵ (HIGH) رفت.
+     *
+     * با DEFAULT، اندروید اعلان را بی‌صدا و بدون heads-up مستقیم داخل سینی
+     * می‌گذارد؛ کاربر یادآوری دارو یا نوبت را ساعت‌ها بعد و اتفاقی می‌بیند.
+     * هیچ اپ یادآورِ بومی‌ای این کار را نمی‌کند. با HIGH، اعلان مثل یادآور
+     * سیستم بالا می‌آید و صدا/لرزش دارد.
+     */
+    CHANNEL_ID = settings.discreetText ? CHANNEL_DISCREET : CHANNEL_BASE;
     await withTimeout(
       LocalNotifications.createChannel({
-        id: 'roza-care',
-        name: 'یادآوری‌های رزا',
-        description: 'یادآوری روتین، چرخه، نوبت و هواشناسی',
-        importance: 3,
+        id: CHANNEL_ID,
+        name: settings.discreetText ? 'یادآوری‌های رزا (خنثی)' : 'یادآوری‌های رزا',
+        description: 'یادآوری روتین، چرخه، نوبت، دارو و هواشناسی',
+        importance: 5,
         visibility: settings.discreetText ? 0 : 1,
         sound: 'default',
         vibration: true,
@@ -304,7 +432,7 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
 
     await cancelRozaNotifications();
 
-    const notifications: NotificationList = [];
+    const notifications: PlannedNotification[] = [];
     const discreet = settings.discreetText;
     const today = getTodayIsoDate();
     const title = 'رزا';
@@ -328,6 +456,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
         'وقت روتین صبح است. ضدآفتاب را فراموش نکن.',
         settings.morningHour,
         settings.morningMinute,
+        Tier.routine,
+        'routine',
       );
     }
 
@@ -340,6 +470,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
         'چند دقیقه برای روتین شب وقت بگذار.',
         settings.nightHour,
         settings.nightMinute,
+        Tier.routine,
+        'routine',
       );
     }
 
@@ -353,6 +485,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
         discreetOr(discreet, genericBody, 'وقتشه علائم امروزت را در بخش سیکل ثبت کنی.'),
         settings.symptomReminderHour,
         settings.symptomReminderMinute,
+        Tier.symptom,
+        'cycle',
       );
     }
 
@@ -386,6 +520,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
               ),
               10,
               0,
+              Tier.cycleWindow,
+              'cycle',
             );
           }
         }
@@ -405,6 +541,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
             ),
             20,
             0,
+            Tier.cycleKeyDay,
+            'cycle',
           );
         }
 
@@ -420,6 +558,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
             discreetOr(discreet, genericBody, `به احتمال زیاد فردا پریودت شروع می‌شود. مراقب باش.${hedge}`),
             20,
             0,
+            Tier.cycleKeyDay,
+            'cycle',
           );
         }
 
@@ -440,6 +580,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
               discreetOr(discreet, genericBody, 'الان احتمالاً در فاز تخمک‌گذاری هستی. مراقب خودت باش.'),
               9,
               0,
+              Tier.cycleWindow,
+              'cycle',
             );
           }
         }
@@ -484,6 +626,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
             ),
             hour,
             minute,
+            Tier.appointment,
+            'appointments',
           );
         });
       });
@@ -528,6 +672,8 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
               ),
               hour,
               minute,
+              Tier.medication,
+              'medications',
             );
           });
         }
@@ -561,29 +707,40 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
 
         if (upcomingHours.length > 0) {
           upcomingHours.forEach((hour, index) => {
-            pushOneOff(notifications, today, today, IDS.uvBase + index, title, uvBody, hour, 0);
+            pushOneOff(notifications, today, today, IDS.uvBase + index, title, uvBody, hour, 0, Tier.uv, 'home');
           });
         } else if (now.getHours() < 19) {
           // هیچ‌کدام از ساعت‌های ثابت باقی نمانده ولی هنوز روز است (مثلاً
           // ساعت ۱۸:۳۰ اپ باز شده): یک هشدار فوری، نه یک ساعت بی‌ربط.
+          const uvAt = Date.now() + 60 * 1000;
           notifications.push({
-            id: IDS.uvBase,
-            title,
-            body: uvBody,
-            schedule: { at: new Date(Date.now() + 60 * 1000), allowWhileIdle: true },
-            channelId: 'roza-care',
+            tier: Tier.uv,
+            fireAt: uvAt,
+            item: {
+              id: IDS.uvBase,
+              title,
+              body: uvBody,
+              schedule: { at: new Date(uvAt), allowWhileIdle: true },
+              channelId: CHANNEL_ID,
+              extra: { route: 'home' as NotificationRoute },
+            },
           });
         }
       }
     }
 
-    // سقف امن تعداد اعلان‌های معلق (رجوع کنید به توضیح MAX_PENDING_NOTIFICATIONS).
-    // آیتم‌ها به ترتیب اولویت بالا به پایین ساخته شدند، پس برش از انتها
-    // یعنی روتین صبح/شب/ثبت‌علائم و نزدیک‌ترین یادآوری‌ها همیشه می‌مانند.
-    const finalNotifications =
-      notifications.length > MAX_PENDING_NOTIFICATIONS
-        ? notifications.slice(0, MAX_PENDING_NOTIFICATIONS)
-        : notifications;
+    /*
+     * برش نهایی: اول بر اساس اولویت (دارو ← نوبت ← روتین ← ...) و در هر
+     * اولویت بر اساس نزدیک‌ترین زمان. با این ترتیب، اگر به سقف صف سیستم
+     * بخوریم، چیزی که حذف می‌شود دورترین اعلانِ کم‌اهمیت‌ترین دسته است، نه
+     * یادآوری داروی امشب.
+     */
+    const finalNotifications: NotificationList = [...notifications]
+      .sort((a, b) => (a.tier !== b.tier ? a.tier - b.tier : a.fireAt - b.fireAt))
+      .slice(0, MAX_PENDING_NOTIFICATIONS)
+      // ارسال به ترتیب زمانی، فقط برای خوانایی صف در ابزارهای دیباگ.
+      .sort((a, b) => a.fireAt - b.fireAt)
+      .map((planned) => planned.item);
 
     if (finalNotifications.length > 0) {
       await withTimeout(LocalNotifications.schedule({ notifications: finalNotifications }), 'schedule');
@@ -603,6 +760,45 @@ export async function scheduleRozaNotifications(userState: UserState): Promise<N
     console.warn('Local notifications unavailable', error);
     return 'error';
   }
+}
+
+/* ------------------------- لمس اعلان (tap routing) ------------------------- */
+
+/**
+ * وقتی کاربر اعلان را لمس می‌کند، اپ باید روی همان صفحهٔ مربوطه باز شود.
+ *
+ * این کل زنجیره غایب بود: نه اعلان‌ها payload مقصد داشتند و نه هیچ‌جا به
+ * رویداد localNotificationActionPerformed گوش داده می‌شد. نتیجه این بود که
+ * لمس یادآوری «وقت مصرف دارو» فقط اپ را روی صفحهٔ خانه باز می‌کرد و کاربر
+ * باید خودش دنبال بخش مربوطه می‌گشت — رفتاری که هیچ اپ بومی‌ای ندارد.
+ *
+ * برمی‌گرداند: تابع لغو اشتراک.
+ */
+export function onNotificationTap(handler: (route: NotificationRoute) => void): () => void {
+  let remove: (() => void) | undefined;
+  let cancelled = false;
+
+  void LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+    const raw = (event?.notification?.extra as { route?: string } | undefined)?.route;
+    const route: NotificationRoute =
+      raw === 'routine' || raw === 'cycle' || raw === 'appointments' || raw === 'medications' ? raw : 'home';
+    handler(route);
+  })
+    .then((listener) => {
+      // اگر مصرف‌کننده قبل از resolve شدن پرامیس unmount شده باشد، همان
+      // لحظه listener را حذف می‌کنیم تا نشتی نماند.
+      if (cancelled) {
+        void listener.remove();
+        return;
+      }
+      remove = () => void listener.remove();
+    })
+    .catch(() => undefined);
+
+  return () => {
+    cancelled = true;
+    remove?.();
+  };
 }
 
 export async function cancelRozaNotifications(): Promise<void> {

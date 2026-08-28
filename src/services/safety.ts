@@ -6,8 +6,11 @@
  * نمی‌شد. این جدی‌ترین شکاف اپ بود. اینجا بسته می‌شود.
  */
 
-import { Ingredient, Medication, SkinProfile } from '../types';
+import { Ingredient, Medication, Product, SkinProfile } from '../types';
 import { INGREDIENTS_DATABASE, findIngredientById } from './content/ingredients';
+import { isPrescription, matchesAllergy } from './advice/ingredientClasses';
+import { getSensitivityLevel, isSensitiveSkin } from './advice/sensitivity';
+import { resolveShelfProducts } from './advice/userContext';
 
 export type SafetyLevel = 'blocked' | 'caution' | 'safe';
 
@@ -23,12 +26,15 @@ export function evaluateIngredientSafety(
   activeMedications: Medication[] = [],
 ): SafetyVerdict {
   const reasons: string[] = [];
-  let level: SafetyLevel = 'safe';
-
+  // سطح‌ها جمع می‌شوند و در پایان بالاترین انتخاب می‌شود. قبلاً یک closure
+  // مقدار `level` را عوض می‌کرد و همین جلوی تحلیل جریانِ TypeScript را
+  // می‌گرفت (خطای «این مقایسه بی‌معنی است» روی همین متغیر).
+  const levels: SafetyLevel[] = ['safe'];
   const escalate = (next: SafetyLevel) => {
-    if (next === 'blocked') level = 'blocked';
-    else if (next === 'caution' && level !== 'blocked') level = 'caution';
+    levels.push(next);
   };
+  const currentLevel = (): SafetyLevel =>
+    levels.includes('blocked') ? 'blocked' : levels.includes('caution') ? 'caution' : 'safe';
 
   if (profile.isPregnant) {
     if (ingredient.pregnancySafety === 'avoid') {
@@ -50,15 +56,23 @@ export function evaluateIngredientSafety(
     }
   }
 
-  // رتینوئید خوراکی: پوست خیلی حساس می‌شود و لایه‌برداری ممنوع است
+  // رتینوئید خوراکی: پوست خیلی حساس می‌شود و لایه‌برداری ممنوع است.
+  //
+  // قبلاً این شرط فقط `ingredient.id === 'ing_retinol'` بود، یعنی کاربری که
+  // ترتینوئین یا آداپالن ثبت کرده بود هیچ هشداری نمی‌گرفت. حالا ملاک
+  // activeClass است، پس هر رتینوئیدِ حال و آیندهٔ دیتابیس پوشش دارد.
   if (profile.onOralRetinoid) {
-    if (ingredient.id === 'ing_retinol') {
-      reasons.push('همزمان با رتینوئید خوراکی، رتینول موضعی لازم نیست و پوست را می‌سوزاند.');
+    if (ingredient.activeClass === 'retinoid') {
+      reasons.push('همزمان با رتینوئید خوراکی، رتینوئید موضعی لازم نیست و پوست را می‌سوزاند.');
       escalate('blocked');
     }
-    if (ingredient.category === 'exfoliant') {
+    if (ingredient.activeClass === 'aha' || ingredient.activeClass === 'bha' || ingredient.category === 'exfoliant') {
       reasons.push('در دوره مصرف رتینوئید خوراکی، لایه‌برداری شیمیایی توصیه نمی‌شود.');
       escalate('blocked');
+    }
+    if (ingredient.activeClass === 'benzoyl_peroxide') {
+      reasons.push('در دوره مصرف رتینوئید خوراکی، پوست خیلی خشک است و بنزویل پراکساید آن را بدتر می‌کند.');
+      escalate('caution');
     }
   }
 
@@ -67,18 +81,25 @@ export function evaluateIngredientSafety(
     escalate('caution');
   }
 
-  if (profile.sensitivityScore >= 8 && ingredient.irritationRisk === 'high') {
+  // حساسیت از تعریف واحد اپ می‌آید، نه از شرط خام sensitivityScore >= 8
+  // که با فرمول getSensitivityLevel ناهم‌خوان بود.
+  if (isSensitiveSkin(profile) && ingredient.irritationRisk === 'high') {
     reasons.push('پوست شما حساس است و این ترکیب ریسک تحریک بالایی دارد.');
+    escalate('caution');
+  } else if (
+    getSensitivityLevel(profile) === 'moderate' &&
+    ingredient.irritationRisk === 'high' &&
+    ingredient.potency === 'strong'
+  ) {
+    reasons.push('این ترکیب قوی است؛ با شیب ملایم و یک شب در میان شروع کنید.');
     escalate('caution');
   }
 
-  const allergyHit = profile.allergies.some((item) => {
-    const needle = item.trim();
-    if (!needle) return false;
-    return ingredient.nameFa.includes(needle) || ingredient.name.toLowerCase().includes(needle.toLowerCase());
-  });
-  if (allergyHit) {
-    reasons.push('شما این مورد را جزو حساسیت‌های خود ثبت کرده‌اید.');
+  // تطبیق حساسیت از تابع مشترک matchesAllergy می‌آید تا موتور توصیه و این
+  // لایه هرگز به دو نتیجهٔ متفاوت نرسند (قبلاً موتور فقط فارسی چک می‌کرد).
+  const allergy = matchesAllergy(ingredient, profile.allergies || []);
+  if (allergy.hit) {
+    reasons.push(`شما «${allergy.matchedTermFa}» را جزو حساسیت‌های خود ثبت کرده‌اید.`);
     escalate('blocked');
   }
 
@@ -91,7 +112,25 @@ export function evaluateIngredientSafety(
       }
     });
 
+  // رزا هرگز نمی‌گوید داروی تجویزی را قطع کن؛ سطح از blocked به caution
+  // می‌آید و متن به «با پزشکت هماهنگ کن» تغییر می‌کند.
+  let level = currentLevel();
+  if (level === 'blocked' && isPrescription(ingredient) && !hasHardMedicalBlock(ingredient, profile)) {
+    level = 'caution';
+    reasons.push('این ترکیب تجویزی است؛ قطع یا ادامه‌اش را با پزشک تجویزکننده هماهنگ کن.');
+  }
+
   return { level, reasonsFa: reasons };
+}
+
+/**
+ * مواردی که حتی برای یک ترکیب تجویزی هم واقعاً منع مطلق‌اند
+ * (بارداری/شیردهی و حساسیت ثبت‌شده). بقیهٔ موارد قابل مذاکره با پزشک‌اند.
+ */
+function hasHardMedicalBlock(ingredient: Ingredient, profile: SkinProfile): boolean {
+  if (profile.isPregnant && ingredient.pregnancySafety === 'avoid') return true;
+  if (profile.isBreastfeeding && ingredient.breastfeedingSafety === 'avoid') return true;
+  return matchesAllergy(ingredient, profile.allergies || []).hit;
 }
 
 /** تداخل دو ترکیب با هم. دوطرفه بررسی می‌شود. */
@@ -119,6 +158,8 @@ export interface ShelfConflict {
   secondIngredientId: string;
   reasonFa: string;
   productNamesFa: string[];
+  /** تداخل داخل یک محصول است، نه بین دو محصول. متن UI باید متفاوت باشد. */
+  sameProduct: boolean;
 }
 
 /**
@@ -126,31 +167,54 @@ export interface ShelfConflict {
  * فرصتی که در نسخه ۱ کاملاً از دست رفته بود: تداخل‌سنج فقط دو ماده
  * انتخابی را چک می‌کرد، در حالی که می‌توانست بگوید سرم و کرم خودت با هم تداخل دارند.
  */
-export function findShelfConflicts(
-  products: { name: string; ingredientIds: string[]; owned: boolean }[],
-): ShelfConflict[] {
-  const owned = products.filter((product) => product.owned);
+export function findShelfConflicts(products: Product[]): ShelfConflict[] {
+  // ورودی از resolveShelfProducts می‌آید، پس هم customIngredients دستی‌نوشتهٔ
+  // کاربر دیده می‌شود و هم تعریف «مالکیت» با بقیهٔ اپ یکی است.
+  const owned = resolveShelfProducts(products);
   const conflicts: ShelfConflict[] = [];
   const seen = new Set<string>();
 
+  const pushConflict = (
+    idA: string,
+    idB: string,
+    reasonFa: string,
+    productNamesFa: string[],
+    sameProduct: boolean,
+  ) => {
+    const key = [idA, idB].sort().join('|') + '::' + [...productNamesFa].sort().join('|');
+    if (seen.has(key)) return;
+    seen.add(key);
+    conflicts.push({ firstIngredientId: idA, secondIngredientId: idB, reasonFa, productNamesFa, sameProduct });
+  };
+
+  const evaluate = (idA: string, idB: string): string | null => {
+    if (idA === idB) return null;
+    const first = findIngredientById(idA);
+    const second = findIngredientById(idB);
+    if (!first || !second) return null;
+    const result = checkPairConflict(first, second);
+    return result.conflict ? result.reasonFa : null;
+  };
+
+  // تداخل درون یک محصول — قبلاً کاملاً دیده نمی‌شد چون فقط جفتِ محصولات
+  // مقایسه می‌شد، در حالی که یک سرم می‌تواند خودش دو اکتیو ناسازگار داشته باشد.
+  owned.forEach((product) => {
+    product.ingredientIds.forEach((idA, index) => {
+      product.ingredientIds.slice(index + 1).forEach((idB) => {
+        const reason = evaluate(idA, idB);
+        if (reason) pushConflict(idA, idB, reason, [product.nameFa], true);
+      });
+    });
+  });
+
   owned.forEach((productA, indexA) => {
     owned.slice(indexA + 1).forEach((productB) => {
+      // دو شوینده هرگز روی پوست هم‌زمان نمی‌مانند؛ هشدار تداخل بی‌مورد است.
+      if (productA.washOff && productB.washOff) return;
       productA.ingredientIds.forEach((idA) => {
         productB.ingredientIds.forEach((idB) => {
-          const first = findIngredientById(idA);
-          const second = findIngredientById(idB);
-          if (!first || !second) return;
-          const result = checkPairConflict(first, second);
-          if (!result.conflict) return;
-          const key = [idA, idB].sort().join('|') + productA.name + productB.name;
-          if (seen.has(key)) return;
-          seen.add(key);
-          conflicts.push({
-            firstIngredientId: idA,
-            secondIngredientId: idB,
-            reasonFa: result.reasonFa,
-            productNamesFa: [productA.name, productB.name],
-          });
+          const reason = evaluate(idA, idB);
+          if (reason) pushConflict(idA, idB, reason, [productA.nameFa, productB.nameFa], false);
         });
       });
     });

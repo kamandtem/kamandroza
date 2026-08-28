@@ -66,8 +66,42 @@ export interface IngredientAdvice {
   inUserShelf: boolean;
   educationalOnly: boolean;
   source: AdviceSource;
+  /** تا کِی. حالا همیشه پر می‌شود (قبلاً در تایپ بود و هرگز ست نمی‌شد). */
   untilIso?: string;
   appointmentId?: string;
+  /**
+   * ناحیهٔ اعمال توصیه. قاعدهٔ ابرو می‌گفت «روی ناحیهٔ ابرو» ولی موتور کل
+   * روتین صورت را می‌بست. با این فیلد، پرهیز ناحیه‌ای، ناحیه‌ای می‌ماند.
+   */
+  scope: AdviceScope;
+  /** متن ناحیه برای کاربر، مثلاً «فقط روی ناحیهٔ ابرو». */
+  scopeFa?: string;
+  /** منابع دیگری که همین ترکیب را نشان کرده‌اند — بعد از ادغام پر می‌شود. */
+  alsoFromSources?: AdviceSource[];
+}
+
+/**
+ * دامنهٔ یک توصیه.
+ *  face      : کل روتین صورت
+ *  region    : فقط ناحیهٔ محدود جلسه (ابرو، لب، خط رویش)
+ *  body      : ناحیهٔ بدن، روتین صورت دست نمی‌خورد
+ *  systemic  : ایمنی عمومی (بارداری، دارو) — همه‌جا
+ */
+export type AdviceScope = 'face' | 'region' | 'body' | 'systemic';
+
+/**
+ * هشدار ایمنی سطح روتین.
+ *
+ * قبلاً `safetyWarningsFa: string[]` بود و شدت‌ها در RoutineView با ایندکس
+ * عددی به همان آرایه وصل می‌شد؛ یعنی دو فایل باید همیشه قفل‌به‌قفل ویرایش
+ * می‌شدند وگرنه هشدار بارداری برچسب «دستور پزشک» می‌گرفت. حالا شدت و متن
+ * در یک شیء با هم سفر می‌کنند.
+ */
+export interface SafetyWarning {
+  id: string;
+  textFa: string;
+  severity: AdviceSeverity;
+  source: AdviceSource;
 }
 
 /** علائم واقعی پوست در روزهای اخیر (ثبت روزانه + علائم چرخه). */
@@ -361,6 +395,10 @@ export interface DailyTrackerEntry extends SyncMeta {
   sugarIntake: 'low' | 'moderate' | 'high';
   skinStatusScore: number; // ۰ = ثبت نشده، وگرنه ۱ تا ۱۰
   mood: string;
+  /**
+   * علائم پوست ۰ تا ۱۰ (۰ = ثبت نشده). این چهار عدد ورودی واقعی
+   * getSkinSignals هستند و از کارت «ثبت سریع امروز» نوشته می‌شوند.
+   */
   rednessScore: number;
   drynessScore: number;
   acneScore: number;
@@ -446,14 +484,27 @@ export type ServiceCategory =
   | 'highlight'
   | 'keratin'
   | 'hair_treatment'
+  /* --- پوست: تفکیک‌شده --- */
   | 'facial'
+  | 'facial_hydrating'
+  | 'facial_deep'
   | 'cleansing'
   | 'microneedling'
   | 'peeling'
+  | 'peel_superficial'
+  | 'peel_medium'
+  /* --- لیزر: موی زائد با رزورفیسینگ یکی نیست --- */
   | 'laser'
+  | 'laser_hair'
+  | 'ipl'
+  | 'laser_resurfacing'
+  /* --- مو و ابرو --- */
   | 'wax'
   | 'threading'
   | 'brow'
+  | 'brow_tattoo'
+  | 'brow_lift'
+  | 'brow_tint'
   | 'lash'
   | 'nail'
   | 'makeup'

@@ -4,7 +4,12 @@ import { DailyTrackerEntry, Product, UserState } from './types';
 import { LocalDB } from './services/db';
 import { getTodayIsoDate } from './services/jalali';
 import { EMPTY_WEATHER, WeatherSnapshot, fetchWeather, requestWeatherLocation } from './services/weatherService';
-import { NotificationScheduleResult, scheduleRozaNotifications } from './services/notificationService';
+import { getLastKnownLocation, getLocationErrorMessageFa } from './services/locationService';
+import {
+  NotificationScheduleResult,
+  onNotificationTap,
+  scheduleRozaNotifications,
+} from './services/notificationService';
 import { isLockConfigured } from './services/security/appLock';
 import { computeStreak } from './services/routineService';
 import { isFeatureEnabled } from './config/appConfig';
@@ -22,7 +27,7 @@ import { KnowledgeCenter } from './components/knowledge/KnowledgeCenter';
 import { SkinLab } from './components/lab/SkinLab';
 import { ProductShelf } from './components/products/ProductShelf';
 import { ProgressTracker } from './components/progress/ProgressTracker';
-import { ProfileView, ProfileViewHandle } from './components/profile/ProfileView';
+import { ProfileView } from './components/profile/ProfileView';
 import { CycleDashboard } from './components/cycle/CycleDashboard';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { FaceMasksView } from './components/masks/FaceMasksView';
@@ -120,31 +125,10 @@ export default function App() {
   const [homeFocusRequest, setHomeFocusRequest] = useState<{ target: 'sunscreen'; requestedAt: number } | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  /* --------------- تغییرات ذخیره‌نشده در صفحه تنظیمات --------------- */
-  // صفحه تنظیمات (activeSection === 'profile') یک draft محلی دارد و فقط
-  // با زدن «ذخیره تغییرات» واقعاً ثبت می‌شود. اگر کاربر چیزی عوض کرده
-  // ولی هنوز ثبت نکرده و می‌خواهد از این صفحه خارج شود (برگشت، تب پایین،
-  // منو، جستجو، اعلان‌ها)، باید قبل از خروجِ واقعی از او پرسیده شود.
-  const profileViewRef = React.useRef<ProfileViewHandle>(null);
-  const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
-  const requestLeaveProfileIfNeeded = useCallback(
-    (action: () => void) => {
-      if (activeSection === 'profile' && profileViewRef.current?.hasUnsavedChanges()) {
-        setPendingLeaveAction(() => action);
-        return;
-      }
-      action();
-    },
-    [activeSection],
-  );
-
   const [guideInitialTopicId, setGuideInitialTopicId] = useState<string | null>(null);
   const openGuideTopic = (topicId: string) => {
-    requestLeaveProfileIfNeeded(() => {
-      setGuideInitialTopicId(topicId);
-      setActiveSection('guide');
-    });
+    setGuideInitialTopicId(topicId);
+    setActiveSection('guide');
   };
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [labInitialIngredientId, setLabInitialIngredientId] = useState<string | null>(null);
@@ -153,26 +137,24 @@ export default function App() {
   const [knowledgeInitialConditionId, setKnowledgeInitialConditionId] = useState<string | null>(null);
   const handleSearchResultSelect = (result: SearchResult) => {
     setIsSearchOpen(false);
-    requestLeaveProfileIfNeeded(() => {
-      if (result.type === 'ingredient') {
-        setLabInitialIngredientId(result.id);
-        setActiveSection('lab');
-      } else if (result.type === 'interaction' && result.interaction) {
-        setLabInitialConflictPair({
-          firstId: result.interaction.firstIngredientId,
-          secondId: result.interaction.secondIngredientId,
-        });
-        setActiveSection('lab');
-      } else if (result.type === 'condition') {
-        setKnowledgeInitialConditionId(result.id);
-        setActiveSection('knowledge');
-      } else if (result.type === 'article') {
-        setKnowledgeInitialArticleId(result.id);
-        setActiveSection('knowledge');
-      } else if (result.type === 'guide') {
-        openGuideTopic(result.id);
-      }
-    });
+    if (result.type === 'ingredient') {
+      setLabInitialIngredientId(result.id);
+      setActiveSection('lab');
+    } else if (result.type === 'interaction' && result.interaction) {
+      setLabInitialConflictPair({
+        firstId: result.interaction.firstIngredientId,
+        secondId: result.interaction.secondIngredientId,
+      });
+      setActiveSection('lab');
+    } else if (result.type === 'condition') {
+      setKnowledgeInitialConditionId(result.id);
+      setActiveSection('knowledge');
+    } else if (result.type === 'article') {
+      setKnowledgeInitialArticleId(result.id);
+      setActiveSection('knowledge');
+    } else if (result.type === 'guide') {
+      openGuideTopic(result.id);
+    }
   };
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lastBackAt = React.useRef(0);
@@ -192,12 +174,35 @@ export default function App() {
   );
   const [weather, setWeather] = useState<WeatherSnapshot>(EMPTY_WEATHER);
   const [weatherLocationStatus, setWeatherLocationStatus] = useState<'idle' | 'loading' | 'denied'>('idle');
+  /*
+   * پیام دقیق خطای موقعیت.
+   *
+   * locationService پنج حالت متفاوت را از هم تفکیک می‌کند (رد دسترسی، رد
+   * دائمی، GPS خاموش، Timeout، پشتیبانی‌نشدن) و برای هرکدام یک پیام فارسی
+   * درست دارد، ولی این صفحه همه را در یک وضعیت 'denied' جمع می‌کرد و همیشه
+   * می‌گفت «اجازه موقعیت داده نشد» — حتی وقتی کاربر اجازه داده بود و فقط
+   * GPS خاموش بود یا دریافت طول کشیده بود. نتیجه: کاربر می‌رفت تنظیماتِ
+   * درستی را عوض کند که از اول درست بود.
+   */
+  const [weatherLocationErrorFa, setWeatherLocationErrorFa] = useState<string | null>(null);
   // مشکل نسخه قبل: نتیجه scheduleRozaNotifications (که می‌تواند
   // permission-denied باشد) با void دور ریخته می‌شد و کاربر هیچ‌وقت
   // نمی‌فهمید چرا اعلانی نمی‌آید. الان در state نگه داشته و به
   // ProfileView پاس داده می‌شود تا در صورت رد شدن مجوز، هشدار نشان دهد.
   const [notificationStatus, setNotificationStatus] = useState<NotificationScheduleResult | null>(null);
-  const requestWeatherGps = async () => { setWeatherLocationStatus('loading'); try { const coords = await requestWeatherLocation(); const value = await fetchWeather(userState.profile.city, userState.profile.skinType, coords); setWeather(value); setWeatherLocationStatus('idle'); } catch { setWeatherLocationStatus('denied'); } };
+  const requestWeatherGps = async () => {
+    setWeatherLocationStatus('loading');
+    setWeatherLocationErrorFa(null);
+    try {
+      const coords = await requestWeatherLocation();
+      const value = await fetchWeather(userState.profile.city, userState.profile.skinType, coords);
+      setWeather(value);
+      setWeatherLocationStatus('idle');
+    } catch (error) {
+      setWeatherLocationStatus('denied');
+      setWeatherLocationErrorFa(getLocationErrorMessageFa(error));
+    }
+  };
 
   /* ------------------- حفظ اسکرول پنل‌ها (مثلاً تنظیمات) ------------------- */
   // مشکل نسخه قبل: کانتینر پنل‌ها fixed + overflow-y:auto است. در اندروید،
@@ -239,8 +244,10 @@ export default function App() {
   /* --------------------------- آب‌وهوا --------------------------- */
   useEffect(() => {
     let alive = true;
-    const rawCoords = localStorage.getItem('roza_weather_coords_v1');
-    const coords = rawCoords ? (() => { try { return JSON.parse(rawCoords) as { latitude: number; longitude: number }; } catch { return undefined; } })() : undefined;
+    // موقعیت ذخیره‌شده قبلی (بدون تماس تازه با GPS) — آفلاین‌فرست: اگر
+    // موجود باشد همان استفاده می‌شود، حتی اگر اینترنت/GPS الان در دسترس نباشد.
+    const lastKnown = getLastKnownLocation();
+    const coords = lastKnown ? { latitude: lastKnown.latitude, longitude: lastKnown.longitude } : undefined;
     if (!userState.profile.city && !coords) return;
     void fetchWeather(userState.profile.city, userState.profile.skinType, coords).then((value) => {
       if (alive) setWeather(value);
@@ -286,16 +293,74 @@ export default function App() {
 
   useEffect(() => {
     let remove: (() => void) | undefined;
+    let cancelled = false;
     void CapacitorApp.addListener('resume', () => {
       if (!userStateRef.current.onboardingCompleted) return;
       void scheduleRozaNotifications(userStateRef.current).then(setNotificationStatus);
     })
       .then((listener) => {
+        // اگر کامپوننت قبل از resolve شدن این پرامیس unmount شد، همان لحظه
+        // listener را حذف کن؛ وگرنه نشتی می‌ماند و بعد از unmount هم
+        // زمان‌بندی را صدا می‌زند.
+        if (cancelled) {
+          void listener.remove();
+          return;
+        }
         remove = () => void listener.remove();
       })
       .catch(() => undefined);
 
-    return () => remove?.();
+    return () => {
+      cancelled = true;
+      remove?.();
+    };
+  }, []);
+
+  /*
+   * لمس اعلان → همان صفحه.
+   *
+   * تا الان لمس هر یادآوری فقط اپ را روی خانه باز می‌کرد. حالا هر اعلان
+   * مقصدش را همراه خودش دارد و اینجا به ناوبری واقعی وصل می‌شود: یادآوری
+   * دارو به پرونده پزشک، یادآوری نوبت به آرایشگاه، یادآوری روتین به تب
+   * روتین و یادآوری‌های چرخه به بخش چرخه.
+   */
+  useEffect(() => {
+    const unsubscribe = onNotificationTap((route) => {
+      if (route === 'routine') {
+        setActiveSection(null);
+        setActiveTab('routine');
+        return;
+      }
+      if (route === 'cycle') {
+        setActiveSection(null);
+        setActiveTab('cycle');
+        return;
+      }
+      if (route === 'appointments') {
+        setActiveTab('home');
+        setActiveSection('salon');
+        return;
+      }
+      if (route === 'medications') {
+        setActiveTab('home');
+        setActiveSection('clinic');
+        return;
+      }
+      setActiveSection(null);
+      setActiveTab('home');
+    });
+    return unsubscribe;
+  }, []);
+
+  // نوبت‌ها (ایجاد/انجام‌شد/لغو) مستقیم روی LocalDB نوشته می‌شوند، نه
+  // روی userState — پس افکت بالا (که فقط به تغییر userState/resume گوش
+  // می‌دهد) از آن‌ها بی‌خبر می‌ماند. بدون این تابع، اعلان یک نوبتِ همان
+  // لحظه لغوشده تا باز شدن دوباره اپ (resume بعدی) روی گوشی می‌ماند و
+  // نمایش داده می‌شود. AppointmentsView این را بلافاصله بعد از هر
+  // ایجاد/انجام‌شد/لغوِ نوبت صدا می‌زند تا زمان‌بندی همان لحظه به‌روز شود.
+  const resyncNotifications = useCallback(() => {
+    if (!userStateRef.current.onboardingCompleted) return;
+    void scheduleRozaNotifications(userStateRef.current).then(setNotificationStatus);
   }, []);
 
   /* --------------------- دکمه برگشت اندروید --------------------- */
@@ -307,7 +372,7 @@ export default function App() {
       return true;
     }
     if (activeSection) {
-      requestLeaveProfileIfNeeded(() => setActiveSection(null));
+      setActiveSection(null);
       return true;
     }
     if (activeTab !== 'home') {
@@ -322,7 +387,7 @@ export default function App() {
       lastBackAt.current = now;
     }
     return true;
-  }, [isDrawerOpen, activeSection, activeTab, requestLeaveProfileIfNeeded]);
+  }, [isDrawerOpen, activeSection, activeTab]);
 
   useEffect(() => {
     let remove: (() => void) | undefined;
@@ -407,7 +472,6 @@ export default function App() {
 
         {activeSection === 'profile' && (
           <ProfileView
-            ref={profileViewRef}
             userState={userState}
             onUpdateState={handleUpdateUserState}
             notificationStatus={notificationStatus}
@@ -418,6 +482,7 @@ export default function App() {
             userState={userState}
             onUpdateCycleConfig={(config) => handleUpdateUserState((prev) => ({ ...prev, cycleConfig: config }))}
             onUpdateProfile={(profile) => handleUpdateUserState((prev) => ({ ...prev, profile }))}
+            onCycleDataChanged={resyncNotifications}
           />
         )}
         {activeSection === 'lab' && (
@@ -436,8 +501,12 @@ export default function App() {
         )}
         {activeSection === 'photo' && <ProgressTracker initialTab="photos" />}
         {activeSection === 'masks' && <FaceMasksView />}
-        {activeSection === 'salon' && <AppointmentsView kind="salon" userState={userState} />}
-        {activeSection === 'clinic' && <AppointmentsView kind="clinic" userState={userState} />}
+        {activeSection === 'salon' && (
+          <AppointmentsView kind="salon" userState={userState} onAppointmentsChanged={resyncNotifications} />
+        )}
+        {activeSection === 'clinic' && (
+          <AppointmentsView kind="clinic" userState={userState} onAppointmentsChanged={resyncNotifications} />
+        )}
         {activeSection === 'makeup' && <MakeupTipsView />}
         {activeSection === 'personalRoutine' && <PersonalRoutineView />}
         {activeSection === 'knowledge' && (
@@ -471,9 +540,9 @@ export default function App() {
         todayLog={todayLog}
         onOpenDrawer={() => setIsDrawerOpen(true)}
         onToggleTheme={handleToggleTheme}
-        onNavigateTab={(tab) => requestLeaveProfileIfNeeded(() => { setActiveTab(tab); setActiveSection(null); })}
-        onFocusSunscreenCard={() => requestLeaveProfileIfNeeded(() => { setActiveTab('home'); setActiveSection(null); setHomeFocusRequest({ target: 'sunscreen', requestedAt: Date.now() }); })}
-        onOpenSection={(section) => requestLeaveProfileIfNeeded(() => { setActiveSection(section); setIsDrawerOpen(false); })}
+        onNavigateTab={(tab) => { setActiveTab(tab); setActiveSection(null); }}
+        onFocusSunscreenCard={() => { setActiveTab('home'); setActiveSection(null); setHomeFocusRequest({ target: 'sunscreen', requestedAt: Date.now() }); }}
+        onOpenSection={(section) => { setActiveSection(section); setIsDrawerOpen(false); }}
         onOpenSearch={() => setIsSearchOpen(true)}
       />
 
@@ -490,17 +559,17 @@ export default function App() {
         onClose={() => setIsDrawerOpen(false)}
         userState={userState}
         cycleVisible={cycleVisible}
-        onNavigateTab={(tab) => requestLeaveProfileIfNeeded(() => {
+        onNavigateTab={(tab) => {
           setActiveSection(null);
           setActiveTab(tab);
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        })}
-        onOpenSection={(section) => requestLeaveProfileIfNeeded(() => {
+        }}
+        onOpenSection={(section) => {
           setActiveSection(section);
           const key = sectionTourKey(section);
           setTourKey(!key || localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        })}
+        }}
         onToggleTheme={handleToggleTheme}
       />
 
@@ -521,6 +590,7 @@ export default function App() {
               onRequestWeatherLocation={requestWeatherGps}
               weatherLocationLoading={weatherLocationStatus === 'loading'}
               weatherLocationError={weatherLocationStatus === 'denied'}
+              weatherLocationErrorFa={weatherLocationErrorFa}
               cycleVisible={cycleVisible}
               onUpdateDailyLog={handleUpdateTodayLog}
               onNavigateTab={(tab) => { setActiveTab(tab); const key = tab as TourKey; setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key); }}
@@ -544,6 +614,7 @@ export default function App() {
               userState={userState}
               onUpdateCycleConfig={(config) => handleUpdateUserState((prev) => ({ ...prev, cycleConfig: config }))}
               onUpdateProfile={(profile) => handleUpdateUserState((prev) => ({ ...prev, profile }))}
+              onCycleDataChanged={resyncNotifications}
             />
           )}
 
@@ -553,50 +624,16 @@ export default function App() {
 
       <BottomNavigation
         activeTab={activeTab}
-        onTabChange={(tab) => requestLeaveProfileIfNeeded(() => {
+        onTabChange={(tab) => {
           setActiveSection(null);
           setActiveTab(tab);
           const key = tab as TourKey;
           setTourKey(localStorage.getItem(`roza_tour_${key}_v1`) === '1' ? null : key);
-        })}
-        onFabClick={() => requestLeaveProfileIfNeeded(() => setActiveSection('personalRoutine'))}
+        }}
+        onFabClick={() => setActiveSection('personalRoutine')}
         fabLabel="افزودن برنامه شخصی امروز"
       />
       {tourKey && <FeatureTourOverlay tourKey={tourKey} onDone={() => setTourKey(null)} />}
-
-      {pendingLeaveAction && (
-        <div className="fixed inset-0 z-[90] bg-[#20334d]/45 flex items-center justify-center p-5">
-          <div className="w-full max-w-sm rounded-[2rem] bg-[#fffdf9] dark:bg-slate-900 p-5 text-center shadow-2xl space-y-4">
-            <h2 className="text-base font-black text-[#263b56] dark:text-white">تغییرات ثبت نشده</h2>
-            <p className="text-sm leading-7 text-slate-500 dark:text-slate-400">
-              می‌خواهی تغییراتی که در تنظیمات دادی ثبت شود؟
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const action = pendingLeaveAction;
-                  setPendingLeaveAction(null);
-                  action?.();
-                }}
-                className="flex-1 rounded-2xl bg-slate-100 dark:bg-slate-800 py-3 text-sm font-bold"
-              >
-                خیر
-              </button>
-              <button
-                onClick={() => {
-                  profileViewRef.current?.saveChanges();
-                  const action = pendingLeaveAction;
-                  setPendingLeaveAction(null);
-                  action?.();
-                }}
-                className="flex-1 rounded-2xl bg-rose-500 py-3 text-sm font-bold text-white"
-              >
-                بله
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showExitConfirm && (
         <div className="fixed inset-0 z-[90] bg-[#20334d]/45 flex items-center justify-center p-5">

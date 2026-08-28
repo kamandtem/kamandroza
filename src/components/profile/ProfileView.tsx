@@ -32,17 +32,6 @@ interface ProfileViewProps {
   notificationStatus?: NotificationScheduleResult | null;
 }
 
-/**
- * از بیرون (App.tsx) لازم است بدانیم آیا کاربر تغییری داده که هنوز
- * «ذخیره تغییرات» نزده، تا وقتی می‌خواهد از صفحه تنظیمات خارج شود
- * (تب دیگر، دکمه برگشت، منو، جستجو و…) از او بپرسیم. چون draft داخل
- * همین کامپوننت زندگی می‌کند، این وضعیت را با ref به بیرون می‌دهیم.
- */
-export interface ProfileViewHandle {
-  hasUnsavedChanges: () => boolean;
-  saveChanges: () => void;
-}
-
 const SKIN_TYPE_LABELS: Record<SkinType, string> = {
   dry: 'خشک',
   oily: 'چرب',
@@ -116,7 +105,7 @@ const Toggle: React.FC<{ labelFa: string; value: boolean; onChange: (value: bool
  * قفل PIN، کنترل دیده شدن بخش چرخه و متن خنطی اعلان‌ها.
  * حذف شد: XP و سطح که هیچ منطقی نداشتند.
  */
-export const ProfileView = React.forwardRef<ProfileViewHandle, ProfileViewProps>(({ userState, onUpdateState, notificationStatus }, ref) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ userState, onUpdateState, notificationStatus }) => {
   const [draft, setDraft] = useState<UserState>(userState);
   const [savedMessage, setSavedMessage] = useState(false);
   const [testNotificationState, setTestNotificationState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
@@ -127,11 +116,6 @@ export const ProfileView = React.forwardRef<ProfileViewHandle, ProfileViewProps>
     setSavedMessage(true);
     setTimeout(() => setSavedMessage(false), 2500);
   };
-
-  React.useImperativeHandle(ref, () => ({
-    hasUnsavedChanges: () => JSON.stringify(draft) !== JSON.stringify(userState),
-    saveChanges: save,
-  }), [draft, userState]);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -654,6 +638,4 @@ export const ProfileView = React.forwardRef<ProfileViewHandle, ProfileViewProps>
       </p>
     </div>
   );
-});
-
-ProfileView.displayName = 'ProfileView';
+};

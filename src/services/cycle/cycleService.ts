@@ -13,24 +13,46 @@
 import { CycleSymptom, MenstrualCycleConfig, MenstrualPhase, PeriodLog, SymptomKey } from '../../types';
 import { addDays, getDaysDifference, getTodayIsoDate } from '../jalali';
 import { LocalDB, createId } from '../db';
+import { PHASE_GUIDE, phaseInsightFa } from './phaseGuide';
 
 /**
- * منبع واحد توصیه ترکیبات هر فاز چرخه.
+ * منبع واحد توصیه ترکیبات هر فاز چرخه — که حالا واقعاً واحد است.
  *
- * قبلاً کارت «چرخه» (CycleDashboard) یک متن فارسی ثابت و جدا برای هر فاز
- * داشت و کارت «ترکیبات امروز» در خانه (recommendationEngine) مستقل از آن
- * شناسه ترکیب انتخاب می‌کرد؛ دو منبع جدا یعنی همیشه امکان ناهم‌خوانی. حالا
- * هر دو از همین یک جدول شناسه می‌خوانند و فقط نامشان را از پایگاه ترکیبات
- * می‌گیرند، پس هرگز از هم جدا نمی‌افتند.
+ * محتوای متنی و شناسه‌ها همه در phaseGuide.ts زندگی می‌کنند و کارت چرخه،
+ * کارت خانه و موتور توصیه هر سه از همان می‌خوانند. این ثابت فقط یک نمای
+ * مشتق‌شده است تا import های موجود نشکنند.
+ *
+ * تغییر معنایی مهم: avoidIds حذف شد. برای هر چهار فاز خالی بود، یعنی آن
+ * مکانیزم مرده بود و بخش پرهیزِ کارت چرخه فقط از متن هاردکد تغذیه می‌شد.
+ * جایش cautionIds آمده که واقعاً مصرف می‌شود.
  */
-export const PHASE_INGREDIENTS: Record<MenstrualPhase, { recommendedIds: string[]; avoidIds: string[] }> = {
-  // ممیزی: فاز چرخه به‌تنهایی دلیل کافی برای منع یک active نیست.
-  // تصمیم باید با علائم واقعی و حساسیت پوست ترکیب شود.
-  menstrual: { recommendedIds: ['ing_centella', 'ing_panthenol', 'ing_ceramides'], avoidIds: [] },
-  follicular: { recommendedIds: ['ing_vitamin_c'], avoidIds: [] },
-  ovulation: { recommendedIds: ['ing_niacinamide', 'ing_zinc_pca'], avoidIds: [] },
-  luteal: { recommendedIds: ['ing_niacinamide', 'ing_azelaic_acid', 'ing_salicylic_acid'], avoidIds: [] },
+export const PHASE_INGREDIENTS: Record<
+  MenstrualPhase,
+  { recommendedIds: string[]; cautionIds: string[]; cautionReasonFa: string }
+> = {
+  menstrual: {
+    recommendedIds: PHASE_GUIDE.menstrual.recommendedIds,
+    cautionIds: PHASE_GUIDE.menstrual.cautionIds,
+    cautionReasonFa: PHASE_GUIDE.menstrual.cautionReasonFa,
+  },
+  follicular: {
+    recommendedIds: PHASE_GUIDE.follicular.recommendedIds,
+    cautionIds: PHASE_GUIDE.follicular.cautionIds,
+    cautionReasonFa: PHASE_GUIDE.follicular.cautionReasonFa,
+  },
+  ovulation: {
+    recommendedIds: PHASE_GUIDE.ovulation.recommendedIds,
+    cautionIds: PHASE_GUIDE.ovulation.cautionIds,
+    cautionReasonFa: PHASE_GUIDE.ovulation.cautionReasonFa,
+  },
+  luteal: {
+    recommendedIds: PHASE_GUIDE.luteal.recommendedIds,
+    cautionIds: PHASE_GUIDE.luteal.cautionIds,
+    cautionReasonFa: PHASE_GUIDE.luteal.cautionReasonFa,
+  },
 };
+
+export { PHASE_GUIDE, phaseInsightFa };
 
 export type PredictionConfidence = 'none' | 'low' | 'medium' | 'high';
 
@@ -77,11 +99,12 @@ export interface CycleState {
   ovulationToIso: string | null;
 }
 
+/** نام فاز هم از همان منبع واحد می‌آید، نه یک جدول موازی. */
 const PHASE_NAMES: Record<MenstrualPhase, string> = {
-  menstrual: 'قاعدگی',
-  follicular: 'فولیکولار',
-  ovulation: 'تخمک‌گذاری',
-  luteal: 'لوتئال',
+  menstrual: PHASE_GUIDE.menstrual.titleFa,
+  follicular: PHASE_GUIDE.follicular.titleFa,
+  ovulation: PHASE_GUIDE.ovulation.titleFa,
+  luteal: PHASE_GUIDE.luteal.titleFa,
 };
 
 /* ---------------------------- ثبت پریود ---------------------------- */
@@ -159,7 +182,7 @@ export function deriveCycleStats(logs: PeriodLog[], config: MenstrualCycleConfig
   const lengths: number[] = [];
   for (let i = 1; i < sorted.length; i += 1) {
     const gap = getDaysDifference(sorted[i - 1].startIso, sorted[i].startIso);
-    // بازه معقول فیزیولوژیک؛ بقیه خطای ثبت در نطر گرفته می‌شود
+    // بازه معقول فیزیولوژیک؛ بقیه خطای ثبت در نظر گرفته می‌شود
     if (gap >= 15 && gap <= 90) lengths.push(gap);
   }
 
@@ -223,7 +246,7 @@ export function computeCycleState(
   if (!config.enabled) return empty;
 
   const sorted = [...logs].sort((a, b) => (a.startIso < b.startIso ? 1 : -1));
-  // آخرین پریودی که قبل یا همزمان با روز مورد نطر شروع شده
+  // آخرین پریودی که قبل یا همزمان با روز مورد نظر شروع شده
   const anchor = sorted.find((log) => getDaysDifference(log.startIso, targetIso) >= 0);
   if (!anchor) return { ...empty, available: false };
 

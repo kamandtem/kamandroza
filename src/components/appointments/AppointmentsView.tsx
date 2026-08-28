@@ -45,6 +45,14 @@ import { trackReferralEvent } from '../../services/telemetry';
 interface AppointmentsViewProps {
   kind: ProviderKind;
   userState: UserState;
+  /**
+   * نوبت‌ها مستقیم روی LocalDB نوشته می‌شوند (نه userState)، پس ایجاد،
+   * انجام‌شد یا لغو یک نوبت به‌تنهایی زمان‌بندی اعلان‌ها را به‌روز نمی‌کند —
+   * تا اینجا فراخوانی نشود، اعلان نوبتِ لغوشده تا resume بعدی اپ همچنان
+   * روی گوشی زمان‌بندی‌شده می‌ماند. اختیاری است تا کامپوننت بدون آن هم
+   * (مثلاً در تست) قابل استفاده بماند.
+   */
+  onAppointmentsChanged?: () => void;
 }
 
 const SALON_CATEGORIES: ServiceCategory[] = [
@@ -53,18 +61,32 @@ const SALON_CATEGORIES: ServiceCategory[] = [
   'highlight',
   'keratin',
   'hair_treatment',
-  'facial',
+  // دسته‌های ریز اول می‌آیند تا کاربر همان را انتخاب کند و قاعدهٔ دقیق‌تری
+  // بگیرد. دسته‌های کلیِ قدیمی فقط برای رکوردهای ذخیره‌شده مانده‌اند.
+  'facial_hydrating',
+  'facial_deep',
   'cleansing',
-  'laser',
+  'laser_hair',
+  'ipl',
   'wax',
   'threading',
-  'brow',
+  'brow_tattoo',
+  'brow_lift',
+  'brow_tint',
   'lash',
   'nail',
   'makeup',
 ];
 
-const CLINIC_CATEGORIES: ServiceCategory[] = ['consultation', 'peeling', 'microneedling', 'laser', 'procedure'];
+const CLINIC_CATEGORIES: ServiceCategory[] = [
+  'consultation',
+  'peel_superficial',
+  'peel_medium',
+  'microneedling',
+  'laser_resurfacing',
+  'laser_hair',
+  'procedure',
+];
 
 const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   haircut: 'کوتاهی مو',
@@ -72,14 +94,27 @@ const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   highlight: 'هایلایت و دکلره',
   keratin: 'کراتین و احیا',
   hair_treatment: 'ترمیم مو',
-  facial: 'فیشیال',
+  /* --- پوست: دسته‌های تفکیک‌شده --- */
+  facial: 'فیشیال (نوع نامشخص)',
+  facial_hydrating: 'فیشیال آبرسان',
+  facial_deep: 'فیشیال با تخلیه',
   cleansing: 'پاکسازی پوست',
   microneedling: 'میکرونیدلینگ',
-  peeling: 'پیلینگ',
-  laser: 'لیزر',
+  peeling: 'پیلینگ (عمق نامشخص)',
+  peel_superficial: 'پیلینگ سطحی',
+  peel_medium: 'پیلینگ متوسط',
+  /* --- لیزر --- */
+  laser: 'لیزر (نوع نامشخص)',
+  laser_hair: 'لیزر موی زائد',
+  ipl: 'آی‌پی‌ال',
+  laser_resurfacing: 'لیزر رزورفیسینگ',
+  /* --- مو و ابرو --- */
   wax: 'اپیلاسیون و وکس',
   threading: 'بند و اصلاح',
-  brow: 'ابرو',
+  brow: 'ابرو (نوع نامشخص)',
+  brow_tattoo: 'تاتو یا میکروبلیدینگ ابرو',
+  brow_lift: 'لیفت ابرو',
+  brow_tint: 'رنگ یا هنا ابرو',
   lash: 'مژه',
   nail: 'ناخن',
   makeup: 'میکاپ',
@@ -100,7 +135,7 @@ function formatToman(value?: number): string {
  * نوبت) فقط با روشن کردن فلگ و پر کردن API_BASE_URL اضافه می‌شود:
  * Provider.source و partnerId و bookingMode از الان در مدل هستند.
  */
-export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userState }) => {
+export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userState, onAppointmentsChanged }) => {
   const [refresh, setRefresh] = useState(0);
   const bump = () => setRefresh((value) => value + 1);
 
@@ -218,6 +253,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
     setApptNotes('');
     setShowAppointmentForm(false);
     bump();
+    onAppointmentsChanged?.();
   };
 
   const serviceNamesOf = (appointment: Appointment): string =>
@@ -237,6 +273,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
   const markDone = (appointment: Appointment, paidToman?: number) => {
     updateAppointmentStatus({ ...appointment, paidToman }, 'done');
     bump();
+    onAppointmentsChanged?.();
   };
 
   return (
@@ -419,6 +456,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
                     onClick={() => {
                       updateAppointmentStatus(appointment, 'canceled');
                       bump();
+                      onAppointmentsChanged?.();
                     }}
                     className="py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold"
                   >
@@ -562,18 +600,22 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({ kind, userSt
             <JalaliDatePicker labelFa="تاریخ نوبت" value={apptDate} onChange={setApptDate} allowPast={false} />
 
             {/* هوشمندی چرخه روی انتخاب روز — برگ برنده این بخش */}
+            {/* سه سطح، نه دو سطح: «منع» با «حواست باشد» یکی نیست. قبلاً هر
+                چیزی که good نبود قرمز نمایش داده می‌شد. */}
             {dayAdvice && dayAdvice.suitability !== 'neutral' && (
               <div
                 className={`p-3.5 rounded-2xl border text-sm leading-relaxed flex items-start gap-2 ${
                   dayAdvice.suitability === 'avoid'
                     ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-900 dark:text-rose-200'
-                    : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200'
+                    : dayAdvice.suitability === 'caution'
+                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200'
+                      : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200'
                 }`}
               >
-                {dayAdvice.suitability === 'avoid' ? (
-                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                ) : (
+                {dayAdvice.suitability === 'good' ? (
                   <Sparkles className="w-5 h-5 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                 )}
                 <span>{dayAdvice.reasonFa}</span>
               </div>

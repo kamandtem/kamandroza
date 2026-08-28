@@ -39,7 +39,59 @@ const REQUIRED_PERMISSIONS = [
   '<uses-permission android:name="android.permission.USE_EXACT_ALARM" />',
   // برای الگوی لرزش کانال اعلان.
   '<uses-permission android:name="android.permission.VIBRATE" />',
+  /*
+   * بدون این مجوز، همه‌ی اعلان‌های زمان‌بندی‌شده با ری‌استارت گوشی پاک
+   * می‌شوند و تا وقتی کاربر خودش اپ را باز نکند هیچ یادآوری‌ای نمی‌آید —
+   * یعنی دقیقاً همان شبی که گوشی ری‌استارت شده، یادآوری دارو نمی‌آید و
+   * کاربر هیچ نشانه‌ای هم نمی‌بیند. پلاگین یک BroadcastReceiver برای
+   * BOOT_COMPLETED دارد، ولی آن receiver بدون این مجوز هرگز صدا زده
+   * نمی‌شود. اعلام صریحش اینجا تضمین می‌کند که merge مانیفست از قلم نیندازد.
+   */
+  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
 ];
+
+/**
+ * آیکون نوار وضعیت.
+ *
+ * capacitor.config.ts مقدار smallIcon را 'ic_stat_roza' گذاشته، ولی هیچ
+ * drawable ای با این نام در پروژه وجود ندارد. اندروید در این حالت آیکون را
+ * پیدا نمی‌کند و به‌جای نشان برنامه، یک مربع/دایره‌ی خالی در نوار وضعیت
+ * می‌گذارد. این بررسی، مشکل را قبل از بیلد و با دستور دقیق رفعش اعلام
+ * می‌کند — به‌جای اینکه بعد از نصب روی گوشی کشف شود.
+ *
+ * عمداً خودکار تولید نمی‌شود: آیکون نوار وضعیت باید یک سیلوئت ساده‌ی سفید
+ * روی پس‌زمینه‌ی شفاف باشد و لوگوی پرجزئیات رزا در ۲۴dp به لکه تبدیل
+ * می‌شود. این یکی به یک فایل طراحی‌شده نیاز دارد، نه به یک اسکریپت.
+ */
+const ICON_NAME = 'ic_stat_roza';
+const ICON_DENSITIES = [
+  ['drawable-mdpi', 24],
+  ['drawable-hdpi', 36],
+  ['drawable-xhdpi', 48],
+  ['drawable-xxhdpi', 72],
+  ['drawable-xxxhdpi', 96],
+];
+
+function checkNotificationIcon(resDir) {
+  const found = ICON_DENSITIES.filter(([dir]) => existsSync(join(resDir, dir, `${ICON_NAME}.png`)));
+  if (found.length === ICON_DENSITIES.length) {
+    console.log('[ensure-notification-permissions] آیکون نوار وضعیت موجود است.');
+    return;
+  }
+
+  const missing = ICON_DENSITIES.filter(([dir]) => !existsSync(join(resDir, dir, `${ICON_NAME}.png`)));
+  console.warn(
+    [
+      '',
+      '[ensure-notification-permissions] ⚠  آیکون نوار وضعیت ناقص است.',
+      `  capacitor.config.ts به smallIcon: '${ICON_NAME}' اشاره می‌کند ولی این فایل‌ها نیستند:`,
+      ...missing.map(([dir, size]) => `    android/app/src/main/res/${dir}/${ICON_NAME}.png   (${size}×${size}px)`),
+      '  تا وقتی اضافه نشوند، اعلان‌ها یک مربع خالی در نوار وضعیت نشان می‌دهند.',
+      '  فایل باید سیلوئت سفید روی پس‌زمینه‌ی شفاف باشد (اندروید فقط کانال آلفا را می‌خواند).',
+      '',
+    ].join('\n'),
+  );
+}
 
 function main() {
   if (!existsSync(manifestPath)) {
@@ -63,10 +115,12 @@ function main() {
 
   if (changed) {
     writeFileSync(manifestPath, xml, 'utf8');
-    console.log('[ensure-notification-permissions] مجوز(های) هشدار دقیق به AndroidManifest.xml اضافه شد.');
+    console.log('[ensure-notification-permissions] مجوز(های) لازم به AndroidManifest.xml اضافه شد.');
   } else {
     console.log('[ensure-notification-permissions] مجوزها از قبل موجود بودند؛ تغییری لازم نبود.');
   }
+
+  checkNotificationIcon(join(process.cwd(), 'android', 'app', 'src', 'main', 'res'));
 }
 
 main();

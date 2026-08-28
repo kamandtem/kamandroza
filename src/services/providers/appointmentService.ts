@@ -6,6 +6,8 @@
  */
 
 import {
+  AdviceScope,
+  AdviceSeverity,
   Appointment,
   AppointmentStatus,
   MenstrualCycleConfig,
@@ -18,8 +20,37 @@ import {
 import { LocalDB, createId } from '../db';
 import { addDays, getDaysDifference, getTodayIsoDate } from '../jalali';
 import { computeCycleState } from '../cycle/cycleService';
-import { PROCEDURE_RULES, ProcedureRule, findProcedureRule } from './procedureRules';
+import {
+  DaySuitability,
+  PROCEDURE_RULES,
+  ProcedureRule,
+  findProcedureRule,
+  procedurePauseIds,
+} from './procedureRules';
+import { escalate } from '../advice/severity';
+import { getSensitivityLevel, SensitivityLevel } from '../advice/sensitivity';
 import { createReferralId, trackReferralEvent } from '../telemetry';
+
+/**
+ * وضعیت‌هایی که نوبت را «مرده» می‌کنند.
+ *
+ * قبلاً 'missed' در getRoutineRestrictionForDate فیلتر می‌شد ولی در
+ * getUpcomingAppointments نه؛ یعنی یک نوبت از دست رفته روی روتین اثر
+ * نمی‌گذاشت اما در کارت «نوبت بعدی» خانه هنوز دیده می‌شد. یک ثابت مشترک،
+ * دیگر جایی برای این ناهم‌خوانی نمی‌گذارد.
+ */
+export const DEAD_APPOINTMENT_STATUSES: AppointmentStatus[] = ['canceled', 'missed'];
+
+/** نوبتی که هنوز تأیید نشده. اثرش روی روتین باید نرم باشد، نه قطعی. */
+export const TENTATIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = ['requested'];
+
+export function isDeadAppointment(appointment: Appointment): boolean {
+  return DEAD_APPOINTMENT_STATUSES.includes(appointment.status);
+}
+
+export function isTentativeAppointment(appointment: Appointment): boolean {
+  return TENTATIVE_APPOINTMENT_STATUSES.includes(appointment.status);
+}
 
 /* ----------------------------- موجودیت‌ها ----------------------------- */
 
@@ -75,6 +106,7 @@ export function buildChecklists(
     rule.aftercareChecklistFa.forEach((item) => aftercare.add(item));
 
     if (profile.isPregnant && rule.pregnancyCautionFa) warnings.add(rule.pregnancyCautionFa);
+    // در شیردهی فقط موادی که از راه تماس/تنفس جذب می‌شوند مهم‌اند (کراتین).
     if (profile.isBreastfeeding && rule.category === 'keratin' && rule.pregnancyCautionFa) {
       warnings.add(rule.pregnancyCautionFa);
     }
@@ -90,7 +122,7 @@ export function buildChecklists(
 
 /* ----------------------------- هوشمندی چرخه ----------------------------- */
 
-export type DaySuitability = 'good' | 'neutral' | 'avoid';
+export type { DaySuitability };
 
 export interface DayAdvice {
   suitability: DaySuitability;
@@ -99,8 +131,12 @@ export interface DayAdvice {
 
 /**
  * می‌گوید یک روز خاص برای این خدمت مناسب است یا نه.
- * اگر چرخه فعال نباشد یا داده کافی نباشد، neutral برمی‌گرداند.
- * هرگز حدس نمی‌زند.
+ * اگر چرخه فعال نباشد یا داده کافی نباشد، neutral برمی‌گرداند. هرگز حدس نمی‌زند.
+ *
+ * تغییر مهم: سطح میانی 'caution' اضافه شد. قبلاً فقط good/neutral/avoid
+ * وجود داشت و چون فاز لوتئال و کل بازهٔ PMS داخل «منع» بودند، حدود ۱۹ روز
+ * از ۲۸ روز برای پیلینگ و میکرونیدلینگ «avoid» می‌شد و suggestBestDays
+ * فقط فولیکولار را قبول می‌کرد. حالا منع واقعی و احتیاط از هم جدا هستند.
  */
 export function adviseDayForServices(
   dateIso: string,
@@ -108,26 +144,45 @@ export function adviseDayForServices(
   cycleConfig: MenstrualCycleConfig,
 ): DayAdvice {
   const rules = collectRules(categories).filter(
-    (rule) => rule.discouragedPhases.length > 0 || rule.discouragedInPms || rule.preferredPhases.length > 0,
+    (rule) =>
+      rule.discouragedPhases.length > 0 ||
+      rule.cautionPhases.length > 0 ||
+      rule.pmsSuitability !== 'fine' ||
+      rule.preferredPhases.length > 0,
   );
   if (rules.length === 0) return { suitability: 'neutral', reasonFa: '' };
 
   const state = computeCycleState(cycleConfig, LocalDB.getPeriodLogs(), dateIso);
   if (!state.available || !state.phase) return { suitability: 'neutral', reasonFa: '' };
+  const phase = state.phase;
+
+  const hedge =
+    state.confidence === 'high' || state.confidence === 'medium' ? '' : ' (این پیش‌بینی تقریبی است)';
+  const context = state.inPmsWindow ? 'بازهٔ پیش از قاعدگی' : `فاز ${state.phaseNameFa}`;
 
   const blocking = rules.find(
-    (rule) => rule.discouragedPhases.includes(state.phase!) || (rule.discouragedInPms && state.inPmsWindow),
+    (rule) => rule.discouragedPhases.includes(phase) || (state.inPmsWindow && rule.pmsSuitability === 'avoid'),
   );
   if (blocking) {
-    const context = state.inPmsWindow ? 'بازه پیش از قاعدگی' : `فاز ${state.phaseNameFa}`;
-    const hedge = state.confidence === 'high' || state.confidence === 'medium' ? '' : ' (این پیش‌بینی تقریبی است)';
     return {
       suitability: 'avoid',
       reasonFa: `این روز احتمالاً در ${context} است. ${blocking.reasonFa}${hedge}`,
     };
   }
 
-  const preferred = rules.find((rule) => rule.preferredPhases.includes(state.phase!));
+  const cautioning = rules.find(
+    (rule) => rule.cautionPhases.includes(phase) || (state.inPmsWindow && rule.pmsSuitability === 'caution'),
+  );
+  if (cautioning) {
+    return {
+      suitability: 'caution',
+      reasonFa: `این روز احتمالاً در ${context} است. ${
+        cautioning.cautionReasonFa || cautioning.reasonFa
+      } منعی نیست، فقط اگر انتخاب دیگری داری بهتر است.${hedge}`,
+    };
+  }
+
+  const preferred = rules.find((rule) => rule.preferredPhases.includes(phase));
   if (preferred) {
     return { suitability: 'good', reasonFa: `روز مناسبی است. ${preferred.reasonFa}` };
   }
@@ -135,27 +190,68 @@ export function adviseDayForServices(
   return { suitability: 'neutral', reasonFa: '' };
 }
 
-/** بهترین روزهای پیشنهادی در ۴۵ روز آینده برای یک خدمت. */
+/**
+ * بهترین روزهای پیشنهادی در ۴۵ روز آینده برای یک خدمت.
+ * اگر هیچ روز «خوبی» پیدا نشد، روزهای بی‌اشکال (neutral) برگردانده می‌شوند —
+ * چون خروجی خالی به کاربر می‌گفت «هیچ روزی مناسب نیست» که غلط بود.
+ */
 export function suggestBestDays(
   categories: ServiceCategory[],
   cycleConfig: MenstrualCycleConfig,
   horizonDays = 45,
-): { dateIso: string; reasonFa: string }[] {
+): { dateIso: string; reasonFa: string; suitability: DaySuitability }[] {
   const today = getTodayIsoDate();
-  const results: { dateIso: string; reasonFa: string }[] = [];
+  const good: { dateIso: string; reasonFa: string; suitability: DaySuitability }[] = [];
+  const neutral: { dateIso: string; reasonFa: string; suitability: DaySuitability }[] = [];
+
   for (let offset = 1; offset <= horizonDays; offset += 1) {
     const dateIso = addDays(today, offset);
     const advice = adviseDayForServices(dateIso, categories, cycleConfig);
-    if (advice.suitability === 'good') results.push({ dateIso, reasonFa: advice.reasonFa });
-    if (results.length >= 5) break;
+    if (advice.suitability === 'good') good.push({ dateIso, reasonFa: advice.reasonFa, suitability: 'good' });
+    else if (advice.suitability === 'neutral' && neutral.length < 5) {
+      neutral.push({ dateIso, reasonFa: 'این روز اشکالی ندارد.', suitability: 'neutral' });
+    }
+    if (good.length >= 5) break;
   }
-  return results;
+
+  return good.length > 0 ? good : neutral;
 }
 
 /* ----------------------------- تاثیر بر روتین ----------------------------- */
 
+/** یک اثر مشخص از یک نوبت مشخص روی روتین یک روز مشخص. */
+export interface ProcedureRestrictionEntry {
+  appointmentId: string;
+  category: ServiceCategory;
+  labelFa: string;
+  /** قبل از جلسه، روز جلسه، یا بعد از جلسه. */
+  timing: 'before' | 'day' | 'after';
+  /** فاصله تا جلسه بر حسب روز (مثبت = آینده). */
+  distanceDays: number;
+  /** ناحیهٔ واقعی درگیر. region یعنی روتین کل صورت بسته نمی‌شود. */
+  scope: AdviceScope;
+  scopeFa: string;
+  severity: AdviceSeverity;
+  /** ترکیباتی که واقعاً باید قطع شوند. */
+  hardIds: string[];
+  /** ترکیباتی که فقط احتیاط لازم دارند (ویتامین C، اسید در شوینده). */
+  softIds: string[];
+  /** ترکیبات تجویزی داخل فهرست — پیام‌شان «با پزشکت هماهنگ کن» است. */
+  prescriptionIds: string[];
+  reasonFa: string;
+  /** تا چه تاریخی این محدودیت برقرار است. */
+  untilIso: string;
+  /** نوبت هنوز تأیید نشده (requested). */
+  isTentative: boolean;
+  requiresProfessional: boolean;
+}
+
 export interface RoutineRestriction {
-  /** شناسه ترکیباتی که امروز نباید مصرف شوند. */
+  /**
+   * شناسه ترکیباتی که امروز از روتین صورت حذف می‌شوند.
+   * فقط اثرهای دامنهٔ صورت اینجا می‌آیند؛ پرهیز ناحیه‌ای (ابرو، ناحیهٔ لیزر)
+   * دیگر کل روتین صورت را نمی‌بندد.
+   */
   blockedIngredientIds: string[];
   /** روتین امروز باید ملایم و ترمیمی باشد. */
   gentleMode: boolean;
@@ -163,23 +259,48 @@ export interface RoutineRestriction {
   reasonFa: string;
   /** نوبت مربوطه. */
   appointmentId?: string;
+  /** همهٔ اثرها، با ناحیه و شدت خودشان. موتور توصیه از این می‌خواند. */
+  entries: ProcedureRestrictionEntry[];
+}
+
+/**
+ * شدت یک اثر پروسیجر.
+ *
+ * قبلاً همهٔ توصیه‌های پروسیجر یکسان PROFESSIONAL_INSTRUCTION می‌گرفتند،
+ * پس یک نوبت وکس آرایشگاه با متن «این مورد به تأیید پزشک نیاز دارد» ظاهر
+ * می‌شد. نوع پروسیجر، شدتش و حساسیت پوست هیچ اثری نداشتند و تابع escalate
+ * — که دقیقاً برای همین ساخته شده بود — فقط در لایهٔ ایمنی استفاده می‌شد.
+ */
+export function severityForProcedure(
+  rule: ProcedureRule,
+  sensitivity: SensitivityLevel,
+  isTentative: boolean,
+): AdviceSeverity {
+  // نوبت تأییدنشده حق ندارد اکتیوها را قطع کند؛ فقط یادآوری آماده‌سازی است.
+  if (isTentative) return rule.baseSeverity === 'INFO' ? 'INFO' : 'SUGGESTION';
+
+  let severity = rule.baseSeverity;
+  if (sensitivity === 'high') severity = escalate(severity, 1, rule.severityCeiling);
+  else if (sensitivity === 'moderate' && rule.intensity === 'high') {
+    severity = escalate(severity, 1, rule.severityCeiling);
+  }
+  return severity;
 }
 
 /**
  * مهم‌ترین تابع این فایل.
- * وقتی کاربر نوبت لیزر یا پیلینگ ثبت می‌کند، روتین روزهای قبل و
- * بعد خودکار عوض می‌شود. کاربر لازم نیست چیزی یادش بماند.
+ * وقتی کاربر نوبت لیزر یا پیلینگ ثبت می‌کند، روتین روزهای قبل و بعد خودکار
+ * عوض می‌شود. کاربر لازم نیست چیزی یادش بماند.
  */
-export function getRoutineRestrictionForDate(dateIso: string = getTodayIsoDate()): RoutineRestriction {
+export function getRoutineRestrictionForDate(
+  dateIso: string = getTodayIsoDate(),
+  profile?: SkinProfile,
+): RoutineRestriction {
   const services = LocalDB.getProviderServices();
-  const appointments = LocalDB.getAppointments().filter(
-    (appointment) => appointment.status !== 'canceled' && appointment.status !== 'missed',
-  );
+  const appointments = LocalDB.getAppointments().filter((appointment) => !isDeadAppointment(appointment));
+  const sensitivity = getSensitivityLevel(profile || LocalDB.getUserState().profile);
 
-  const blocked = new Set<string>();
-  let gentleMode = false;
-  const reasons: string[] = [];
-  let appointmentId: string | undefined;
+  const entries: ProcedureRestrictionEntry[] = [];
 
   appointments.forEach((appointment) => {
     const categories = appointment.serviceIds
@@ -188,30 +309,71 @@ export function getRoutineRestrictionForDate(dateIso: string = getTodayIsoDate()
     if (categories.length === 0) return;
 
     const distance = getDaysDifference(dateIso, appointment.dateIso); // منفی = گذشته
+    const isTentative = isTentativeAppointment(appointment);
 
     collectRules(categories).forEach((rule) => {
-      // بازه پرهیز قبل از جلسه
-      if (distance > 0 && distance <= rule.pauseActivesDaysBefore) {
-        rule.avoidIngredientIds.forEach((id) => blocked.add(id));
-        reasons.push(`${distance} روز تا ${rule.labelFa}: ترکیبات فعال باید قطع باشند.`);
-        appointmentId = appointment.id;
-      }
-      // بازه مراقبت بعد از جلسه
-      if (distance <= 0 && Math.abs(distance) <= rule.gentleRoutineDaysAfter) {
-        rule.avoidIngredientIds.forEach((id) => blocked.add(id));
-        gentleMode = true;
-        const dayLabel = distance === 0 ? 'امروز' : `${Math.abs(distance)} روز پس از`;
-        reasons.push(`${dayLabel} ${rule.labelFa}: روتین ملایم و ترمیمی.`);
-        appointmentId = appointment.id;
-      }
+      const inBefore = distance > 0 && distance <= rule.pauseActivesDaysBefore;
+      const inAfter = distance <= 0 && Math.abs(distance) <= rule.gentleRoutineDaysAfter;
+      if (!inBefore && !inAfter) return;
+
+      const selection = procedurePauseIds(rule);
+      const severity = severityForProcedure(rule, sensitivity, isTentative);
+      const timing: ProcedureRestrictionEntry['timing'] = inBefore ? 'before' : distance === 0 ? 'day' : 'after';
+
+      // محدودیت در هر دو حالت (قبل و بعد جلسه) در پایان بازهٔ مراقبتِ
+      // پس از جلسه تمام می‌شود؛ پس یک محاسبه، نه دو شاخهٔ یکسان.
+      const untilIso = addDays(appointment.dateIso, rule.gentleRoutineDaysAfter);
+
+      const whereFa = rule.scope === 'face' ? '' : ` ${rule.scopeFa}`;
+      const reasonFa = isTentative
+        ? `${rule.labelFa} درخواست شده ولی هنوز تأیید نشده. اگر تأیید شد، ${rule.pauseActivesDaysBefore} روز قبلش باید ترکیبات فعال${whereFa} قطع شود.`
+        : timing === 'before'
+          ? `${distance} روز تا ${rule.labelFa}: ترکیبات فعال${whereFa} باید قطع باشند.`
+          : timing === 'day'
+            ? `امروز ${rule.labelFa}: روتین${whereFa} ملایم و ترمیمی.`
+            : `${Math.abs(distance)} روز پس از ${rule.labelFa}: روتین${whereFa} ملایم و ترمیمی.`;
+
+      entries.push({
+        appointmentId: appointment.id,
+        category: rule.category,
+        labelFa: rule.labelFa,
+        timing,
+        distanceDays: distance,
+        scope: rule.scope,
+        scopeFa: rule.scopeFa,
+        severity,
+        // نوبت تأییدنشده هیچ ترکیبی را قطع نمی‌کند؛ همه به فهرست نرم می‌روند.
+        hardIds: isTentative ? [] : selection.hardIds,
+        softIds: isTentative ? [...selection.hardIds, ...selection.softIds] : selection.softIds,
+        prescriptionIds: selection.prescriptionIds,
+        reasonFa,
+        untilIso,
+        isTentative,
+        requiresProfessional: rule.requiresProfessional,
+      });
     });
   });
+
+  // فقط اثرهای دامنهٔ صورت روتین صورت را می‌بندند. پرهیز ناحیه‌ای در
+  // توصیه‌های ترکیبات دیده می‌شود ولی گام‌های روتین را حذف نمی‌کند.
+  const faceEntries = entries.filter((entry) => entry.scope === 'face');
+  const blocked = new Set<string>();
+  faceEntries.forEach((entry) => entry.hardIds.forEach((id) => blocked.add(id)));
+
+  const gentleMode = faceEntries.some(
+    (entry) => !entry.isTentative && (entry.timing === 'day' || entry.timing === 'after'),
+  );
+
+  const reasons = entries.filter((entry) => !entry.isTentative).map((entry) => entry.reasonFa);
+  const primary =
+    faceEntries.find((entry) => !entry.isTentative) || entries.find((entry) => !entry.isTentative);
 
   return {
     blockedIngredientIds: Array.from(blocked),
     gentleMode,
     reasonFa: reasons.join(' '),
-    appointmentId,
+    appointmentId: primary?.appointmentId,
+    entries,
   };
 }
 
@@ -281,9 +443,11 @@ export function getUpcomingAppointments(limit = 5): Appointment[] {
     .filter(
       (appointment) =>
         getDaysDifference(today, appointment.dateIso) >= 0 &&
-        appointment.status !== 'canceled' &&
+        !isDeadAppointment(appointment) &&
         appointment.status !== 'done',
     )
+    // بدون این مرتب‌سازی، «نزدیک‌ترین نوبت» فقط به ترتیب ذخیره‌سازی بود.
+    .sort((a, b) => (a.dateIso < b.dateIso ? -1 : a.dateIso > b.dateIso ? 1 : 0))
     .slice(0, limit);
 }
 
@@ -313,7 +477,7 @@ export function getDueServices(): { service: ProviderService; provider?: Provide
       (appointment) =>
         appointment.serviceIds.includes(service.id) &&
         appointment.status !== 'done' &&
-        appointment.status !== 'canceled' &&
+        !isDeadAppointment(appointment) &&
         getDaysDifference(today, appointment.dateIso) >= 0,
     );
     if (alreadyPlanned) return;
