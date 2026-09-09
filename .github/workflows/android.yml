@@ -24,8 +24,38 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
       - uses: android-actions/setup-android@v3
-      - run: cd android && ./gradlew assembleDebug
+      - name: Decode release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+      - name: Add release signing config
+        run: |
+          cat >> android/app/build.gradle << 'EOF'
+          android {
+              defaultConfig {
+                  versionCode ${{ github.run_number }}
+                  versionName "1.1.${{ github.run_number }}"
+              }
+              signingConfigs {
+                  release {
+                      storeFile file("release.keystore")
+                      storePassword System.getenv("RELEASE_STORE_PASSWORD")
+                      keyAlias System.getenv("RELEASE_KEY_ALIAS")
+                      keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+      - name: Build signed release APK
+        run: cd android && ./gradlew assembleRelease
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
-          name: roza-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: roza-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
